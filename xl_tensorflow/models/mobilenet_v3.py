@@ -5,7 +5,10 @@ import os
 from keras_applications.imagenet_utils import _obtain_input_shape
 from keras_applications import correct_pad
 from tensorflow.keras import backend, layers, models
-from xl_tensorflow.layers import SEConvEfnet2D, Swish, GlobalAveragePooling2DKeepDim
+from xl_tensorflow.layers import SEConvEfnet2D, Swish, GlobalAveragePooling2DKeepDim,\
+    CONV_KERNEL_INITIALIZER,DENSE_KERNEL_INITIALIZER
+
+
 
 
 def _make_divisible(v, divisor, min_value=None):
@@ -39,7 +42,8 @@ def _inverted_res_se_block(inputs, expansion=1, stride=1, alpha=1.0, filters=3,
                           padding='same',
                           use_bias=False,
                           activation=None,
-                          name=prefix + 'expand')(x)
+                          name=prefix + 'expand',
+                          kernel_initializer=CONV_KERNEL_INITIALIZER)(x)
         x = layers.BatchNormalization(axis=channel_axis,
                                       epsilon=1e-3,
                                       momentum=0.999,
@@ -57,11 +61,10 @@ def _inverted_res_se_block(inputs, expansion=1, stride=1, alpha=1.0, filters=3,
                                activation=None,
                                use_bias=False,
                                padding='same' if stride == 1 else 'valid',
-                               name=prefix + 'depthwise')(x)
-    x = layers.BatchNormalization(axis=channel_axis,
-                                  epsilon=1e-3,
-                                  momentum=0.999,
-                                  name=prefix + 'depthwise_BN')(x)
+                               name=prefix + 'depthwise',
+                               kernel_initializer=CONV_KERNEL_INITIALIZER)(x)
+    x = layers.BatchNormalization(axis=channel_axis,epsilon=1e-3,
+                                  momentum=0.999,name=prefix + 'depthwise_BN')(x)
     if activation == "relu":
         x = layers.ReLU(6., name=prefix + 'depthwise_relu')(x)
     else:
@@ -77,7 +80,8 @@ def _inverted_res_se_block(inputs, expansion=1, stride=1, alpha=1.0, filters=3,
                       padding='same',
                       use_bias=False,
                       activation=None,
-                      name=prefix + 'project')(x)
+                      name=prefix + 'project',
+                      kernel_initializer=CONV_KERNEL_INITIALIZER)(x)
     x = layers.BatchNormalization(axis=channel_axis,
                                   epsilon=1e-3,
                                   momentum=0.999,
@@ -95,7 +99,7 @@ def MobileNetV3Small(input_shape=None,
                      input_tensor=None,
                      pooling=None,
                      classes=1000,
-                     name="mobilenetV3small",
+                     name="mobilenetv3small",
                      **kwargs):
     V3_KWARGS = (
         dict(filters=16, alpha=alpha, stride=2, has_se=False, activation="relu",
@@ -160,7 +164,7 @@ def MobileNetV3Small(input_shape=None,
     x = layers.ZeroPadding2D(padding=correct_pad(backend, img_input, 3),
                              name='Conv1_pad')(img_input)
     x = layers.Conv2D(first_block_filters, kernel_size=3, strides=(2, 2), padding='valid',
-                      use_bias=False, name='Conv1')(x)
+                      use_bias=False, name='Conv1', kernel_initializer=CONV_KERNEL_INITIALIZER)(x)
     x = layers.BatchNormalization(axis=channel_axis, epsilon=1e-3, momentum=0.999, name='bn_Conv1')(x)
     x = Swish(name="Conv1_swish")(x)
     for args in V3_KWARGS:
@@ -170,10 +174,9 @@ def MobileNetV3Small(input_shape=None,
         last_block_filters = _make_divisible(576 * alpha, 8)
     else:
         last_block_filters = 576
-    x = layers.Conv2D(last_block_filters,
-                      kernel_size=1,
-                      use_bias=False,
-                      name='Conv2d_last')(x)
+    x = layers.Conv2D(last_block_filters, kernel_size=1,
+                      use_bias=False, name='Conv2d_last',
+                      kernel_initializer=CONV_KERNEL_INITIALIZER)(x)
     x = layers.BatchNormalization(axis=channel_axis,
                                   epsilon=1e-3,
                                   momentum=0.999,
@@ -181,10 +184,12 @@ def MobileNetV3Small(input_shape=None,
     x = Swish(name="conv2d_last_swish")(x)
     x = GlobalAveragePooling2DKeepDim()(x)
     x = Swish(name="globalPooling_last_swish")(x)
-    x = layers.Conv2D(1024, kernel_size=1, use_bias=False, name='1X1Conv_last')(x)
+    x = layers.Conv2D(1024, kernel_size=1, use_bias=False, name='1X1Conv_last',
+                      kernel_initializer=CONV_KERNEL_INITIALIZER)(x)
     x = layers.Reshape(target_shape=(1024,))(x)
     if include_top:
-        x = layers.Dense(classes, activation='softmax', use_bias=True, name='Logits')(x)
+        x = layers.Dense(classes, activation='softmax', use_bias=True, name='Logits',
+                         kernel_initializer=DENSE_KERNEL_INITIALIZER)(x)
     inputs = img_input
     model = models.Model(inputs, x,
                          name=name)
@@ -198,7 +203,7 @@ def MobileNetV3Large(input_shape=None,
                      input_tensor=None,
                      pooling=None,
                      classes=1000,
-                     name="mobilenetV3Large",
+                     name="mobilenetv3large",
                      **kwargs):
     V3_KWARGS = (
         dict(filters=16, alpha=alpha, stride=1, has_se=False, activation="relu",
@@ -271,7 +276,7 @@ def MobileNetV3Large(input_shape=None,
     x = layers.ZeroPadding2D(padding=correct_pad(backend, img_input, 3),
                              name='Conv1_pad')(img_input)
     x = layers.Conv2D(first_block_filters, kernel_size=3, strides=(2, 2), padding='valid',
-                      use_bias=False, name='Conv1')(x)
+                      use_bias=False, name='Conv1',kernel_initializer=CONV_KERNEL_INITIALIZER)(x)
     x = layers.BatchNormalization(axis=channel_axis, epsilon=1e-3, momentum=0.999, name='bn_Conv1')(x)
     x = Swish(name="Conv1_swish")(x)
     for args in V3_KWARGS:
@@ -281,8 +286,8 @@ def MobileNetV3Large(input_shape=None,
         last_block_filters = _make_divisible(960 * alpha, 8)
     else:
         last_block_filters = 960
-    x = layers.Conv2D(last_block_filters,kernel_size=1,use_bias=False,
-                      name='Conv2d_last')(x)
+    x = layers.Conv2D(last_block_filters, kernel_size=1, use_bias=False,
+                      name='Conv2d_last',kernel_initializer=CONV_KERNEL_INITIALIZER)(x)
     x = layers.BatchNormalization(axis=channel_axis,
                                   epsilon=1e-3,
                                   momentum=0.999,
@@ -290,10 +295,11 @@ def MobileNetV3Large(input_shape=None,
     x = Swish(name="conv2d_last_swish")(x)
     x = GlobalAveragePooling2DKeepDim()(x)
     x = Swish(name="globalPooling_last_swish")(x)
-    x = layers.Conv2D(1280, kernel_size=1, use_bias=False, name='1X1Conv_last')(x)
+    x = layers.Conv2D(1280, kernel_size=1, use_bias=False, name='1X1Conv_last',kernel_initializer=CONV_KERNEL_INITIALIZER)(x)
     x = layers.Reshape(target_shape=(1280,))(x)
     if include_top:
-        x = layers.Dense(classes, activation='softmax', use_bias=True, name='Logits')(x)
+        x = layers.Dense(classes, activation='softmax', use_bias=True, name='Logits',
+                         kernel_initializer=DENSE_KERNEL_INITIALIZER)(x)
     inputs = img_input
     model = models.Model(inputs, x,
                          name=name)
@@ -301,8 +307,10 @@ def MobileNetV3Large(input_shape=None,
 
 
 def main():
-    model = MobileNetV3Large(weights=None, classes=1000)
-    model.save("./MobileNetV3Small.h5")
+    model = MobileNetV3Large(weights=None, classes=16)
+    model.save(f"./{model.name}.h5")
+    model = MobileNetV3Small(weights=None, classes=16)
+    model.save(f"./{model.name}.h5")
     print(model.summary())
 
 

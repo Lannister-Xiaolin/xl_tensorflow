@@ -2,3 +2,6 @@
 整体架构.vsdx
 .idea
 *.h5
+build
+dist
+xl_tensorflow.egg-info
