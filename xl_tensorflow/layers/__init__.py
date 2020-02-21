@@ -1,0 +1,7 @@
+#!usr/bin/env python3
+# -*- coding: UTF-8 -*-
+"""常用自定义的网络层"""
+
+from .layer import Swish
+from .layer import SEConvEfnet2D
+from .layer import GlobalAveragePooling2DKeepDim
