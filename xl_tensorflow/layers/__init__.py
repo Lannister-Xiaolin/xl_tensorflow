@@ -4,4 +4,4 @@
 
 from .layer import Swish
 from .layer import SEConvEfnet2D
-from .layer import GlobalAveragePooling2DKeepDim,CONV_KERNEL_INITIALIZER,DENSE_KERNEL_INITIALIZER
+from .layer import GlobalAveragePooling2DKeepDim,CONV_KERNEL_INITIALIZER,DENSE_KERNEL_INITIALIZER,get_swish
