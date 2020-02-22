@@ -40,83 +40,76 @@ def _inverted_res_se_block(inputs, expansion=1, stride=1, alpha=1.0, filters=3,
                           padding='same',
                           use_bias=False,
                           activation=None,
-                          name=prefix + 'expand',
+                          name=prefix + 'Expand',
                           kernel_initializer=CONV_KERNEL_INITIALIZER)(x)
         x = layers.BatchNormalization(axis=channel_axis,
                                       epsilon=1e-3,
                                       momentum=0.999,
-                                      name=prefix + 'expand_BN')(x)
-        x = layers.ReLU(6., name=prefix + 'expand_relu')(x)
+                                      name=prefix + 'Expand_BN')(x)
+        x = layers.ReLU(6., name=prefix + 'Expand_Relu')(x)
     else:
-        prefix = 'expanded_conv_'
+        prefix = 'Expanded_Conv_'
 
     # Depthwise
     if stride == 2:
         x = layers.ZeroPadding2D(padding=correct_pad(backend, x, kernel_size),
-                                 name=prefix + 'pad')(x)
+                                 name=prefix + 'Pad')(x)
     x = layers.DepthwiseConv2D(kernel_size=kernel_size,
                                strides=stride,
                                activation=None,
                                use_bias=False,
                                padding='same' if stride == 1 else 'valid',
-                               name=prefix + 'depthwise',
+                               name=prefix + 'Depthwise',
                                kernel_initializer=CONV_KERNEL_INITIALIZER)(x)
     x = layers.BatchNormalization(axis=channel_axis, epsilon=1e-3,
-                                  momentum=0.999, name=prefix + 'depthwise_BN')(x)
+                                  momentum=0.999, name=prefix + 'Depthwise_BN')(x)
     if activation == "relu":
-        x = layers.ReLU(6., name=prefix + 'depthwise_relu')(x)
+        x = layers.ReLU(6., name=prefix + 'Depthwise_Relu')(x)
     else:
         if non_custom:
             if force_relu:
-                x = layers.ReLU(6., name=prefix + 'depthwise_relu')(x)
+                x = layers.ReLU(6., name=prefix + 'Depthwise_Relu')(x)
             else:
                 activation = get_swish()
-                x = layers.Activation(activation=activation, name=prefix + "depthwise_swish")(x)
+                x = layers.Activation(activation=activation, name=prefix + "Depthwise_Swish")(x)
         else:
-            x = Swish(name=prefix + "depthwise_swish")(x)
-    # SqueezeNet
+            x = Swish(name=prefix + "Depthwise_Swish")(x)
+    # Squeeze and excitation
+    # comment: global average pooling is unvalid for lite gpu so we use general avgpooling instead
     if has_se:
         if non_custom:
             activation = get_swish() if not force_relu else "relu"
             input_channels_se = expansion * in_channels if block_id else in_channels
             num_reduced_filters = max(1, int(input_channels_se * 0.25))
-            x1 = GlobalAveragePooling2DKeepDim(name=prefix + "se_global_avg")(x)
-            # x1 = layers.GlobalAveragePooling2D()(x)
-            # x1 =  backend.expand_dims(x1,axis=-2)
-            # x1 = backend.expand_dims(x1, axis=-2)
+            x1 = layers.AveragePooling2D(pool_size=(x.shape[1], x.shape[1]), name=prefix + "Se_Avg_Pooling2d")(x)
             x1 = layers.Conv2D(num_reduced_filters, 1, strides=[1, 1],
                                kernel_initializer=CONV_KERNEL_INITIALIZER,
                                activation=activation, padding="same", use_bias=True,
-                               name=prefix + "se_reduce")(x1)
+                               name=prefix + "Se_Reduce")(x1)
             x1 = layers.Conv2D(int((expansion * in_channels if block_id else in_channels)), 1, strides=[1, 1],
                                kernel_initializer=CONV_KERNEL_INITIALIZER,
                                activation="sigmoid" if not force_relu else "sigmoid", padding="same",
                                use_bias=True,
-                               name=prefix + "se_expand")(x1)
-            # x1 = layers.RepeatVector(int((expansion * in_channels if block_id else in_channels)))(x1)
-            # x1 = backend.expand_dims(x1,axis=-2)
-            # ex = x.shape[1]
-            # x1 = layers.Concatenate(axis=-2)([x1,]*ex)
-            # x1 = layers.Concatenate(axis=-3)([x1,]*ex)
-            x = layers.Multiply()([x1, x])
+                               name=prefix + "Se_Expand")(x1)
+            x = layers.Multiply(name=prefix + "Se_Multiply")([x1, x])
         else:
             x = SEConvEfnet2D(expansion * in_channels if block_id else in_channels, se_ratio=0.25,
-                              name=prefix + "SEConv")(x)
+                              name=prefix + "SeConv")(x)
     # Project
     x = layers.Conv2D(pointwise_filters,
                       kernel_size=1,
                       padding='same',
                       use_bias=False,
                       activation=None,
-                      name=prefix + 'project',
+                      name=prefix + 'Project_Conv2d',
                       kernel_initializer=CONV_KERNEL_INITIALIZER)(x)
     x = layers.BatchNormalization(axis=channel_axis,
                                   epsilon=1e-3,
                                   momentum=0.999,
-                                  name=prefix + 'project_BN')(x)
+                                  name=prefix + 'Project_BN')(x)
 
     if in_channels == pointwise_filters and stride == 1:
-        return layers.Add(name=prefix + 'add')([inputs, x])
+        return layers.Add(name=prefix + 'Add')([inputs, x])
     return x
 
 
@@ -131,6 +124,24 @@ def MobileNetV3(size, input_shape=None,
                 non_custom=False,
                 force_relu=False,
                 **kwargs):
+    """
+    Args:
+        size:
+        input_shape:
+        alpha:
+        include_top:
+        weights:
+        input_tensor:
+        pooling:
+        classes:
+        name: model name
+        non_custom: using custom layers if True, otherwhise using foundation layers in tensorflow
+        force_relu: force to using relu as activation function if True
+        **kwargs:
+
+    Returns:
+        keras style funtional model
+    """
     V3_Settings = {"small": [(
         dict(filters=16, alpha=alpha, stride=2, has_se=False, activation="relu",
              expansion=1, block_id=0, kernel_size=3, non_custom=non_custom, force_relu=force_relu),
@@ -233,12 +244,12 @@ def MobileNetV3(size, input_shape=None,
     x = layers.BatchNormalization(axis=channel_axis, epsilon=1e-3, momentum=0.999, name='bn_Conv1')(x)
     if non_custom:
         if force_relu:
-            x = layers.ReLU(max_value=6.0, name="Conv1_relu6")(x)
+            x = layers.ReLU(max_value=6.0, name="Conv1_Relu6")(x)
         else:
             activation = get_swish()
-            x = layers.Activation(activation=activation, name="Conv1_swish")(x)
+            x = layers.Activation(activation=activation, name="Conv1_Swish")(x)
     else:
-        x = Swish(name="Conv1_swish")(x)
+        x = Swish(name="Conv1_Swish")(x)
     for args in V3_Settings[size][0]:
         x = _inverted_res_se_block(x, **args)
 
@@ -247,7 +258,7 @@ def MobileNetV3(size, input_shape=None,
     else:
         last_block_filters = V3_Settings[size][1]
     x = layers.Conv2D(last_block_filters, kernel_size=1,
-                      use_bias=False, name='Conv2d_last',
+                      use_bias=False, name='Conv2d_Last',
                       kernel_initializer=CONV_KERNEL_INITIALIZER)(x)
     x = layers.BatchNormalization(axis=channel_axis,
                                   epsilon=1e-3,
@@ -267,7 +278,7 @@ def MobileNetV3(size, input_shape=None,
         x = Swish(name="Conv2d_Last_Swish")(x)
         x = GlobalAveragePooling2DKeepDim()(x)
         x = Swish(name="GlobalPooling_Last_Swish")(x)
-    x = layers.Conv2D(V3_Settings[size][2], kernel_size=1, use_bias=False, name='1X1Conv_last',
+    x = layers.Conv2D(V3_Settings[size][2], kernel_size=1, use_bias=False, name='Conv2D_1x1_last',
                       kernel_initializer=CONV_KERNEL_INITIALIZER)(x)
     x = layers.Reshape(target_shape=(V3_Settings[size][2],))(x)
     if include_top:
@@ -287,7 +298,7 @@ def MobileNetV3Large(input_shape=None,
                      pooling=None,
                      classes=1000,
                      name="mobilenetv3large",
-                     non_custom=False,
+                     non_custom=True,
                      force_relu=False,
                      **kwargs):
     return MobileNetV3("large", input_shape=input_shape,
@@ -310,7 +321,7 @@ def MobileNetV3Small(input_shape=None,
                      input_tensor=None,
                      pooling=None,
                      classes=1000,
-                     non_custom=False,
+                     non_custom=True,
                      force_relu=True,
                      name="mobilenetv3small",
                      **kwargs):
@@ -331,9 +342,7 @@ def main():
     import tensorflow as tf
     strategy = tf.distribute.MirroredStrategy()
     with strategy.scope():
-        model = MobileNetV3Large(weights=None, classes=1000, non_custom=True, force_relu=False)
-    # model.save(f"./{model.name}.h5")
-    # model = MobileNetV3Small(weights=None, classes=16)
+        model = MobileNetV3Large(weights=None, classes=1000, force_relu=False, non_custom=True)
     model.save(f"./{model.name}.h5")
     print(model.summary())
 

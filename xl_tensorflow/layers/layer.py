@@ -5,14 +5,17 @@ import functools
 from tensorflow.keras import layers, Input, Model, backend
 from tensorflow.python.keras.utils import tf_utils
 
+
 def get_swish(**kwargs):
     def swish(x):
         """Swish activation function: x * sigmoid(x).
         Reference: [Searching for Activation Functions](https://arxiv.org/abs/1710.05941)
         """
-        return tf.nn.swish(x)
+        return tf.multiply(x, tf.keras.backend.sigmoid(x))
 
     return swish
+
+
 CONV_KERNEL_INITIALIZER = {
     'class_name': 'VarianceScaling',
     'config': {
@@ -35,20 +38,21 @@ DENSE_KERNEL_INITIALIZER = {
     }
 }
 
-class Swish(layers.Layer):
-    """Swish activation"""
-    def __init__(self, name="swish",**kwargs):
-        super(Swish,self).__init__(name=name,**kwargs)
 
-    def call(self, inputs, **kwargs):
-        return tf.nn.swish(inputs)
-    def get_config(self):
-        config = super(Swish, self).get_config()
-        return config
-
-    @tf_utils.shape_type_conversion
-    def compute_output_shape(self, input_shape):
-        return input_shape
+# class Swish(layers.Layer):
+#     """Swish activation"""
+#     def __init__(self, name="swish",**kwargs):
+#         super(Swish,self).__init__(name=name,**kwargs)
+#
+#     def call(self, inputs, **kwargs):
+#         return tf.nn.swish(inputs)
+#     def get_config(self):
+#         config = super(Swish, self).get_config()
+#         return config
+#
+#     @tf_utils.shape_type_conversion
+#     def compute_output_shape(self, input_shape):
+#         return input_shape
 
 class GlobalAveragePooling2DKeepDim(layers.GlobalAveragePooling2D):
     """Global average pooling operation for spatial data, this class keep dim for output
@@ -83,9 +87,11 @@ class GlobalAveragePooling2DKeepDim(layers.GlobalAveragePooling2D):
             return backend.mean(inputs, axis=[1, 2], keepdims=True)
         else:
             return backend.mean(inputs, axis=[2, 3], keepdims=True)
+
     def get_config(self):
         config = super(GlobalAveragePooling2DKeepDim, self).get_config()
         return config
+
 
 class SEConvEfnet2D(layers.Layer):
     """
@@ -98,7 +104,6 @@ class SEConvEfnet2D(layers.Layer):
     def __init__(self, input_channels, se_ratio, name="SEConvEfnet2D", **kwargs):
         super(SEConvEfnet2D, self).__init__(name=name, **kwargs)
         num_reduced_filters = max(1, int(input_channels * se_ratio))
-        self.activation = get_swish()
         self.se_ratio = se_ratio
         self.global_pooling = GlobalAveragePooling2DKeepDim()
         self.conv_kernel_initializer = {
@@ -110,7 +115,8 @@ class SEConvEfnet2D(layers.Layer):
             }}
         self._se_reduce = layers.Conv2D(num_reduced_filters, 1, strides=[1, 1],
                                         kernel_initializer=self.conv_kernel_initializer,
-                                        activation=self.activation, padding="same", use_bias=True)
+                                        activation=None, padding="same", use_bias=True)
+        self.activation = Swish()
         self._se_expand = layers.Conv2D(input_channels, 1, strides=[1, 1],
                                         kernel_initializer=self.conv_kernel_initializer,
                                         activation="hard_sigmoid", padding="same",
@@ -119,7 +125,7 @@ class SEConvEfnet2D(layers.Layer):
 
     def call(self, inputs, **kwargs):
         se_tensor = self.global_pooling(inputs)
-        se_tensor = self._se_expand(self._se_reduce(se_tensor))
+        se_tensor = self._se_expand(self.activation(self._se_reduce(se_tensor)))
         x = self._multiply([se_tensor, inputs])
         return x
 
@@ -127,6 +133,25 @@ class SEConvEfnet2D(layers.Layer):
         config = super(SEConvEfnet2D, self).get_config()
         config.update({'se_ratio': self.se_ratio})
         return config
+
+
+# @keras_export('keras.layers.ReLU')
+class Swish(layers.Layer):
+    def __init__(self, **kwargs):
+        super(Swish, self).__init__(**kwargs)
+
+    def call(self, inputs, **kwargs):
+        # alpha is used for leaky relu slope in activations instead of
+        # negative_slope.
+        return tf.multiply(backend.sigmoid(inputs), inputs)
+
+    def get_config(self):
+        base_config = super(Swish, self).get_config()
+        return base_config
+
+    @tf_utils.shape_type_conversion
+    def compute_output_shape(self, input_shape):
+        return input_shape
 
 
 def main():
