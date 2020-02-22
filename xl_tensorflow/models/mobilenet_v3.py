@@ -121,10 +121,12 @@ def MobileNetV3(size, input_shape=None,
                 pooling=None,
                 classes=1000,
                 name="mobilenetv3large",
-                non_custom=False,
+                non_custom=True,
                 force_relu=False,
                 **kwargs):
     """
+    create model for mobilenet_v3
+    hit: if you want using random input size, please set non_custom=False
     Args:
         size:
         input_shape:
@@ -238,18 +240,18 @@ def MobileNetV3(size, input_shape=None,
     channel_axis = 1 if backend.image_data_format() == 'channels_first' else -1
     first_block_filters = _make_divisible(16 * alpha, 8)
     x = layers.ZeroPadding2D(padding=correct_pad(backend, img_input, 3),
-                             name='Conv1_pad')(img_input)
+                             name='conv1_pad')(img_input)
     x = layers.Conv2D(first_block_filters, kernel_size=3, strides=(2, 2), padding='valid',
-                      use_bias=False, name='Conv1_First', kernel_initializer=CONV_KERNEL_INITIALIZER)(x)
-    x = layers.BatchNormalization(axis=channel_axis, epsilon=1e-3, momentum=0.999, name='bn_Conv1')(x)
+                      use_bias=False, name='conv1_first', kernel_initializer=CONV_KERNEL_INITIALIZER)(x)
+    x = layers.BatchNormalization(axis=channel_axis, epsilon=1e-3, momentum=0.999, name='bn_conv1')(x)
     if non_custom:
         if force_relu:
-            x = layers.ReLU(max_value=6.0, name="Conv1_Relu6")(x)
+            x = layers.ReLU(max_value=6.0, name="conv1_relu6")(x)
         else:
             activation = get_swish()
-            x = layers.Activation(activation=activation, name="Conv1_Swish")(x)
+            x = layers.Activation(activation=activation, name="conv1_swish")(x)
     else:
-        x = Swish(name="Conv1_Swish")(x)
+        x = Swish(name="conv1_swish")(x)
     for args in V3_Settings[size][0]:
         x = _inverted_res_se_block(x, **args)
 
@@ -258,31 +260,31 @@ def MobileNetV3(size, input_shape=None,
     else:
         last_block_filters = V3_Settings[size][1]
     x = layers.Conv2D(last_block_filters, kernel_size=1,
-                      use_bias=False, name='Conv2d_Last',
+                      use_bias=False, name='conv2d_last',
                       kernel_initializer=CONV_KERNEL_INITIALIZER)(x)
     x = layers.BatchNormalization(axis=channel_axis,
                                   epsilon=1e-3,
                                   momentum=0.999,
-                                  name='Bn_Last_Conv1')(x)
+                                  name='bn_last_conv1')(x)
     if non_custom:
         if force_relu:
-            x = layers.ReLU(max_value=6.0, name="Conv2d_Last_Relu6")(x)
+            x = layers.ReLU(max_value=6.0, name="conv2d_last_relu6")(x)
             x = GlobalAveragePooling2DKeepDim()(x)
-            x = layers.ReLU(max_value=6.0, name="GlobalPooling_Last_Relu6")(x)
+            x = layers.ReLU(max_value=6.0, name="globalpooling_last_relu6")(x)
         else:
             activation = get_swish()
-            x = layers.Activation(activation=activation, name="Conv2d_Last_Swish")(x)
+            x = layers.Activation(activation=activation, name="conv2d_last_swish")(x)
             x = GlobalAveragePooling2DKeepDim()(x)
-            x = layers.Activation(activation=activation, name="GlobalPooling_Last_Swish")(x)
+            x = layers.Activation(activation=activation, name="globalpooling_last_swish")(x)
     else:
-        x = Swish(name="Conv2d_Last_Swish")(x)
+        x = Swish(name="conv2d_last_swish")(x)
         x = GlobalAveragePooling2DKeepDim()(x)
-        x = Swish(name="GlobalPooling_Last_Swish")(x)
-    x = layers.Conv2D(V3_Settings[size][2], kernel_size=1, use_bias=False, name='Conv2D_1x1_last',
+        x = Swish(name="globalpooling_last_swish")(x)
+    x = layers.Conv2D(V3_Settings[size][2], kernel_size=1, use_bias=False, name='conv2d_1x1_last',
                       kernel_initializer=CONV_KERNEL_INITIALIZER)(x)
     x = layers.Reshape(target_shape=(V3_Settings[size][2],))(x)
     if include_top:
-        x = layers.Dense(classes, activation='softmax', use_bias=True, name='Logits',
+        x = layers.Dense(classes, activation='softmax', use_bias=True, name='logits',
                          kernel_initializer=DENSE_KERNEL_INITIALIZER)(x)
     inputs = img_input
     model = models.Model(inputs, x,
@@ -338,11 +340,16 @@ def MobileNetV3Small(input_shape=None,
                        **kwargs)
 
 
+setattr(MobileNetV3Large, '__doc__', MobileNetV3.__doc__)
+setattr(MobileNetV3Small, '__doc__', MobileNetV3.__doc__)
+
+
 def main():
     import tensorflow as tf
     strategy = tf.distribute.MirroredStrategy()
     with strategy.scope():
-        model = MobileNetV3Large(weights=None, classes=1000, force_relu=False, non_custom=True)
+        model = MobileNetV3Large(weights=None, input_shape=(240, 240, 3), classes=1000, force_relu=False,
+                                 non_custom=True)
     model.save(f"./{model.name}.h5")
     print(model.summary())
 
