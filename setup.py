@@ -5,13 +5,13 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="xl_tensorflow", # Replace with your own username
-    version="0.0.1",
+    version="0.0.2",
     author="Xiaolin",
     author_email="119xiaolin@163.com",
     description="my tensorflow2.1 Model and useful function",
     long_description=long_description,
     long_description_content_type="text/markdown",
-	install_requires=['tensorflow>=2.1.0',],
+	install_requires=[],
     url="",
     packages=setuptools.find_packages(),
     classifiers=[

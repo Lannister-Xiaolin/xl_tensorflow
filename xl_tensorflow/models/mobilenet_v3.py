@@ -46,7 +46,7 @@ def _inverted_res_se_block(inputs, expansion=1, stride=1, alpha=1.0, filters=3,
                                       epsilon=1e-3,
                                       momentum=0.999,
                                       name=prefix + 'Expand_BN')(x)
-        x = layers.ReLU(6., name=prefix + 'Expand_Relu')(x)
+        x = layers.ReLU(name=prefix + 'Expand_Relu')(x)
     else:
         prefix = 'Expanded_Conv_'
 
@@ -64,11 +64,11 @@ def _inverted_res_se_block(inputs, expansion=1, stride=1, alpha=1.0, filters=3,
     x = layers.BatchNormalization(axis=channel_axis, epsilon=1e-3,
                                   momentum=0.999, name=prefix + 'Depthwise_BN')(x)
     if activation == "relu":
-        x = layers.ReLU(6., name=prefix + 'Depthwise_Relu')(x)
+        x = layers.ReLU(name=prefix + 'Depthwise_Relu')(x)
     else:
         if non_custom:
             if force_relu:
-                x = layers.ReLU(6., name=prefix + 'Depthwise_Relu')(x)
+                x = layers.ReLU(name=prefix + 'Depthwise_Relu')(x)
             else:
                 activation = get_swish()
                 x = layers.Activation(activation=activation, name=prefix + "Depthwise_Swish")(x)
@@ -123,6 +123,7 @@ def MobileNetV3(size, input_shape=None,
                 name="mobilenetv3large",
                 non_custom=True,
                 force_relu=False,
+                dropout_rate=0.2,
                 **kwargs):
     """
     create model for mobilenet_v3
@@ -246,7 +247,7 @@ def MobileNetV3(size, input_shape=None,
     x = layers.BatchNormalization(axis=channel_axis, epsilon=1e-3, momentum=0.999, name='bn_conv1')(x)
     if non_custom:
         if force_relu:
-            x = layers.ReLU(max_value=6.0, name="conv1_relu6")(x)
+            x = layers.ReLU(name="conv1_relu6")(x)
         else:
             activation = get_swish()
             x = layers.Activation(activation=activation, name="conv1_swish")(x)
@@ -268,9 +269,9 @@ def MobileNetV3(size, input_shape=None,
                                   name='bn_last_conv1')(x)
     if non_custom:
         if force_relu:
-            x = layers.ReLU(max_value=6.0, name="conv2d_last_relu6")(x)
+            x = layers.ReLU(name="conv2d_last_relu6")(x)
             x = GlobalAveragePooling2DKeepDim()(x)
-            x = layers.ReLU(max_value=6.0, name="globalpooling_last_relu6")(x)
+            x = layers.ReLU(name="globalpooling_last_relu6")(x)
         else:
             activation = get_swish()
             x = layers.Activation(activation=activation, name="conv2d_last_swish")(x)
@@ -283,7 +284,10 @@ def MobileNetV3(size, input_shape=None,
     x = layers.Conv2D(V3_Settings[size][2], kernel_size=1, use_bias=False, name='conv2d_1x1_last',
                       kernel_initializer=CONV_KERNEL_INITIALIZER)(x)
     x = layers.Reshape(target_shape=(V3_Settings[size][2],))(x)
+
     if include_top:
+        if dropout_rate and dropout_rate > 0:
+            x = layers.Dropout(dropout_rate, name='top_dropout')(x)
         x = layers.Dense(classes, activation='softmax', use_bias=True, name='logits',
                          kernel_initializer=DENSE_KERNEL_INITIALIZER)(x)
     inputs = img_input
@@ -299,6 +303,7 @@ def MobileNetV3Large(input_shape=None,
                      input_tensor=None,
                      pooling=None,
                      classes=1000,
+                     dropout_rate=0,
                      name="mobilenetv3large",
                      non_custom=True,
                      force_relu=False,
@@ -311,6 +316,7 @@ def MobileNetV3Large(input_shape=None,
                        pooling=pooling,
                        classes=classes,
                        name=name,
+                       dropout_rate=dropout_rate,
                        non_custom=non_custom,
                        force_relu=force_relu,
                        **kwargs)
@@ -325,6 +331,7 @@ def MobileNetV3Small(input_shape=None,
                      classes=1000,
                      non_custom=True,
                      force_relu=True,
+                     dropout_rate=0,
                      name="mobilenetv3small",
                      **kwargs):
     return MobileNetV3("small", input_shape=input_shape,
@@ -335,6 +342,7 @@ def MobileNetV3Small(input_shape=None,
                        pooling=pooling,
                        classes=classes,
                        name=name,
+                       dropout_rate=dropout_rate,
                        non_custom=non_custom,
                        force_relu=force_relu,
                        **kwargs)
@@ -348,9 +356,9 @@ def main():
     import tensorflow as tf
     strategy = tf.distribute.MirroredStrategy()
     with strategy.scope():
-        model = MobileNetV3Large(weights=None, input_shape=(240, 240, 3), classes=1000, force_relu=False,
+        model = MobileNetV3Small(weights=None, input_shape=(240, 240, 3), classes=1000, force_relu=False,
                                  non_custom=True)
-    model.save(f"./{model.name}.h5")
+    # model.save(f"./{model.name}.h5")
     print(model.summary())
 
 
