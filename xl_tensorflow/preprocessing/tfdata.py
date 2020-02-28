@@ -10,6 +10,8 @@ from math import ceil
 from xl_tool.xl_io import file_scanning, save_to_json
 import xl_tool.xl_concurrence
 import threading
+import tensorflow_addons as tfa
+import random
 
 
 def _bytes_feature(value):
@@ -46,7 +48,6 @@ def image2tfexample(filename, label="", class_id=0):
         "class_id": _int64_feature(class_id),
     }))
     return example
-
 
 
 def write_tfrecord(record_file, files, label2class_id=None):
@@ -93,9 +94,63 @@ def images_to_tfrecord(root_path, record_file, c2l_file, mul_thread=None):
     save_to_json(label2class_id, c2l_file, indent=4)
 
 
+def tf_image_augmentation(image, target_size=(224, 224), adjust_gamma=None, random_brightness=None,
+                          resize_method="bilinear", random_contrast=None, rotate=None, zoom_range=None,
+                          random_crop=None, random_flip_left_right=None, random_flip_up_down=None,
+                          keep_aspect=True):
+    """
+    Args:
+        image: image tensor
+        target_size: (size1,size2) 目标尺寸
+        adjust_gamma: float or [lower, upper], 随机gamma校正, 通常大于1，越大色调越暗淡,
+        random_brightness: float，随机亮度值调整，0，1，0为原图，1为白色
+        resize_method: 调整
+        random_contrast:随机对比度，None或者tuple/list, (lower,higher),大于1增加对比度
+        rotate: float, 随机进行旋转
+        zoom_range:float or [lower, upper], 随机进行缩放 ，. Range for random zoom
+        random_crop: float or tuple. 随机裁剪比例，ie:(0.9,0.9)
+        random_flip_left_right: True or None左右翻转
+        random_flip_up_down:True or None 上下翻转
+        keep_aspect:是否保持长宽比
+    Returns:
+
+    """
+    size = image.shape[:2]
+    image = tf.image.random_flip_left_right(image) if random_flip_left_right else image
+    image = tf.image.random_flip_up_down if random_flip_up_down else image
+    if adjust_gamma:
+        gamma = random.uniform(*adjust_gamma) if type(adjust_gamma) != int else random.uniform(1 - adjust_gamma,
+                                                                                               1 + adjust_gamma)
+        image = tf.image.adjust_gamma(image, gamma)
+    image = tf.image.random_brightness(image, max_delta=random_brightness) if random_brightness else image
+    image = tf.image.random_contrast(image, *random_contrast) if random_contrast else image
+    if rotate:
+        angle = random.uniform(-rotate, rotate)
+        image = tfa.image.rotate(image, angle) if rotate else image
+    if random_crop:
+        crop_size = (int(random_crop * size[0]), int(random_crop * size[1]), 3) if type(random_crop) == float else (
+            int(random_crop[0] * size[0]), int(random_crop[1] * size[1]))
+        image = tf.image.random_crop(image, size=crop_size)
+    if zoom_range:
+        zoom = random.uniform(1 - zoom_range, 1 + zoom_range) if type(zoom_range) == float else random.uniform(
+            *zoom_range)
+        image = tf.image.resize(image, (int(size[0] * zoom), int(size[1] * zoom)), method=resize_method)
+        image = tf.image.resize_with_pad(image, *size)
+
+    if target_size:
+        image = tf.image.resize(image, target_size,
+                                method=resize_method) if not keep_aspect else tf.image.resize_with_pad(image,
+                                                                                                       *target_size)
+    return tf.clip_by_value(image, 0, 1)
+
+
 def tf_data_from_tfrecord(tf_record_files, num_classes=6, batch_size=8,
                           num_parallel_calls=tf.data.experimental.AUTOTUNE,
-                          target_size=(224, 224),resize_method="bilinear"):
+                          target_size=(224, 224), resize_method="bilinear",
+                          adjust_gamma=None, random_brightness=None,
+                          random_contrast=None, rotate=None, zoom_range=None,
+                          random_crop=None, random_flip_left_right=None, random_flip_up_down=None,
+                          keep_aspect=True):
     """convert image dataset to tfrecord"""
 
     def parse_map_function(eg):
@@ -104,8 +159,14 @@ def tf_data_from_tfrecord(tf_record_files, num_classes=6, batch_size=8,
             'class_id': tf.io.FixedLenFeature(shape=(), dtype=tf.int64)
         })
         # TODO 补充图片预处理和数据增强程序
-        image = tf.image.resize(tf.io.decode_jpeg(example['image'][0], channels=3),
-                                target_size,method=resize_method)
+        image = tf.io.decode_jpeg(example['image'][0], channels=3)
+        image = tf_image_augmentation(image, target_size=target_size, resize_method=resize_method,
+                                      adjust_gamma=adjust_gamma, random_brightness=random_brightness,
+                                      random_contrast=random_contrast, rotate=rotate, zoom_range=zoom_range,
+                                      random_crop=random_crop, random_flip_left_right=random_flip_left_right,
+                                      random_flip_up_down=random_flip_up_down,
+                                      keep_aspect=keep_aspect)
+
         class_id = tf.one_hot(example['class_id'][0], depth=num_classes)
         return image, class_id
 
