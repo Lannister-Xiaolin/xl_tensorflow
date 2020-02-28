@@ -129,9 +129,9 @@ def tf_image_augmentation(image, target_size=(224, 224), adjust_gamma=None, rand
         image = tfa.image.rotate(image, angle) if rotate else image
     # 为保证图片可被tfdataset识别，resize成指定形状大小，用于后续计算
     if target_size:
-        image = tf.image.resize(image, (512,512),
+        image = tf.image.resize(image, (512, 512),
                                 method=resize_method) if not keep_aspect else tf.image.resize_with_pad(image,
-                                                                                                       *(512,512))
+                                                                                                       *(512, 512))
     size = image.shape[:2]
     if random_crop:
         crop_size = (int(random_crop * size[0]), int(random_crop * size[1]), 3) if type(random_crop) == float else (
@@ -157,13 +157,14 @@ def tf_data_from_tfrecord(tf_record_files, num_classes=6, batch_size=8,
                           random_crop=None, random_flip_left_right=None, random_flip_up_down=None,
                           keep_aspect=True):
     """convert image dataset to tfrecord"""
+
     # Todo 评估shuffle、cache等性能
     def parse_map_function(eg):
         example = tf.io.parse_example(eg[tf.newaxis], {
             'image': tf.io.FixedLenFeature(shape=(), dtype=tf.string),
             'class_id': tf.io.FixedLenFeature(shape=(), dtype=tf.int64)
         })
-        image = tf.io.decode_image(example['image'][0], channels=3,dtype=tf.float32)
+        image = tf.io.decode_image(example['image'][0], channels=3, dtype=tf.float32)
         image = tf_image_augmentation(image, target_size=target_size, resize_method=resize_method,
                                       adjust_gamma=adjust_gamma, random_brightness=random_brightness,
                                       random_contrast=random_contrast, rotate=rotate, zoom_range=zoom_range,
@@ -175,7 +176,11 @@ def tf_data_from_tfrecord(tf_record_files, num_classes=6, batch_size=8,
         return image, class_id
 
     raw_dataset = tf.data.TFRecordDataset(tf_record_files)
-    parsed_dataset = raw_dataset.map(parse_map_function, num_parallel_calls=num_parallel_calls).batch(batch_size)
+    length = 0
+    for _ in raw_dataset:
+        length += 1
+    parsed_dataset = raw_dataset.map(parse_map_function, num_parallel_calls=num_parallel_calls).shuffle(length).batch(
+        batch_size)
     return parsed_dataset
 
 
