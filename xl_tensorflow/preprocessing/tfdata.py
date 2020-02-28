@@ -163,7 +163,7 @@ def tf_data_from_tfrecord(tf_record_files, num_classes=6, batch_size=8,
             'image': tf.io.FixedLenFeature(shape=(), dtype=tf.string),
             'class_id': tf.io.FixedLenFeature(shape=(), dtype=tf.int64)
         })
-        image = tf.io.decode_jpeg(example['image'][0], channels=3)
+        image = tf.io.decode_image(example['image'][0], channels=3,dtype=tf.float32)
         image = tf_image_augmentation(image, target_size=target_size, resize_method=resize_method,
                                       adjust_gamma=adjust_gamma, random_brightness=random_brightness,
                                       random_contrast=random_contrast, rotate=rotate, zoom_range=zoom_range,
