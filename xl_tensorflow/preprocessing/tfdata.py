@@ -115,7 +115,7 @@ def tf_image_augmentation(image, target_size=(224, 224), adjust_gamma=None, rand
     Returns:
 
     """
-    size = image.shape[:2]
+    # ToDO 新增其他数据增强方式
     image = tf.image.random_flip_left_right(image) if random_flip_left_right else image
     image = tf.image.random_flip_up_down if random_flip_up_down else image
     if adjust_gamma:
@@ -127,6 +127,12 @@ def tf_image_augmentation(image, target_size=(224, 224), adjust_gamma=None, rand
     if rotate:
         angle = random.uniform(-rotate, rotate)
         image = tfa.image.rotate(image, angle) if rotate else image
+    # 为保证图片可被tfdataset识别，resize成指定形状大小，用于后续计算
+    if target_size:
+        image = tf.image.resize(image, (512,512),
+                                method=resize_method) if not keep_aspect else tf.image.resize_with_pad(image,
+                                                                                                       *(512,512))
+    size = image.shape[:2]
     if random_crop:
         crop_size = (int(random_crop * size[0]), int(random_crop * size[1]), 3) if type(random_crop) == float else (
             int(random_crop[0] * size[0]), int(random_crop[1] * size[1]))
@@ -136,7 +142,6 @@ def tf_image_augmentation(image, target_size=(224, 224), adjust_gamma=None, rand
             *zoom_range)
         image = tf.image.resize(image, (int(size[0] * zoom), int(size[1] * zoom)), method=resize_method)
         image = tf.image.resize_with_pad(image, *size)
-
     if target_size:
         image = tf.image.resize(image, target_size,
                                 method=resize_method) if not keep_aspect else tf.image.resize_with_pad(image,
@@ -152,13 +157,12 @@ def tf_data_from_tfrecord(tf_record_files, num_classes=6, batch_size=8,
                           random_crop=None, random_flip_left_right=None, random_flip_up_down=None,
                           keep_aspect=True):
     """convert image dataset to tfrecord"""
-
+    # Todo 评估shuffle、cache等性能
     def parse_map_function(eg):
         example = tf.io.parse_example(eg[tf.newaxis], {
             'image': tf.io.FixedLenFeature(shape=(), dtype=tf.string),
             'class_id': tf.io.FixedLenFeature(shape=(), dtype=tf.int64)
         })
-        # TODO 补充图片预处理和数据增强程序
         image = tf.io.decode_jpeg(example['image'][0], channels=3)
         image = tf_image_augmentation(image, target_size=target_size, resize_method=resize_method,
                                       adjust_gamma=adjust_gamma, random_brightness=random_brightness,
