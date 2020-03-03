@@ -125,7 +125,9 @@ def tiny_yolo_body(inputs, num_anchors, num_classes):
 
 
 def yolo_head(feats, anchors, num_classes, input_shape, calc_loss=False):
-    """Convert final layer features to bounding box parameters."""
+    """计算grid和预测box的坐标和长宽
+    feats, 即yolobody的输出，未经过未经过sigmoid函数处理
+    """
     num_anchors = len(anchors)
     # Reshape to batch, height, width, num_anchors, box_params.
     anchors_tensor = K.reshape(K.constant(anchors), [1, 1, 1, num_anchors, 2])
@@ -155,7 +157,9 @@ def yolo_head(feats, anchors, num_classes, input_shape, calc_loss=False):
 
 
 def yolo_correct_boxes(box_xy, box_wh, input_shape, image_shape):
-    '''Get corrected boxes'''
+    '''
+    获取正确的box坐标，相对整图的坐标
+    '''
     box_yx = box_xy[..., ::-1]
     box_hw = box_wh[..., ::-1]
     input_shape = K.cast(input_shape, K.dtype(box_yx))
@@ -182,6 +186,7 @@ def yolo_correct_boxes(box_xy, box_wh, input_shape, image_shape):
 
 def yolo_boxes_and_scores(feats, anchors, num_classes, input_shape, image_shape):
     '''Process Conv layer output'''
+    # 获取输出，即相对整图的长宽以及置信度与概率值
     box_xy, box_wh, box_confidence, box_class_probs = yolo_head(feats,
                                                                 anchors, num_classes, input_shape)
     boxes = yolo_correct_boxes(box_xy, box_wh, input_shape, image_shape)
@@ -205,6 +210,7 @@ def yolo_eval(yolo_outputs,
     boxes = []
     box_scores = []
     for l in range(num_layers):
+        # 此处的处理会去除batch的信息，完全展开，因此该计算图只能用于单张图片处理，不能批处理
         _boxes, _box_scores = yolo_boxes_and_scores(yolo_outputs[l],
                                                     anchors[anchor_mask[l]], num_classes, input_shape, image_shape)
         boxes.append(_boxes)
@@ -229,6 +235,10 @@ def yolo_eval(yolo_outputs,
         boxes_.append(class_boxes)
         scores_.append(class_box_scores)
         classes_.append(classes)
+    # 此处更改是为了直接把后处理写入模型中
+    # boxes_ = K.expand_dims(K.concatenate(boxes_, axis=0), axis=0)
+    # scores_ = K.expand_dims(K.concatenate(scores_, axis=0), axis=0)
+    # classes_ = K.expand_dims(K.concatenate(classes_, axis=0), axis=0)
     boxes_ = K.concatenate(boxes_, axis=0)
     scores_ = K.concatenate(scores_, axis=0)
     classes_ = K.concatenate(classes_, axis=0)

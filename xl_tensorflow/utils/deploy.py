@@ -65,7 +65,7 @@ def tf_saved_model_to_lite(model_path, save_lite_file, input_shape=None, quantiz
 
 
 def serving_model_export(model, path, version=1, auto_incre_version=True):
-    """导出模型到tenserflow.serving
+    """导出模型到tenserflow.serving 即savemodel格式
     Arg:
         model：keras或者tensorflow模型
         path:模型存储路径，推荐最后一个文件夹以模型名称命名
@@ -73,7 +73,7 @@ def serving_model_export(model, path, version=1, auto_incre_version=True):
         auto_incre_version: 是否自动叠加版本
     """
     if auto_incre_version is True:
-        version = max([int(i) for i in os.listdir(path)]) + 1 if os.listdir(path) else version
+        version = max([int(i) for i in os.listdir(path) if os.path.isdir(path+"/"+i)]) + 1 if os.listdir(path) else version
     version_path = os.path.join(path, str(version))
     os.makedirs(version_path, exist_ok=True)
     try:
