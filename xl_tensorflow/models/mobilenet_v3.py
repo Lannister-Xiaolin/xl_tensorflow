@@ -60,7 +60,7 @@ def _inverted_res_se_block(inputs, expansion=1, stride=1, alpha=1.0, filters=3,
                                use_bias=False,
                                padding='same' if stride == 1 else 'valid',
                                name=prefix + 'Depthwise',
-                               kernel_initializer=CONV_KERNEL_INITIALIZER)(x)
+                               kernel_initializer="he_normal")(x)
     x = layers.BatchNormalization(axis=channel_axis, epsilon=1e-3,
                                   momentum=0.999, name=prefix + 'Depthwise_BN')(x)
     if activation == "relu":
@@ -83,11 +83,11 @@ def _inverted_res_se_block(inputs, expansion=1, stride=1, alpha=1.0, filters=3,
             num_reduced_filters = max(1, int(input_channels_se * 0.25))
             x1 = layers.AveragePooling2D(pool_size=(x.shape[1], x.shape[1]), name=prefix + "Se_Avg_Pooling2d")(x)
             x1 = layers.Conv2D(num_reduced_filters, 1, strides=[1, 1],
-                               kernel_initializer=CONV_KERNEL_INITIALIZER,
+                               kernel_initializer="he_normal",
                                activation=activation, padding="same", use_bias=True,
                                name=prefix + "Se_Reduce")(x1)
             x1 = layers.Conv2D(int((expansion * in_channels if block_id else in_channels)), 1, strides=[1, 1],
-                               kernel_initializer=CONV_KERNEL_INITIALIZER,
+                               kernel_initializer="he_normal",
                                activation="sigmoid" if not force_relu else "sigmoid", padding="same",
                                use_bias=True,
                                name=prefix + "Se_Expand")(x1)
@@ -102,7 +102,7 @@ def _inverted_res_se_block(inputs, expansion=1, stride=1, alpha=1.0, filters=3,
                       use_bias=False,
                       activation=None,
                       name=prefix + 'Project_Conv2d',
-                      kernel_initializer=CONV_KERNEL_INITIALIZER)(x)
+                      kernel_initializer="he_normal")(x)
     x = layers.BatchNormalization(axis=channel_axis,
                                   epsilon=1e-3,
                                   momentum=0.999,
@@ -243,7 +243,7 @@ def MobileNetV3(size, input_shape=None,
     x = layers.ZeroPadding2D(padding=correct_pad(backend, img_input, 3),
                              name='conv1_pad')(img_input)
     x = layers.Conv2D(first_block_filters, kernel_size=3, strides=(2, 2), padding='valid',
-                      use_bias=False, name='conv1_first', kernel_initializer=CONV_KERNEL_INITIALIZER)(x)
+                      use_bias=False, name='conv1_first', kernel_initializer="he_normal")(x)
     x = layers.BatchNormalization(axis=channel_axis, epsilon=1e-3, momentum=0.999, name='bn_conv1')(x)
     if non_custom:
         if force_relu:
@@ -262,7 +262,7 @@ def MobileNetV3(size, input_shape=None,
         last_block_filters = V3_Settings[size][1]
     x = layers.Conv2D(last_block_filters, kernel_size=1,
                       use_bias=False, name='conv2d_last',
-                      kernel_initializer=CONV_KERNEL_INITIALIZER)(x)
+                      kernel_initializer="he_normal")(x)
     x = layers.BatchNormalization(axis=channel_axis,
                                   epsilon=1e-3,
                                   momentum=0.999,
@@ -282,7 +282,7 @@ def MobileNetV3(size, input_shape=None,
         x = GlobalAveragePooling2DKeepDim()(x)
         x = Swish(name="globalpooling_last_swish")(x)
     x = layers.Conv2D(V3_Settings[size][2], kernel_size=1, use_bias=False, name='conv2d_1x1_last',
-                      kernel_initializer=CONV_KERNEL_INITIALIZER)(x)
+                      kernel_initializer="he_normal")(x)
     x = layers.Reshape(target_shape=(V3_Settings[size][2],))(x)
 
     if include_top:
