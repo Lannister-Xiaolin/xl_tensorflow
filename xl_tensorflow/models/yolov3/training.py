@@ -13,9 +13,7 @@ from tensorflow.keras.callbacks import TensorBoard, ModelCheckpoint, ReduceLROnP
 
 from .model import preprocess_true_boxes, yolo_body, tiny_yolo_body, yolo_loss
 from .utils import get_random_data
-import tensorflow as tf
 
-tf.compat.v1.disable_eager_execution()
 
 
 def _main(train_annotation_path, val_annotation_path, classes_path, anchors_path, weights_path):

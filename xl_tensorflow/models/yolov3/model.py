@@ -261,7 +261,7 @@ def preprocess_true_boxes(true_boxes, input_shape, anchors, num_classes):
     -------
     y_true: list of array, shape like yolo_outputs, xywh are reletive value
             即相对值，相对整图比例， y_true 形状通常为 [arrary(1,26,26,3,85),]
-
+    一个box只会对应一个尺度的一个grid, 尺度的选择根据与anchor box的iou来定
     '''
     assert (true_boxes[..., 4] < num_classes).all(), 'class id must be less than num_classes'
     num_layers = len(anchors) // 3  # default setting
@@ -302,7 +302,7 @@ def preprocess_true_boxes(true_boxes, input_shape, anchors, num_classes):
         anchor_area = anchors[..., 0] * anchors[..., 1]
         iou = intersect_area / (box_area + anchor_area - intersect_area)
 
-        # Find best anchor for each true box
+        # Find best anchor for each true box，此处已经确定对应最好的anchorbox了
         best_anchor = np.argmax(iou, axis=-1)
 
         for t, n in enumerate(best_anchor):
@@ -419,12 +419,18 @@ def yolo_loss(data, anchors, num_classes, ignore_thresh=.5, print_loss=True):
         _, ignore_mask = tf.while_loop(lambda b, *args: b < m, loop_body, [0, ignore_mask])
         ignore_mask = ignore_mask.stack()
         ignore_mask = K.expand_dims(ignore_mask, -1)
-
+        """
+        损失函数组成：
+            1、中心定位误差，采用交叉熵，只计算有真实目标位置的损失
+            2、宽度高度误差，使用L2损失，只计算有真实目标位置的损失
+            3、是否包含目标的置信度计算，包含两部分，一个是真实目标位置的binary crossentropy, 
+                一个是其他位置的binary crossentropy，不包含与真实目标iou大于0.5的位置
+            4、各个类别的损失函数，只计算有真实目标位置的损失
+        """
         # K.binary_crossentropy is helpful to avoid exp overflow.     相等时为极值点
         xy_loss = object_mask * box_loss_scale * K.binary_crossentropy(raw_true_xy, raw_pred[..., 0:2],
                                                                        from_logits=True)
         wh_loss = object_mask * box_loss_scale * 0.5 * K.square(raw_true_wh - raw_pred[..., 2:4])
-        # z
         confidence_loss = object_mask * K.binary_crossentropy(object_mask, raw_pred[..., 4:5], from_logits=True) + \
                           (1 - object_mask) * K.binary_crossentropy(object_mask, raw_pred[..., 4:5],
                                                                     from_logits=True) * ignore_mask
