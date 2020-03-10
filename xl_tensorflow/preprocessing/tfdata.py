@@ -106,7 +106,7 @@ def images_to_tfrecord(root_path, record_file, c2l_file, mul_thread=None):
 def tf_image_augmentation(image, size, target_size=(224, 224), adjust_gamma=None, random_brightness=None,
                           resize_method="bilinear", random_contrast=None, rotate=None, zoom_range=None,
                           random_crop=None, random_flip_left_right=None, random_flip_up_down=None,
-                          keep_aspect=True, noise=None):
+                          keep_aspect=True, noise=None, random_aspect=False):
     """
     Args:
         image: image tensor
@@ -121,8 +121,9 @@ def tf_image_augmentation(image, size, target_size=(224, 224), adjust_gamma=None
         random_crop: float or tuple. 随机裁剪比例，ie:(0.9,0.9)
         random_flip_left_right: True or None左右翻转
         random_flip_up_down:True or None 上下翻转
-        keep_aspect:是否保持长宽比
+        keep_aspect: bool, 是否保持长宽比,
         noise:None or float, 是否添加随机噪声，推荐：0.03
+        random_aspect: 是否随机确定保留长宽比
     Returns:
 
     """
@@ -131,7 +132,7 @@ def tf_image_augmentation(image, size, target_size=(224, 224), adjust_gamma=None
     if adjust_gamma:
         gamma = random.uniform(*adjust_gamma) if type(adjust_gamma) == tuple else adjust_gamma
         image = tf.image.adjust_gamma(image, gamma)
-    if noise and type(noise) == float:
+    if noise and type(noise) in (float, tf.float32):
         noise = tf.keras.backend.random_normal(shape=(*size, 3), mean=0.0, stddev=noise, dtype=tf.float32)
         image = noise + image
     image = tf.image.random_brightness(image, max_delta=random_brightness) if random_brightness else image
@@ -141,11 +142,15 @@ def tf_image_augmentation(image, size, target_size=(224, 224), adjust_gamma=None
         image = tfa.image.rotate(image, angle) if rotate else image
     if zoom_range:
         # 为确保缩放有效，需要先缩放，然后恢复到原尺寸（使用crop或者resize）
-        zoom = random.uniform(1 - zoom_range, 1 + zoom_range) if type(zoom_range) == float else random.uniform(
+
+        zoom = random.uniform(1.0 - zoom_range, 1.0 + zoom_range) if type(
+            zoom_range) == float else random.uniform(
             *zoom_range)
-        zoom_size = (int(size[0] * zoom), int(size[1] * zoom))
+        zoom_size = (
+            int(tf.cast(size[0], tf.float32) * zoom),
+            int(tf.cast(size[1], tf.float32) * zoom))
         image = tf.image.resize(image, zoom_size, method=resize_method)
-        if zoom > 1:
+        if zoom > 1.0:
             image = tf.image.crop_to_bounding_box(image, (zoom_size[0] - size[0]) // 2, (zoom_size[1] - size[1]) // 2,
                                                   size[0], size[1])
         else:
@@ -153,18 +158,27 @@ def tf_image_augmentation(image, size, target_size=(224, 224), adjust_gamma=None
                                                  size[0], size[1])
     if random_crop:
         crop_size = (
-            int(random_crop * tf.cast(size[0], tf.float32)), int(random_crop * tf.cast(size[1], tf.float32)),
+            random_crop * tf.cast(size[0], tf.float32),
+            random_crop * tf.cast(size[1], tf.float32),
             3) if type(
-            random_crop) == float else (
-            int(random_crop[0] * tf.cast(size[0], tf.float32)), int(random_crop[1] * tf.cast(size[1], tf.float32)), 3)
+            random_crop) in (float, tf.float32) else (
+            random_crop[0] * tf.cast(size[0], tf.float32),
+            random_crop[1] * tf.cast(size[1], tf.float32), 3)
 
         image = tf.image.random_crop(image, size=crop_size)
     image = tf.image.random_flip_left_right(image) if random_flip_left_right else image
     image = tf.image.random_flip_up_down(image) if random_flip_up_down else image
     if target_size:
-        image = tf.image.resize(image, target_size,
-                                method=resize_method) if not keep_aspect else tf.image.resize_with_pad(image,
-                                                                                                       *target_size)
+        if random_aspect:
+            aspect = random.choice([True, False])
+            image = tf.image.resize(image, target_size,
+                                    method=resize_method) if not aspect else tf.image.resize_with_pad(image,
+                                                                                                      *target_size)
+        else:
+            image = tf.image.resize(image, target_size,
+                                    method=resize_method) if not keep_aspect else tf.image.resize_with_pad(image,
+                                                                                                           *target_size)
+
     return tf.clip_by_value(image, 0, 1)
 
 
@@ -199,8 +213,9 @@ def tf_data_from_tfrecord(tf_record_files, num_classes=6, batch_size=8, buffer_s
 
     raw_dataset = tf.data.TFRecordDataset(tf_record_files)
     length = 0
-    for _ in raw_dataset:
-        length += 1
+    if not buffer_size:
+        for _ in raw_dataset:
+            length += 1
     buffer_size = buffer_size if buffer_size else length
     parsed_dataset = raw_dataset.map(parse_map_function, num_parallel_calls=num_parallel_calls).shuffle(buffer_size,
                                                                                                         reshuffle_each_iteration=True).batch(
