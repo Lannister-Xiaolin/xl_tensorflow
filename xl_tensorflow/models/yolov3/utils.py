@@ -42,7 +42,8 @@ def get_random_data(annotation_line, input_shape, random=True,
                     max_boxes=20, jitter=.3, hue=.1, sat=1.5, val=1.5, proc_img=True):
     '''
     random preprocessing for real-time data augmentation
-    所有图片都会resize到小于416以下，不足416则粘贴到背景为128的图片中
+        1、所有图片都会resize到小于416以下，不足416则粘贴到背景为128的图片中，并归一化（/255）
+        2、
     '''
     line = annotation_line.split()
     image = Image.open(line[0])

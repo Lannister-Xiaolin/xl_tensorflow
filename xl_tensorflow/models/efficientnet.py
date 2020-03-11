@@ -126,7 +126,7 @@ def round_repeats(repeats, depth_coefficient):
     return int(math.ceil(depth_coefficient * repeats))
 
 
-def mb_conv_block(inputs, block_args, activation, drop_rate=None, prefix='', using_se_global_pooling=False
+def mb_conv_block(inputs, block_args, activation, drop_rate=None, prefix='', using_se_global_pooling=True
                   ):
     """Mobile Inverted Residual Bottleneck."""
 
@@ -215,7 +215,7 @@ def EfficientNet(width_coefficient,
                  pooling=None,
                  classes=1000,
                  force_relu="",
-                 using_se_global_pooling=False,
+                 using_se_global_pooling=True,
                  **kwargs):
     """
     This version of EfficentNet must specify input shape!!!
@@ -402,7 +402,7 @@ def EfficientNetB0(include_top=True,
                    pooling=None,
                    classes=1000,
                    force_relu="",
-                   using_se_global_pooling=False,
+                   using_se_global_pooling=True,
                    **kwargs):
     return EfficientNet(1.0, 1.0, 224, 0.2,
                         model_name='efficientnet-b0',
@@ -420,7 +420,7 @@ def EfficientNetB1(include_top=True,
                    pooling=None,
                    classes=1000,
                    force_relu="",
-                   using_se_global_pooling=False,
+                   using_se_global_pooling=True,
                    **kwargs):
     return EfficientNet(1.0, 1.1, 240, 0.2,
                         model_name='efficientnet-b1',
@@ -437,7 +437,7 @@ def EfficientNetB2(include_top=True,
                    input_shape=None,
                    pooling=None,
                    classes=1000,
-                   force_relu="", using_se_global_pooling=False,
+                   force_relu="", using_se_global_pooling=True,
                    **kwargs):
     return EfficientNet(1.1, 1.2, 260, 0.3,
                         model_name='efficientnet-b2',
@@ -454,7 +454,7 @@ def EfficientNetB3(include_top=True,
                    input_shape=None,
                    pooling=None,
                    classes=1000,
-                   force_relu="", using_se_global_pooling=False,
+                   force_relu="", using_se_global_pooling=True,
                    **kwargs):
     return EfficientNet(1.2, 1.4, 300, 0.3,
                         model_name='efficientnet-b3',
@@ -471,7 +471,7 @@ def EfficientNetB4(include_top=True,
                    input_shape=None,
                    pooling=None,
                    classes=1000,
-                   force_relu="", using_se_global_pooling=False,
+                   force_relu="", using_se_global_pooling=True,
                    **kwargs):
     return EfficientNet(1.4, 1.8, 380, 0.4,
                         model_name='efficientnet-b4',
@@ -488,7 +488,7 @@ def EfficientNetB5(include_top=True,
                    input_shape=None,
                    pooling=None,
                    force_relu="",
-                   classes=1000, using_se_global_pooling=False,
+                   classes=1000, using_se_global_pooling=True,
                    **kwargs):
     return EfficientNet(1.6, 2.2, 456, 0.4,
                         model_name='efficientnet-b5',
@@ -505,7 +505,7 @@ def EfficientNetB6(include_top=True,
                    input_shape=None,
                    pooling=None,
                    classes=1000,
-                   force_relu="", using_se_global_pooling=False,
+                   force_relu="", using_se_global_pooling=True,
                    **kwargs):
     return EfficientNet(1.8, 2.6, 528, 0.5,
                         model_name='efficientnet-b6',
@@ -522,7 +522,7 @@ def EfficientNetB7(include_top=True,
                    input_shape=None,
                    pooling=None,
                    classes=1000,
-                   force_relu="", using_se_global_pooling=False,
+                   force_relu="", using_se_global_pooling=True,
                    **kwargs):
     return EfficientNet(2.0, 3.1, 600, 0.5,
                         model_name='efficientnet-b7',

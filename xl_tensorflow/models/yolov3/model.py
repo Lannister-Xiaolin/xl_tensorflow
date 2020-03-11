@@ -126,7 +126,17 @@ def tiny_yolo_body(inputs, num_anchors, num_classes):
 
 def yolo_head(feats, anchors, num_classes, input_shape, calc_loss=False):
     """计算grid和预测box的坐标和长宽
-    feats, 即yolobody的输出，未经过未经过sigmoid函数处理
+        Args:
+            feats, 即yolobody的输出，未经过未经过sigmoid函数处理
+            anchors: anchor box
+            num_classes: number class
+            input_shape: input shape of yolobody, like 416,320
+            calc_loss: where to caculate loss, used for training
+        Returns:
+            box_xy  相对整图的大小，0至1
+            box_wh   相对input shape即416的大小，0，+无穷大
+            box_confidence
+            box_class_probs
     """
     num_anchors = len(anchors)
     # Reshape to batch, height, width, num_anchors, box_params.
@@ -159,19 +169,26 @@ def yolo_head(feats, anchors, num_classes, input_shape, calc_loss=False):
 def yolo_correct_boxes(box_xy, box_wh, input_shape, image_shape):
     '''
     获取正确的box坐标，相对整图的坐标
+    Args:
+        box_xy  xy坐标值
+        box_wh  宽高
+        input_shape  模型输入尺寸
+        image_shape  图片原始尺寸，用于还原重建坐标，Height * Width
+
     '''
     box_yx = box_xy[..., ::-1]
     box_hw = box_wh[..., ::-1]
     input_shape = K.cast(input_shape, K.dtype(box_yx))
     image_shape = K.cast(image_shape, K.dtype(box_yx))
     new_shape = K.round(image_shape * K.min(input_shape / image_shape))
-    offset = (input_shape - new_shape) / 2. / input_shape
+    offset = (input_shape - new_shape) / 2. / input_shape  # 相对整图的偏移量
     scale = input_shape / new_shape
     box_yx = (box_yx - offset) * scale
     box_hw *= scale
 
     box_mins = box_yx - (box_hw / 2.)
     box_maxes = box_yx + (box_hw / 2.)
+    # 注此处y和x对换
     boxes = K.concatenate([
         box_mins[..., 0:1],  # y_min
         box_mins[..., 1:2],  # x_min
@@ -203,7 +220,13 @@ def yolo_eval(yolo_outputs,
               max_boxes=20,
               score_threshold=.6,
               iou_threshold=.5):
-    """Evaluate YOLO model on given input and return filtered boxes."""
+    """Evaluate YOLO model on given input and return filtered boxes.
+    只适用于一张图片的处理，不适合批处理
+    Args:
+        image_shape: 原始输入图片尺寸, 高X宽
+    Returns:
+        boxes,其中box格式为[y1,x1,y2,x2]
+    """
     num_layers = len(yolo_outputs)
     anchor_mask = [[6, 7, 8], [3, 4, 5], [0, 1, 2]] if num_layers == 3 else [[3, 4, 5], [1, 2, 3]]  # default setting
     input_shape = K.shape(yolo_outputs[0])[1:3] * 32
@@ -250,18 +273,22 @@ def preprocess_true_boxes(true_boxes, input_shape, anchors, num_classes):
     '''
     Preprocess true boxes to training input format
     所有box会定位到指定的grid
-    Parameters
-    ----------
-    true_boxes: array, shape=(m, T, 5)
+    Args：
+        true_boxes: array, shape=(m, T, 5),绝对值
         Absolute x_min, y_min, x_max, y_max, class_id relative to input_shape.
-    input_shape: array-like, hw, multiples of 32
-    anchors: array, shape=(N, 2), 2 refer to wh, N refer to number of achors
-    num_classes: integer
+        input_shape: array-like, hw, multiples of 32
+        anchors: array, shape=(N, 2), 2 refer to wh, N refer to number of achors
+        num_classes: integer
+
     Returns
-    -------
-    y_true: list of array, shape like yolo_outputs, xywh are reletive value
+
+        y_true:
+            list of array, shape like yolo_outputs, xywh are reletive value
             即相对值，相对整图比例， y_true 形状通常为 [arrary(1,26,26,3,85),]
-    一个box只会对应一个尺度的一个grid, 尺度的选择根据与anchor box的iou来定
+
+            一个box只会对应一个尺度的一个grid, 尺度的选择根据与anchor box的iou来定
+                首先计算box与9个anchor的iou，计算最高iou的anchorbox，选择该anchor box作为负责预测的anchor
+                ,根据anchor索引和坐标定位到相应的grid
     '''
     assert (true_boxes[..., 4] < num_classes).all(), 'class id must be less than num_classes'
     num_layers = len(anchors) // 3  # default setting
