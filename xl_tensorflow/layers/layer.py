@@ -116,7 +116,7 @@ class SEConvEfnet2D(layers.Layer):
         self._se_reduce = layers.Conv2D(num_reduced_filters, 1, strides=[1, 1],
                                         kernel_initializer=self.conv_kernel_initializer,
                                         activation=None, padding="same", use_bias=True)
-        self.activation = Swish()
+        self.activation = layers.ReLU()
         self._se_expand = layers.Conv2D(input_channels, 1, strides=[1, 1],
                                         kernel_initializer=self.conv_kernel_initializer,
                                         activation="hard_sigmoid", padding="same",
@@ -147,6 +147,24 @@ class Swish(layers.Layer):
 
     def get_config(self):
         base_config = super(Swish, self).get_config()
+        return base_config
+
+    @tf_utils.shape_type_conversion
+    def compute_output_shape(self, input_shape):
+        return input_shape
+
+
+class HSwish(layers.Layer):
+    def __init__(self, **kwargs):
+        super(HSwish, self).__init__(**kwargs)
+
+    def call(self, inputs, **kwargs):
+        # alpha is used for leaky relu slope in activations instead of
+        # negative_slope.
+        return tf.multiply(backend.sigmoid(inputs), tf.nn.relu6(inputs + 3) / 6)
+
+    def get_config(self):
+        base_config = super(HSwish, self).get_config()
         return base_config
 
     @tf_utils.shape_type_conversion

@@ -81,3 +81,4 @@ def serving_model_export(model, path, version=1, auto_incre_version=True):
     except Exception as e:
         print("模型导出异常：{}".format(e))
         raise AssertionError
+# tf_saved_model_to_lite(r"E:\Temp\test\eff\1",r"E:\Temp\test\eff\test.tflite",input_shape=[None, 380, 380, 3])

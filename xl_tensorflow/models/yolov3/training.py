@@ -11,7 +11,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import TensorBoard, ModelCheckpoint, ReduceLROnPlateau, EarlyStopping
 
-from .model import preprocess_true_boxes, yolo_body, tiny_yolo_body, yolo_loss
+from .model import preprocess_true_boxes, yolo_body, tiny_yolo_body, yolo_loss,yolo_efficientnetb3_body
 from .utils import get_random_data
 
 
@@ -194,4 +194,5 @@ def data_generator_wrapper(annotation_lines, batch_size, input_shape, anchors, n
 
 
 if __name__ == '__main__':
-    _main()
+    image_input = Input(shape=(380, 380, 3))
+    model_body = yolo_efficientnet_body(image_input, 3, 16)

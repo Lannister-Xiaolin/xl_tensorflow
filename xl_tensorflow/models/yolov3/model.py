@@ -10,7 +10,7 @@ from tensorflow.keras.layers import LeakyReLU
 from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras.models import Model
 from tensorflow.keras.regularizers import l2
-
+from ..efficientnet import EfficientNetB4,EfficientNetB3, mb_conv_block, BlockArgs, get_swish
 from .utils import compose
 
 
@@ -90,6 +90,128 @@ def yolo_body(inputs, num_anchors, num_classes):
 
     return Model(inputs, [y1, y2, y3])
 
+
+def make_last_layers_efficientnet(x, block_args, prefix):
+    num_filters = block_args.input_filters * block_args.expand_ratio
+    x = compose(
+        tf.keras.layers.Conv2D(num_filters,
+                               kernel_size=1,
+                               padding='same',
+                               use_bias=False),
+        tf.keras.layers.BatchNormalization(
+            epsilon=1e-3,
+            momentum=0.9),
+        tf.keras.layers.ReLU(6.),
+        lambda x: mb_conv_block(x, block_args, activation=get_swish(), drop_rate=0.2, prefix="1_"+prefix),
+        tf.keras.layers.Conv2D(num_filters,
+                               kernel_size=1,
+                               padding='same',
+                               use_bias=False),
+        tf.keras.layers.BatchNormalization(
+            epsilon=1e-3,
+            momentum=0.9),
+        tf.keras.layers.ReLU(6.),
+        lambda x: mb_conv_block(x, block_args, activation=get_swish(), drop_rate=0.2, prefix="2_" + prefix),
+        tf.keras.layers.Conv2D(num_filters,
+                               kernel_size=1,
+                               padding='same',
+                               use_bias=False),
+        tf.keras.layers.BatchNormalization(
+            epsilon=1e-3,
+            momentum=0.9),
+        tf.keras.layers.ReLU(6.))(x)
+    y = compose(
+        lambda x: mb_conv_block(x, block_args, activation=get_swish(), drop_rate=0.2, prefix="3_"+prefix),
+        tf.keras.layers.Conv2D(block_args.output_filters,
+                               kernel_size=1,
+                               padding='same',
+                               use_bias=False))(x)
+    return x, y
+
+
+def yolo_efficientnetb4_body(inputs, number_anchors, number_classes):
+    block_args = BlockArgs(kernel_size=3,
+                           num_repeat=1,
+                           input_filters=512,
+                           output_filters=number_anchors * (number_classes + 5),
+                           expand_ratio=1,
+                           id_skip=True,
+                           se_ratio=0.25,
+                           strides=[1, 1])
+    backbone = EfficientNetB4(include_top=False, input_tensor=inputs,weights=None)
+    x, y1 = make_last_layers_efficientnet(backbone.output, block_args, "y1_")
+    x = compose(
+        tf.keras.layers.Conv2D(256,
+                               kernel_size=1,
+                               padding='same',
+                               use_bias=False,
+                               name='block_20_conv'),
+        tf.keras.layers.BatchNormalization(momentum=0.9,
+                                           name='block_20_BN'),
+        tf.keras.layers.ReLU(6., name='block_20_relu6'),
+        tf.keras.layers.UpSampling2D(2))(x)
+    block_args = block_args._replace(input_filters=256)
+    x = tf.keras.layers.Concatenate()(
+        [x, backbone.get_layer('block6a_expand_activation').output])
+    x, y2 = make_last_layers_efficientnet(x,  block_args, "y2_")
+    x = compose(
+        tf.keras.layers.Conv2D(128,
+                               kernel_size=1,
+                               padding='same',
+                               use_bias=False,
+                               name='block_24_conv'),
+        tf.keras.layers.BatchNormalization(
+                                           momentum=0.9,
+                                           name='block_24_BN'),
+        tf.keras.layers.ReLU(6., name='block_24_relu6'),
+        tf.keras.layers.UpSampling2D(2))(x)
+    block_args = block_args._replace(input_filters=128)
+    x = tf.keras.layers.Concatenate()(
+        [x, backbone.get_layer('block4a_expand_activation').output])
+    x, y3 = make_last_layers_efficientnet(x,  block_args, "y3_")
+    return Model(inputs, [y1, y2, y3])
+
+def yolo_efficientnetb3_body(inputs, number_anchors, number_classes):
+    block_args = BlockArgs(kernel_size=3,
+                           num_repeat=1,
+                           input_filters=512,
+                           output_filters=number_anchors * (number_classes + 5),
+                           expand_ratio=1,
+                           id_skip=True,
+                           se_ratio=0.25,
+                           strides=[1, 1])
+    backbone = EfficientNetB3(include_top=False, input_tensor=inputs,weights=None)
+    x, y1 = make_last_layers_efficientnet(backbone.output, block_args, "y1_")
+    x = compose(
+        tf.keras.layers.Conv2D(256,
+                               kernel_size=1,
+                               padding='same',
+                               use_bias=False,
+                               name='block_20_conv'),
+        tf.keras.layers.BatchNormalization(momentum=0.9,
+                                           name='block_20_BN'),
+        tf.keras.layers.ReLU(6., name='block_20_relu6'),
+        tf.keras.layers.UpSampling2D(2))(x)
+    block_args = block_args._replace(input_filters=256)
+    x = tf.keras.layers.Concatenate()(
+        [x, backbone.get_layer('block6a_expand_activation').output])
+    x, y2 = make_last_layers_efficientnet(x,  block_args, "y2_")
+    x = compose(
+        tf.keras.layers.Conv2D(128,
+                               kernel_size=1,
+                               padding='same',
+                               use_bias=False,
+                               name='block_24_conv'),
+        tf.keras.layers.BatchNormalization(
+                                           momentum=0.9,
+                                           name='block_24_BN'),
+        tf.keras.layers.ReLU(6., name='block_24_relu6'),
+        tf.keras.layers.UpSampling2D(2))(x)
+    block_args = block_args._replace(input_filters=128)
+    x = tf.keras.layers.Concatenate()(
+        [x, backbone.get_layer('block4a_expand_activation').output])
+    x, y3 = make_last_layers_efficientnet(x,  block_args, "y3_")
+    return Model(inputs, [y1, y2, y3])
 
 def tiny_yolo_body(inputs, num_anchors, num_classes):
     '''Create Tiny YOLO_v3 model CNN body in keras.'''
@@ -474,3 +596,5 @@ def yolo_loss(data, anchors, num_classes, ignore_thresh=.5, print_loss=True):
     # tensor must have 1 dimension for tensorflow 2.0 above
     loss = tf.expand_dims(loss, 0)
     return loss
+
+# if __name__ == '__main__':
