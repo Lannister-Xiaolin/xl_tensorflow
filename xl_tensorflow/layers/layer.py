@@ -11,7 +11,17 @@ def get_swish(**kwargs):
         """Swish activation function: x * sigmoid(x).
         Reference: [Searching for Activation Functions](https://arxiv.org/abs/1710.05941)
         """
-        return tf.multiply(x, tf.keras.backend.sigmoid(x))
+        return tf.nn.swish(x)
+
+    return swish
+
+
+def get_relu6():
+    def swish(x):
+        """Swish activation function: x * sigmoid(x).
+        Reference: [Searching for Activation Functions](https://arxiv.org/abs/1710.05941)
+        """
+        return tf.nn.relu6(x)
 
     return swish
 
