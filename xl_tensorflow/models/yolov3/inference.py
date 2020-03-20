@@ -5,10 +5,11 @@ import os
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from xl_tensorflow.models.yolov3.utils import letterbox_image, draw_image
-from xl_tensorflow.models.yolov3.model import yolo_body, tiny_yolo_body, yolo_eval
+from xl_tensorflow.models.yolov3.model import yolo_body, tiny_yolo_body, yolo_eval,yolo_eval_serving
 from tensorflow.keras import Input, Model
 import tensorflow as tf
 from xl_tool.xl_io import file_scanning
+# tf.compat.v1.disable_eager_execution()
 
 
 def draw_rectanngle(img, box, label, rectange_color=(0, 255, 0), label_color=(255, 0, 0)):
@@ -47,7 +48,10 @@ def _get_anchors(anchors_path):
     return np.array(anchors).reshape(-1, 2)
 
 
-def single_inference_model(weights, num_classes, image_shape, anchors=None, input_shape=(416, 416), score_threshold=.6,
+def single_inference_model(weights, num_classes, image_shape=(480, 640),
+                           anchors=None,
+                           input_shape=(416, 416),
+                           score_threshold=.6,
                            iou_threshold=.5):
     """
     预测单张图片结果，不适用于批处理
@@ -65,7 +69,7 @@ def single_inference_model(weights, num_classes, image_shape, anchors=None, inpu
         anchors = _get_anchors("./config/yolo_anchors.txt")
     yolo_model = yolo_body(Input(shape=(*input_shape, 3)), len(anchors) // 3, num_classes)
     yolo_model.load_weights(weights)
-    boxes_, scores_, classes_ = yolo_eval(yolo_model.outputs, anchors, num_classes, image_shape, score_threshold,
+    boxes_, scores_, classes_ = yolo_eval_serving(yolo_model.outputs, anchors, num_classes, image_shape, 20,score_threshold,
                                           iou_threshold)
     model = Model(inputs=yolo_model.inputs, outputs=(boxes_, scores_, classes_))
     return model
@@ -99,10 +103,10 @@ if __name__ == '__main__':
     yolo_model = yolo_body(Input(shape=(None, None, 3)), len(anchors) // 3, num_classes)
     yolo_model.load_weights(r"E:\Programming\Python\5_CV\学习案例\xl_tf2_yolov3/yolov3_trained_weights_final.h5",
                             skip_mismatch=True, by_name=True)
-    files = file_scanning(r"F:\Download\test15", file_format="jpg", sub_scan=True)
+    files = file_scanning(r"F:\Download\temp\test15\test15", file_format="jpg", sub_scan=True)
     import random
     from tqdm import tqdm
-    random.shuffle(files)
+    # random.shuffle(files)
     label_map = {0: 'pizza',
               1: 'tilapia',
               2: 'sweet_potato',
@@ -119,25 +123,47 @@ if __name__ == '__main__':
               13: 'corn',
               14: 'broccoli'}
     unrecognized = 0
-    for file in tqdm(files[:100]):
+    # for file in tqdm(files[:100]):
+    model = single_inference_model(r"E:\Programming\Python\5_CV\学习案例\xl_tf2_yolov3/yolov3_trained_weights_final.h5",
+                                   15)
+    for i,file in enumerate(files[:100]):
         image = Image.open(file)
         boxed_image = letterbox_image(image, (416, 416))
         image_data = np.array(boxed_image, dtype='float32')
         image_data /= 255.
         image_data = np.expand_dims(image_data, 0)
-        result = yolo_model.predict(np.concatenate([image_data, image_data], axis=0))
-        boxes_, scores_, classes_ = yolo_eval([tf.constant(result[0]), tf.constant(result[1]), tf.constant(result[2])],
-                                              anchors,
-                                              15, (480, 640))
-        boxes_, scores_, classes_ = np.array(boxes_), np.array(scores_), np.array(classes_)
-        if boxes_.shape[0] == 0:
-            unrecognized += 1
-            print(f"未检测到目标,总数{unrecognized}！！！\t", file)
 
-            continue
-        for i, box in enumerate(boxes_):
-            box = np.array(box).astype(np.int)
-            image = draw_rectanngle(image, box, label_map[classes_[i]])
-        image.show()
+        # result = yolo_model.predict(image_data)
+        # boxes_, scores_, classes_ = yolo_eval([tf.constant(result[0]), tf.constant(result[1]), tf.constant(result[2])],
+        #                                       anchors,
+        #                                       15, (480, 640))
+        # boxes_, scores_, classes_ = np.array(boxes_), np.array(scores_), np.array(classes_)
+        # if boxes_.shape[0] == 0:
+        #     unrecognized += 1
+        #     print(f"未检测到目标,总数{unrecognized}！！！\t", file)
+        #
+        #     continue
+        # for i, box in enumerate(boxes_):
+        #     box = np.array(box).astype(np.int)
+        #     image = draw_rectanngle(image, box, label_map[classes_[i]])
+        # image.show()
+        # print(i+1)
 
+
+        # from xl_tensorflow.utils.deploy import serving_model_export
+        # serving_model_export(model,r"E:\Temp\test\yolo")
+        import time
+        st = time.time()
+        boxes_, scores_, classes_ = model.predict(image_data)
+        print(f"第 {i+1} 个，预测时间{time.time()-st:.2f}")
+        # boxes_, scores_, classes_ = boxes_[0], scores_[0], classes_[0]
+        # if boxes_.shape[0] == 0:
+        #     unrecognized += 1
+        #     print(f"未检测到目标,总数{unrecognized}！！！\t", file)
+        #
+        #     continue
+        # for i, box in enumerate(boxes_):
+        #     box = np.array(box).astype(np.int)
+        #     image = draw_rectanngle(image, box, label_map[classes_[i]])
+        # image.show()
         pass

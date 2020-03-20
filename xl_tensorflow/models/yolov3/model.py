@@ -10,7 +10,8 @@ from tensorflow.keras.layers import LeakyReLU
 from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras.models import Model
 from tensorflow.keras.regularizers import l2
-from ..efficientnet import EfficientNetB4,EfficientNetB3, mb_conv_block, BlockArgs, get_swish
+from ..efficientnet import EfficientNetB4, EfficientNetB3, \
+    EfficientNetLiteB4, mb_conv_block, BlockArgs, get_swish, EfficientNetLiteB1, EfficientNetB0
 from .utils import compose
 
 
@@ -102,7 +103,7 @@ def make_last_layers_efficientnet(x, block_args, prefix):
             epsilon=1e-3,
             momentum=0.9),
         tf.keras.layers.ReLU(6.),
-        lambda x: mb_conv_block(x, block_args, activation=get_swish(), drop_rate=0.2, prefix="1_"+prefix),
+        lambda x: mb_conv_block(x, block_args, activation=get_swish(), drop_rate=0.2, prefix="1_" + prefix),
         tf.keras.layers.Conv2D(num_filters,
                                kernel_size=1,
                                padding='same',
@@ -121,7 +122,7 @@ def make_last_layers_efficientnet(x, block_args, prefix):
             momentum=0.9),
         tf.keras.layers.ReLU(6.))(x)
     y = compose(
-        lambda x: mb_conv_block(x, block_args, activation=get_swish(), drop_rate=0.2, prefix="3_"+prefix),
+        lambda x: mb_conv_block(x, block_args, activation=get_swish(), drop_rate=0.2, prefix="3_" + prefix),
         tf.keras.layers.Conv2D(block_args.output_filters,
                                kernel_size=1,
                                padding='same',
@@ -138,7 +139,7 @@ def yolo_efficientnetb4_body(inputs, number_anchors, number_classes):
                            id_skip=True,
                            se_ratio=0.25,
                            strides=[1, 1])
-    backbone = EfficientNetB4(include_top=False, input_tensor=inputs,weights=None)
+    backbone = EfficientNetB4(include_top=False, input_tensor=inputs, weights=None)
     x, y1 = make_last_layers_efficientnet(backbone.output, block_args, "y1_")
     x = compose(
         tf.keras.layers.Conv2D(256,
@@ -153,7 +154,7 @@ def yolo_efficientnetb4_body(inputs, number_anchors, number_classes):
     block_args = block_args._replace(input_filters=256)
     x = tf.keras.layers.Concatenate()(
         [x, backbone.get_layer('block6a_expand_activation').output])
-    x, y2 = make_last_layers_efficientnet(x,  block_args, "y2_")
+    x, y2 = make_last_layers_efficientnet(x, block_args, "y2_")
     x = compose(
         tf.keras.layers.Conv2D(128,
                                kernel_size=1,
@@ -161,15 +162,102 @@ def yolo_efficientnetb4_body(inputs, number_anchors, number_classes):
                                use_bias=False,
                                name='block_24_conv'),
         tf.keras.layers.BatchNormalization(
-                                           momentum=0.9,
-                                           name='block_24_BN'),
+            momentum=0.9,
+            name='block_24_BN'),
         tf.keras.layers.ReLU(6., name='block_24_relu6'),
         tf.keras.layers.UpSampling2D(2))(x)
     block_args = block_args._replace(input_filters=128)
     x = tf.keras.layers.Concatenate()(
         [x, backbone.get_layer('block4a_expand_activation').output])
-    x, y3 = make_last_layers_efficientnet(x,  block_args, "y3_")
+    x, y3 = make_last_layers_efficientnet(x, block_args, "y3_")
     return Model(inputs, [y1, y2, y3])
+
+
+def yolo_efficientnetliteb4_body(inputs, number_anchors, number_classes):
+    block_args = BlockArgs(kernel_size=3,
+                           num_repeat=1,
+                           input_filters=512,
+                           output_filters=number_anchors * (number_classes + 5),
+                           expand_ratio=1,
+                           id_skip=True,
+                           se_ratio=None,
+                           strides=[1, 1])
+    backbone = EfficientNetLiteB4(include_top=False, input_tensor=inputs, weights=None)
+    x, y1 = make_last_layers_efficientnet(backbone.output, block_args, "y1_")
+    x = compose(
+        tf.keras.layers.Conv2D(256,
+                               kernel_size=1,
+                               padding='same',
+                               use_bias=False,
+                               name='block_20_conv'),
+        tf.keras.layers.BatchNormalization(momentum=0.9,
+                                           name='block_20_BN'),
+        tf.keras.layers.ReLU(6., name='block_20_relu6'),
+        tf.keras.layers.UpSampling2D(2))(x)
+    block_args = block_args._replace(input_filters=256)
+    x = tf.keras.layers.Concatenate()(
+        [x, backbone.get_layer('block6a_expand_activation').output])
+    x, y2 = make_last_layers_efficientnet(x, block_args, "y2_")
+    x = compose(
+        tf.keras.layers.Conv2D(128,
+                               kernel_size=1,
+                               padding='same',
+                               use_bias=False,
+                               name='block_24_conv'),
+        tf.keras.layers.BatchNormalization(
+            momentum=0.9,
+            name='block_24_BN'),
+        tf.keras.layers.ReLU(6., name='block_24_relu6'),
+        tf.keras.layers.UpSampling2D(2))(x)
+    block_args = block_args._replace(input_filters=128)
+    x = tf.keras.layers.Concatenate()(
+        [x, backbone.get_layer('block4a_expand_activation').output])
+    x, y3 = make_last_layers_efficientnet(x, block_args, "y3_")
+    return Model(inputs, [y1, y2, y3])
+
+
+def yolo_efficientnetliteb1_body(inputs, number_anchors, number_classes):
+    block_args = BlockArgs(kernel_size=3,
+                           num_repeat=1,
+                           input_filters=512,
+                           output_filters=number_anchors * (number_classes + 5),
+                           expand_ratio=1,
+                           id_skip=True,
+                           se_ratio=None,
+                           strides=[1, 1])
+    backbone = EfficientNetLiteB1(include_top=False, input_tensor=inputs, weights=None)
+    x, y1 = make_last_layers_efficientnet(backbone.output, block_args, "y1_")
+    x = compose(
+        tf.keras.layers.Conv2D(256,
+                               kernel_size=1,
+                               padding='same',
+                               use_bias=False,
+                               name='block_20_conv'),
+        tf.keras.layers.BatchNormalization(momentum=0.9,
+                                           name='block_20_BN'),
+        tf.keras.layers.ReLU(6., name='block_20_relu6'),
+        tf.keras.layers.UpSampling2D(2))(x)
+    block_args = block_args._replace(input_filters=256)
+    x = tf.keras.layers.Concatenate()(
+        [x, backbone.get_layer('block6a_expand_activation').output])
+    x, y2 = make_last_layers_efficientnet(x, block_args, "y2_")
+    x = compose(
+        tf.keras.layers.Conv2D(128,
+                               kernel_size=1,
+                               padding='same',
+                               use_bias=False,
+                               name='block_24_conv'),
+        tf.keras.layers.BatchNormalization(
+            momentum=0.9,
+            name='block_24_BN'),
+        tf.keras.layers.ReLU(6., name='block_24_relu6'),
+        tf.keras.layers.UpSampling2D(2))(x)
+    block_args = block_args._replace(input_filters=128)
+    x = tf.keras.layers.Concatenate()(
+        [x, backbone.get_layer('block4a_expand_activation').output])
+    x, y3 = make_last_layers_efficientnet(x, block_args, "y3_")
+    return Model(inputs, [y1, y2, y3])
+
 
 def yolo_efficientnetb3_body(inputs, number_anchors, number_classes):
     block_args = BlockArgs(kernel_size=3,
@@ -180,7 +268,7 @@ def yolo_efficientnetb3_body(inputs, number_anchors, number_classes):
                            id_skip=True,
                            se_ratio=0.25,
                            strides=[1, 1])
-    backbone = EfficientNetB3(include_top=False, input_tensor=inputs,weights=None)
+    backbone = EfficientNetB3(include_top=False, input_tensor=inputs, weights=None)
     x, y1 = make_last_layers_efficientnet(backbone.output, block_args, "y1_")
     x = compose(
         tf.keras.layers.Conv2D(256,
@@ -195,7 +283,7 @@ def yolo_efficientnetb3_body(inputs, number_anchors, number_classes):
     block_args = block_args._replace(input_filters=256)
     x = tf.keras.layers.Concatenate()(
         [x, backbone.get_layer('block6a_expand_activation').output])
-    x, y2 = make_last_layers_efficientnet(x,  block_args, "y2_")
+    x, y2 = make_last_layers_efficientnet(x, block_args, "y2_")
     x = compose(
         tf.keras.layers.Conv2D(128,
                                kernel_size=1,
@@ -203,15 +291,59 @@ def yolo_efficientnetb3_body(inputs, number_anchors, number_classes):
                                use_bias=False,
                                name='block_24_conv'),
         tf.keras.layers.BatchNormalization(
-                                           momentum=0.9,
-                                           name='block_24_BN'),
+            momentum=0.9,
+            name='block_24_BN'),
         tf.keras.layers.ReLU(6., name='block_24_relu6'),
         tf.keras.layers.UpSampling2D(2))(x)
     block_args = block_args._replace(input_filters=128)
     x = tf.keras.layers.Concatenate()(
         [x, backbone.get_layer('block4a_expand_activation').output])
-    x, y3 = make_last_layers_efficientnet(x,  block_args, "y3_")
+    x, y3 = make_last_layers_efficientnet(x, block_args, "y3_")
     return Model(inputs, [y1, y2, y3])
+
+
+def yolo_efficientnetb0_body(inputs, number_anchors, number_classes):
+    block_args = BlockArgs(kernel_size=3,
+                           num_repeat=1,
+                           input_filters=512,
+                           output_filters=number_anchors * (number_classes + 5),
+                           expand_ratio=1,
+                           id_skip=True,
+                           se_ratio=0.25,
+                           strides=[1, 1])
+    backbone = EfficientNetB0(include_top=False, input_tensor=inputs, weights=None)
+    x, y1 = make_last_layers_efficientnet(backbone.output, block_args, "y1_")
+    x = compose(
+        tf.keras.layers.Conv2D(256,
+                               kernel_size=1,
+                               padding='same',
+                               use_bias=False,
+                               name='block_20_conv'),
+        tf.keras.layers.BatchNormalization(momentum=0.9,
+                                           name='block_20_BN'),
+        tf.keras.layers.ReLU(6., name='block_20_relu6'),
+        tf.keras.layers.UpSampling2D(2))(x)
+    block_args = block_args._replace(input_filters=256)
+    x = tf.keras.layers.Concatenate()(
+        [x, backbone.get_layer('block6a_expand_activation').output])
+    x, y2 = make_last_layers_efficientnet(x, block_args, "y2_")
+    x = compose(
+        tf.keras.layers.Conv2D(128,
+                               kernel_size=1,
+                               padding='same',
+                               use_bias=False,
+                               name='block_24_conv'),
+        tf.keras.layers.BatchNormalization(
+            momentum=0.9,
+            name='block_24_BN'),
+        tf.keras.layers.ReLU(6., name='block_24_relu6'),
+        tf.keras.layers.UpSampling2D(2))(x)
+    block_args = block_args._replace(input_filters=128)
+    x = tf.keras.layers.Concatenate()(
+        [x, backbone.get_layer('block4a_expand_activation').output])
+    x, y3 = make_last_layers_efficientnet(x, block_args, "y3_")
+    return Model(inputs, [y1, y2, y3])
+
 
 def tiny_yolo_body(inputs, num_anchors, num_classes):
     '''Create Tiny YOLO_v3 model CNN body in keras.'''
@@ -391,85 +523,60 @@ def yolo_eval(yolo_outputs,
     return boxes_, scores_, classes_
 
 
-def preprocess_true_boxes(true_boxes, input_shape, anchors, num_classes):
-    '''
-    Preprocess true boxes to training input format
-    所有box会定位到指定的grid
-    Args：
-        true_boxes: array, shape=(m, T, 5),绝对值
-        Absolute x_min, y_min, x_max, y_max, class_id relative to input_shape.
-        input_shape: array-like, hw, multiples of 32
-        anchors: array, shape=(N, 2), 2 refer to wh, N refer to number of achors
-        num_classes: integer
+def yolo_eval_serving(yolo_outputs,
+                      anchors,
+                      num_classes,
+                      image_shape,
+                      max_boxes=20,
+                      score_threshold=.6,
+                      iou_threshold=.5):
+    """Evaluate YOLO model on given input and return filtered boxes.
+    只适用于一张图片的处理，不适合批处理
+    Args:
+        image_shape: 原始输入图片尺寸, 高X宽
+    Returns:
+        boxes,其中box格式为[y1,x1,y2,x2]
+    """
+    num_layers = len(yolo_outputs)
+    anchor_mask = [[6, 7, 8], [3, 4, 5], [0, 1, 2]] if num_layers == 3 else [[3, 4, 5], [1, 2, 3]]  # default setting
+    input_shape = K.shape(yolo_outputs[0])[1:3] * 32
+    boxes = []
+    box_scores = []
+    for l in range(num_layers):
+        # 此处的处理会去除batch的信息，完全展开，因此该计算图只能用于单张图片处理，不能批处理
+        _boxes, _box_scores = yolo_boxes_and_scores(yolo_outputs[l],
+                                                    anchors[anchor_mask[l]], num_classes, input_shape, image_shape)
+        boxes.append(_boxes)
+        box_scores.append(_box_scores)
+    boxes = K.concatenate(boxes, axis=0)
+    box_scores = K.concatenate(box_scores, axis=0)
 
-    Returns
+    mask = box_scores >= score_threshold
+    max_boxes_tensor = K.constant(max_boxes, dtype='int32')
+    boxes_ = []
+    scores_ = []
+    classes_ = []
+    for c in range(num_classes):
+        # TODO: use keras backend instead of tf.
+        class_boxes = tf.boolean_mask(boxes, mask[:, c])
+        class_box_scores = tf.boolean_mask(box_scores[:, c], mask[:, c])
+        nms_index = tf.image.non_max_suppression(
+            class_boxes, class_box_scores, max_boxes_tensor, iou_threshold=iou_threshold)
+        class_boxes = K.gather(class_boxes, nms_index)
+        class_box_scores = K.gather(class_box_scores, nms_index)
+        classes = K.ones_like(class_box_scores, 'int32') * c
+        boxes_.append(class_boxes)
+        scores_.append(class_box_scores)
+        classes_.append(classes)
+    # 此处更改是为了直接把后处理写入模型中
+    boxes_ = K.expand_dims(K.concatenate(boxes_, axis=0), axis=0)
+    scores_ = K.expand_dims(K.concatenate(scores_, axis=0), axis=0)
+    classes_ = K.expand_dims(K.concatenate(classes_, axis=0), axis=0)
+    # boxes_ = K.concatenate(boxes_, axis=0)
+    # scores_ = K.concatenate(scores_, axis=0)
+    # classes_ = K.concatenate(classes_, axis=0)
 
-        y_true:
-            list of array, shape like yolo_outputs, xywh are reletive value
-            即相对值，相对整图比例， y_true 形状通常为 [arrary(1,26,26,3,85),]
-
-            一个box只会对应一个尺度的一个grid, 尺度的选择根据与anchor box的iou来定
-                首先计算box与9个anchor的iou，计算最高iou的anchorbox，选择该anchor box作为负责预测的anchor
-                ,根据anchor索引和坐标定位到相应的grid
-    '''
-    assert (true_boxes[..., 4] < num_classes).all(), 'class id must be less than num_classes'
-    num_layers = len(anchors) // 3  # default setting
-    anchor_mask = [[6, 7, 8], [3, 4, 5], [0, 1, 2]] if num_layers == 3 else [[3, 4, 5], [1, 2, 3]]
-
-    true_boxes = np.array(true_boxes, dtype='float32')
-    input_shape = np.array(input_shape, dtype='int32')
-    boxes_xy = (true_boxes[..., 0:2] + true_boxes[..., 2:4]) // 2
-    boxes_wh = true_boxes[..., 2:4] - true_boxes[..., 0:2]
-    true_boxes[..., 0:2] = boxes_xy / input_shape[::-1]
-    true_boxes[..., 2:4] = boxes_wh / input_shape[::-1]
-
-    m = true_boxes.shape[0]
-    grid_shapes = [input_shape // {0: 32, 1: 16, 2: 8}[l] for l in range(num_layers)]
-    y_true = [np.zeros((m, grid_shapes[l][0], grid_shapes[l][1], len(anchor_mask[l]), 5 + num_classes),
-                       dtype='float32') for l in range(num_layers)]
-
-    # Expand dim to apply broadcasting.
-    anchors = np.expand_dims(anchors, 0)
-    anchor_maxes = anchors / 2.
-    anchor_mins = -anchor_maxes
-    valid_mask = boxes_wh[..., 0] > 0
-
-    for b in range(m):
-        # Discard zero rows.
-        wh = boxes_wh[b, valid_mask[b]]
-        if len(wh) == 0: continue
-        # Expand dim to apply broadcasting.
-        wh = np.expand_dims(wh, -2)
-        box_maxes = wh / 2.
-        box_mins = -box_maxes
-        # 所有box都会与anchor进行对比，
-        intersect_mins = np.maximum(box_mins, anchor_mins)
-        intersect_maxes = np.minimum(box_maxes, anchor_maxes)
-        intersect_wh = np.maximum(intersect_maxes - intersect_mins, 0.)
-        intersect_area = intersect_wh[..., 0] * intersect_wh[..., 1]
-        box_area = wh[..., 0] * wh[..., 1]
-        anchor_area = anchors[..., 0] * anchors[..., 1]
-        iou = intersect_area / (box_area + anchor_area - intersect_area)
-
-        # Find best anchor for each true box，此处已经确定对应最好的anchorbox了
-        best_anchor = np.argmax(iou, axis=-1)
-
-        for t, n in enumerate(best_anchor):
-            for l in range(num_layers):
-                # 一个box只会对应一个尺度一个grid, 尺度的选择根据与anchor box的iou来定
-                if n in anchor_mask[l]:
-                    i = np.floor(true_boxes[b, t, 0] * grid_shapes[l][1]).astype('int32')
-                    j = np.floor(true_boxes[b, t, 1] * grid_shapes[l][0]).astype('int32')
-                    # 单个grid最多允许三个box，多余的会被覆盖，根据anchor确定位置
-                    # 即如果两个框对应同一个anchor,且位置相近的话，有一个会被覆盖
-                    k = anchor_mask[l].index(n)
-                    c = true_boxes[b, t, 4].astype('int32')
-                    y_true[l][b, j, i, k, 0:4] = true_boxes[b, t, 0:4]
-                    # real object confidence
-                    y_true[l][b, j, i, k, 4] = 1
-                    y_true[l][b, j, i, k, 5 + c] = 1
-
-    return y_true
+    return boxes_, scores_, classes_
 
 
 def box_iou(b1, b2):

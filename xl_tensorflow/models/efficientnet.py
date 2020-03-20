@@ -398,20 +398,20 @@ def EfficientNet(width_coefficient,
     model = models.Model(inputs, x, name=model_name)
 
     # Load weights.
-    # if weights == 'imagenet':
-    #     if include_top:
-    #         file_name = model_name.replace("lite", "") + '_weights_tf_dim_ordering_tf_kernels_autoaugment.h5'
-    #         file_hash = WEIGHTS_HASHES[model_name.replace("lite", "")][0]
-    #     else:
-    #         file_name = model_name.replace("lite", "") + '_weights_tf_dim_ordering_tf_kernels_autoaugment_notop.h5'
-    #         file_hash = WEIGHTS_HASHES[model_name.replace("lite", "")][1]
-    #     weights_path = utils.get_file(file_name,
-    #                                   BASE_WEIGHTS_PATH + file_name,
-    #                                   cache_subdir='models',
-    #                                   file_hash=file_hash)
-    #     model.load_weights(weights_path, by_name=True, skip_mismatch=True)
-    # elif weights is not None:
-    #     model.load_weights(weights, by_name=True, skip_mismatch=True)
+    if weights == 'imagenet':
+        if include_top:
+            file_name = model_name.replace("lite", "") + '_weights_tf_dim_ordering_tf_kernels_autoaugment.h5'
+            file_hash = WEIGHTS_HASHES[model_name.replace("lite", "")][0]
+        else:
+            file_name = model_name.replace("lite", "") + '_weights_tf_dim_ordering_tf_kernels_autoaugment_notop.h5'
+            file_hash = WEIGHTS_HASHES[model_name.replace("lite", "")][1]
+        weights_path = utils.get_file(file_name,
+                                      BASE_WEIGHTS_PATH + file_name,
+                                      cache_subdir='models',
+                                      file_hash=file_hash)
+        model.load_weights(weights_path, by_name=True, skip_mismatch=True)
+    elif weights is not None:
+        model.load_weights(weights, by_name=True, skip_mismatch=True)
 
     return model
 
