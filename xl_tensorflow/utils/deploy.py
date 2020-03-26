@@ -36,7 +36,7 @@ def quantize_model(converter, method="float16", int_quantize_sample=(100, 224, 2
     return converter
 
 
-def tf_saved_model_to_lite(model_path, save_lite_file, input_shape=None, quantize_method=None):
+def tf_saved_model_to_lite(model_path, save_lite_file, input_shape=None, quantize_method=None,allow_custom_ops=False):
     """
     tensorflow saved model转成lite格式
     Args:
@@ -44,12 +44,14 @@ def tf_saved_model_to_lite(model_path, save_lite_file, input_shape=None, quantiz
         save_lite_file: lite file name(full path)
         input_shape； specified input shape, if none means  [None, 224, 224, 3]
         quantize_method: str, valid value：float16,int,weight
+        allow_custom_ops:是否允许自定义算子
     """
     if input_shape:
         model = tf.saved_model.load(model_path)
         concrete_func = model.signatures[tf.saved_model.DEFAULT_SERVING_SIGNATURE_DEF_KEY]
         concrete_func.inputs[0].set_shape(input_shape)
         converter = tf.lite.TFLiteConverter.from_concrete_functions([concrete_func])
+
     else:
         try:
             converter = tf.lite.TFLiteConverter.from_saved_model(model_path)
@@ -58,9 +60,13 @@ def tf_saved_model_to_lite(model_path, save_lite_file, input_shape=None, quantiz
             concrete_func = model.signatures[tf.saved_model.DEFAULT_SERVING_SIGNATURE_DEF_KEY]
             concrete_func.inputs[0].set_shape(input_shape if input_shape else [None, 224, 224, 3])
             converter = tf.lite.TFLiteConverter.from_concrete_functions([concrete_func])
+
     if quantize_method:
         converter = quantize_model(converter, quantize_method,
                                    (100, *input_shape[1:]) if input_shape else (100, 224, 224, 3))
+    if allow_custom_ops:
+        converter.allow_custom_ops = True
+        converter.target_spec.supported_ops = [tf.lite.OpsSet.SELECT_TF_OPS, tf.lite.OpsSet.TFLITE_BUILTINS]
     return pathlib.Path(save_lite_file).write_bytes(converter.convert())
 
 

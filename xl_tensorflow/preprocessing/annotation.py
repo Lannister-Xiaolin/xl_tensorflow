@@ -45,12 +45,13 @@ def voc2txt_annotation(xml_files, train_txt, classes, image_path=None, seperator
 
 
 def main():
-    classes = os.listdir(r"E:\Programming\Python\8_Ganlanz\food_recognition\dataset\自建数据集\1_真实场景\0_已标框")
+    classes = os.listdir(r"E:\Programming\Python\8_Ganlanz\food_recognition\dataset\自建数据集\7_增强图片\single_pyramid")
 
     train_text = r"E:\Programming\Python\5_CV\学习案例\xl_tf2_yolov3\model_data\train.txt"
-    path = r"E:\Programming\Python\8_Ganlanz\food_recognition\dataset\自建数据集\1_真实场景\0_已标框"
+    path = r"E:\Programming\Python\8_Ganlanz\food_recognition\dataset\自建数据集\7_增强图片\single_pyramid"
     xml_files = [i for i in file_scanning(path, sub_scan=True, full_path=True, file_format="xml") if
                  os.path.exists(i.replace("xml", "jpg"))]
+    # print("Dddddddddd")
     voc2txt_annotation(xml_files, train_text, classes,seperator="\t")
 
 

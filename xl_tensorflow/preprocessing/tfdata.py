@@ -52,11 +52,17 @@ def image2tfexample(filename, label="", class_id=0):
 
 def write_tfrecord(record_file, files, label2class_id=None):
     writer = tf.io.TFRecordWriter(record_file)
-    for file in files:
+    from tqdm import tqdm
+    from random import shuffle
+    shuffle(files)
+    shuffle(files)
+    pbar = tqdm(files)
+    for file, label in pbar:
         try:
-            label = os.path.split(os.path.split(file)[0])[1] if label2class_id else ""
+            # label = os.path.split(os.path.split(file)[0])[1] if label2class_id else ""
             class_id = label2class_id[label] if label2class_id else 0
         except KeyError:
+            logging.warning("发现严重错误！")
             label = None
             class_id = None
             for label in label2class_id.keys():
@@ -66,24 +72,35 @@ def write_tfrecord(record_file, files, label2class_id=None):
                     break
         exmple = image2tfexample(file, label, class_id)
         writer.write(exmple.SerializeToString())
+        pbar.set_description("tfrecord转换进度：")
     writer.close()
 
 
-def images_to_tfrecord(root_path, record_file, c2l_file, mul_thread=None):
+def images_to_tfrecord(root_path, record_file, c2l_file, classes=None, mul_thread=None):
     """
     convert image to .tfrecord file
     Args:
         root_path: image root path, please, confirm images are placed in different directories
         record_file: record_file name
         c2l_file:  classes to label id json file
+        classes: 是否指定类别
         mul_thread: whether to use multhread, int to use mul thread
     Returns:
     """
 
-    labels = [d for d in os.listdir(root_path) if os.path.isdir(os.path.join(root_path, d))]
+    labels = [d for d in os.listdir(root_path) if os.path.isdir(os.path.join(root_path, d))] if not classes else classes
+    labels = sorted([d for d in labels])
     logging.info(f"发现类别数量：{len(labels)}")
+    logging.info("\n".join(labels))
     label2class_id = {labels[i]: i for i in range(len(labels))} if labels else dict()
-    files = file_scanning(root_path, file_format="jpg|jpeg|png", sub_scan=True, full_path=True)
+    files = []
+    for d in labels:
+        fs = file_scanning(root_path + "/" + d, file_format="jpg|jpeg|png", sub_scan=True, full_path=True)
+        logging.info(d + ": {}".format(len(fs)))
+        lbs = [d, ] * len(fs)
+        fs = list(zip(fs, lbs))
+        files.extend(fs)
+        # files = file_scanning(root_path, file_format="jpg|jpeg|png", sub_scan=True, full_path=True)
     logging.info(f"扫描到有效文件数量：{len(files)}")
     if not mul_thread or mul_thread < 2:
         write_tfrecord(record_file, files, label2class_id)

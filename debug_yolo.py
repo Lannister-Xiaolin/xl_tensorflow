@@ -14,10 +14,44 @@
 # serving_model_export(test_model,path=r"E:\Temp\test",version=5,auto_incre_version=False)
 # tf_saved_model_to_lite(r"E:\Temp\test\5",r"E:\Temp\test\float_model.tflite",input_shape=[1,224,224,3],)
 # tf_saved_model_to_lite(r"E:\Temp\test\5",r"E:\Temp\test\int_quant_model.tflite",input_shape=[1,416,416,3],quantize_method="int")
+import tensorflow as tf
+
+tf.compat.v1.disable_eager_execution()
+from xl_tensorflow.models.yolov3.model import *
+from xl_tensorflow.models.yolov3.utils import *
+from tensorflow.keras.layers import Input, Lambda
 
 
-from xl_tensorflow.models.yolov3.training import *
+def test_yolo_tflosss():
+    mirrored_strategy = tf.distribute.MirroredStrategy()
+    with mirrored_strategy.scope():
+        defalt_anchors = np.array([[10., 13.],
+                                   [16., 30.],
+                                   [33., 23.],
+                                   [30., 61.],
+                                   [62., 45.],
+                                   [59., 119.],
+                                   [116., 90.],
+                                   [156., 198.],
+                                   [373., 326.]], dtype="float")
+        image_input = Input(shape=(416, 416, 3))
+        model_body = yolo_body(image_input, 3, 15, False)
+        y1 = tf.reshape(model_body.outputs[0], (-1, 13, 13, 3, 20))
+        y2 = tf.reshape(model_body.outputs[1], (-1, 26, 26, 3, 20))
+        y3 = tf.reshape(model_body.outputs[2], (-1, 52, 52, 3, 20))
+        model = Model(model_body.inputs, [y1, y2, y3])
+        model.compile(loss=[YoloLoss(i, (416, 416), 15,giou_loss=True) for i in range(3)])
+    num_classes = 15
+    anchors = get_anchors(r"E:\Programming\Python\5_CV\学习案例\xl_tf2_yolov3\model_data\yolo_anchors.txt")
+    input_shape = (416, 416)  # multiple of 32, hw
+    with open(r"E:\Programming\Python\5_CV\学习案例\xl_tf2_yolov3\model_data\train.txt", encoding="utf-8") as f:
+        train_lines = f.readlines()
+    train_gen = data_generator_wrapper(train_lines, 4, input_shape, anchors, num_classes)
+    for i in range(10):
+        inputs = next(train_gen)[0]
+        image, labels = inputs[0], inputs[1:]
+        model.fit(image, labels)
 
-image_input = Input(shape=(380, 380, 3))
-model_body = yolo_efficientnet_body(image_input, 3, 16)
-print('')
+
+if __name__ == '__main__':
+    test_yolo_tflosss()

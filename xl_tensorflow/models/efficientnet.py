@@ -365,7 +365,7 @@ def EfficientNet(width_coefficient,
                 x = mb_conv_block(x, block_args,
                                   activation=activation,
                                   drop_rate=drop_rate,
-                                  prefix=block_prefix)
+                                  prefix=block_prefix,using_se_global_pooling=using_se_global_pooling)
                 block_num += 1
 
     # Build top

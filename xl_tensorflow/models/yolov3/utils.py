@@ -29,7 +29,7 @@ def letterbox_image(image, size):
     nh = int(ih * scale)
 
     image = image.resize((nw, nh), Image.BICUBIC)
-    new_image = Image.new('RGB', size, (128, 128, 128))
+    new_image = Image.new('RGB', size, (0, 0, 0))
     new_image.paste(image, ((w - nw) // 2, (h - nh) // 2))
     return new_image
 
@@ -203,7 +203,7 @@ def preprocess_true_boxes(true_boxes, input_shape, anchors, num_classes):
 
         y_true:
             list of array, shape like yolo_outputs, xywh are reletive value
-            即相对值，相对整图比例， y_true 形状通常为 [arrary(1,26,26,3,85),]
+            即相对值，相对整图比例， y_true 形状通常为 [array(1,26,26,3,85),]
 
             一个box只会对应一个尺度的一个grid, 尺度的选择根据与anchor box的iou来定
                 首先计算box与9个anchor的iou，计算最高iou的anchorbox，选择该anchor box作为负责预测的anchor
@@ -286,7 +286,7 @@ def data_generator(annotation_lines, batch_size, input_shape, anchors, num_class
         image_data = np.array(image_data)
         box_data = np.array(box_data)
         y_true = preprocess_true_boxes(box_data, input_shape, anchors, num_classes)
-        yield [image_data, *y_true], np.zeros(batch_size)
+        yield (image_data, *y_true), np.zeros(batch_size)
 
 
 def data_generator_wrapper(annotation_lines, batch_size, input_shape, anchors, num_classes):
