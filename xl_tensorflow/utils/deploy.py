@@ -36,7 +36,7 @@ def quantize_model(converter, method="float16", int_quantize_sample=(100, 224, 2
     return converter
 
 
-def tf_saved_model_to_lite(model_path, save_lite_file, input_shape=None, quantize_method=None,allow_custom_ops=False):
+def tf_saved_model_to_lite(model_path, save_lite_file, input_shape=None, quantize_method=None, allow_custom_ops=False):
     """
     tensorflow saved model转成lite格式
     Args:
@@ -46,21 +46,14 @@ def tf_saved_model_to_lite(model_path, save_lite_file, input_shape=None, quantiz
         quantize_method: str, valid value：float16,int,weight
         allow_custom_ops:是否允许自定义算子
     """
-    if input_shape:
+
+    try:
+        converter = tf.lite.TFLiteConverter.from_saved_model(model_path)
+    except ValueError:
         model = tf.saved_model.load(model_path)
         concrete_func = model.signatures[tf.saved_model.DEFAULT_SERVING_SIGNATURE_DEF_KEY]
-        concrete_func.inputs[0].set_shape(input_shape)
+        concrete_func.inputs[0].set_shape(input_shape if input_shape else [None, 224, 224, 3])
         converter = tf.lite.TFLiteConverter.from_concrete_functions([concrete_func])
-
-    else:
-        try:
-            converter = tf.lite.TFLiteConverter.from_saved_model(model_path)
-        except ValueError:
-            model = tf.saved_model.load(model_path)
-            concrete_func = model.signatures[tf.saved_model.DEFAULT_SERVING_SIGNATURE_DEF_KEY]
-            concrete_func.inputs[0].set_shape(input_shape if input_shape else [None, 224, 224, 3])
-            converter = tf.lite.TFLiteConverter.from_concrete_functions([concrete_func])
-
     if quantize_method:
         converter = quantize_model(converter, quantize_method,
                                    (100, *input_shape[1:]) if input_shape else (100, 224, 224, 3))
@@ -79,7 +72,8 @@ def serving_model_export(model, path, version=1, auto_incre_version=True):
         auto_incre_version: 是否自动叠加版本
     """
     if auto_incre_version is True:
-        version = max([int(i) for i in os.listdir(path) if os.path.isdir(path+"/"+i)]) + 1 if os.listdir(path) else version
+        version = max([int(i) for i in os.listdir(path) if os.path.isdir(path + "/" + i)]) + 1 if os.listdir(
+            path) else version
     version_path = os.path.join(path, str(version))
     os.makedirs(version_path, exist_ok=True)
     try:
@@ -87,4 +81,70 @@ def serving_model_export(model, path, version=1, auto_incre_version=True):
     except Exception as e:
         print("模型导出异常：{}".format(e))
         raise AssertionError
+
+
 # tf_saved_model_to_lite(r"E:\Temp\test\eff\1",r"E:\Temp\test\eff\test.tflite",input_shape=[None, 380, 380, 3])
+import tflite_runtime.interpreter as tflite
+
+
+def load_lite_model(lite_model_path="./lite/net_lite/efficientnetb1/13/efficientnetb1_int_quant.tflite"):
+    interpreter = tflite.Interpreter(model_path=lite_model_path)
+    interpreter.allocate_tensors()
+    input_details = interpreter.get_input_details()
+    output_details = interpreter.get_output_details()
+    return interpreter, input_details, output_details
+
+
+from xl_tool.xl_concurrence import MyThread
+
+
+def tflite_evaluate(lite_model_path, keras_data_generater, mul_thread=None):
+    """tflite评估函数"""
+    predicts = []
+    one_hots = []
+    from tqdm import tqdm
+    def lite_interpreter(keras_data_generater, start, end):
+        pbar = tqdm(list(range(start,end)))
+        interpreter, input_details, output_details = load_lite_model(lite_model_path)
+        for i in pbar:
+
+            input_data, label = keras_data_generater[i]
+            interpreter.set_tensor(input_details[0]['index'], input_data)
+            interpreter.invoke()
+            output_data = interpreter.get_tensor(output_details[0]['index'])
+            predicts.append(output_data)
+            one_hots.append(label)
+            pbar.set_description("推理进度： ")
+        return predicts, one_hots
+
+    if mul_thread:
+        from math import ceil
+        threads = list(range(mul_thread))
+        step = ceil(len(keras_data_generater) / mul_thread)
+        for i in range(mul_thread):
+            start = step * i
+            end = step * (i + 1) if i < (mul_thread - 1) else len(keras_data_generater)
+            threads[i] = MyThread(target=lite_interpreter,
+                                  args=(keras_data_generater, start, end))
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        for thread in threads:
+            sub_predicts, sub_one_hots = thread.get_result()
+            predicts.extend(sub_predicts)
+            one_hots.extend(sub_one_hots)
+    else:
+        predicts, real = lite_interpreter(keras_data_generater, 0, len(keras_data_generater))
+    real = np.concatenate(one_hots, axis=0).argmax(axis=-1)
+    predicts = np.concatenate(predicts, axis=0)
+    top1 = np.sum(predicts.argmax(axis=-1) == real) / len(predicts)
+    return top1, predicts, real
+
+def export_model_config(model_names):
+    base = """model_config_list {{\n{}\n}}"""
+    config_template = "  config {{\n    name: '{}',\n    " \
+                      "base_path: '/models/{}/',\n\tmodel_platform: 'tensorflow'\n  }}"
+    return base.format(",\n".join(map(lambda x: config_template.format(x, x), model_names)))
+
+# export_model_config(["efficientnetb1","efficientnetb3"])
