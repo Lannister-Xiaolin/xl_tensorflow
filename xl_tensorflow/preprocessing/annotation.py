@@ -1,4 +1,6 @@
+import logging
 import os
+import shutil
 import xml.etree.ElementTree as ET
 from xl_tool.xl_io import file_scanning
 
@@ -44,6 +46,69 @@ def voc2txt_annotation(xml_files, train_txt, classes, image_path=None, seperator
     train_fp.close()
 
 
+def voc2voc_dataset(data_path, target_path, validation_split=None, cat_val=True, subset="train"):
+    """
+    Convert voc labeled data to VOC Dataset, files were placed into directories below:
+        Annotations:
+        ImageSets:
+            Main:
+        JPEGImages:
+    Args:
+        data_path: labeled image and xml path
+        target_path: target path to save data
+    Returns:
+    """
+    xml_files = file_scanning(data_path, "xml", sub_scan=True)
+    if not xml_files:
+        return
+    xml_files, image_files = zip(*[(xml_file, xml_file.replace("xml", "jpg")) for xml_file in xml_files if
+                                   os.path.exists(xml_file.replace("xml", "jpg"))])
+    logging.info(f"Find labeled data: {len(xml_files)}")
+    ImageSets, JPEGImages, Annotations = f"{target_path}/ImageSets/Main", f"{target_path}/JPEGImages", \
+                                         f"{target_path}/Annotations"
+    os.makedirs(ImageSets, exist_ok=True)
+    os.makedirs(JPEGImages, exist_ok=True)
+    os.makedirs(Annotations, exist_ok=True)
+    for file in xml_files: shutil.copy(file, f"{Annotations}")
+    for file in image_files: shutil.copy(file, f"{JPEGImages}")
+    name_map_func = lambda x: os.path.basename(x).split(".")[0]
+    if not validation_split:
+        with open(f"{ImageSets}/{subset}.txt", "w", encoding="utf-8") as f:
+            f.write("\n".join(map(name_map_func, xml_files)))
+    else:
+        if cat_val:
+            cats = os.listdir(data_path)
+            files = [list(map(name_map_func, [k for k in file_scanning(f"{data_path}/{d}", "xml", sub_scan=True) if
+                                              os.path.exists(k.replace("xml", "jpg"))])) for d in cats]
+            val_indexes = [int(len(j) * validation_split) for j in files]
+            train_files = []
+            val_files = []
+            for i, cat_files in enumerate(files):
+                with open(f"{ImageSets}/train_{cats[i]}.txt", "w", encoding="utf-8") as f:
+                    f.write("\n".join(cat_files[:val_indexes[i]]))
+                with open(f"{ImageSets}/val_{cats[i]}.txt", "w", encoding="utf-8") as f:
+                    f.write("\n".join(cat_files[val_indexes[i]:]))
+                with open(f"{ImageSets}/trainval_{cats[i]}.txt", "w", encoding="utf-8") as f:
+                    f.write("\n".join(cat_files))
+                train_files.extend(cat_files[:val_indexes[i]])
+                val_files.extend(cat_files[val_indexes[i]:])
+            with open(f"{ImageSets}/trainval.txt", "w", encoding="utf-8") as f:
+                f.write("\n".join(train_files + val_files))
+            with open(f"{ImageSets}/val.txt", "w", encoding="utf-8") as f:
+                f.write("\n".join(val_files))
+            with open(f"{ImageSets}/train.txt", "w", encoding="utf-8") as f:
+                f.write("\n".join(train_files))
+        else:
+            files = list(map(name_map_func, xml_files))
+            val_index = int(len(xml_files) * validation_split)
+            with open(f"{ImageSets}/trainval.txt", "w", encoding="utf-8") as f:
+                f.write("\n".join(files))
+            with open(f"{ImageSets}/val.txt", "w", encoding="utf-8") as f:
+                f.write("\n".join(files[val_index:]))
+            with open(f"{ImageSets}/train.txt", "w", encoding="utf-8") as f:
+                f.write("\n".join(files[:val_index]))
+
+
 def main():
     classes = os.listdir(r"E:\Programming\Python\8_Ganlanz\food_recognition\dataset\自建数据集\7_增强图片\single_pyramid")
 
@@ -52,9 +117,10 @@ def main():
     xml_files = [i for i in file_scanning(path, sub_scan=True, full_path=True, file_format="xml") if
                  os.path.exists(i.replace("xml", "jpg"))]
     # print("Dddddddddd")
-    voc2txt_annotation(xml_files, train_text, classes,seperator="\t")
+    voc2txt_annotation(xml_files, train_text, classes, seperator="\t")
 
 
 if __name__ == '__main__':
-    main()
-
+    voc2voc_dataset(r"E:\Programming\Python\8_Ganlanz\food_recognition\dataset\自建数据集\1_真实场景\0_已标框",
+                    r"E:\Programming\Python\8_Ganlanz\food_recognition\dataset\自建数据集\1_真实场景\voc",
+                    validation_split=0.8,cat_val=True)

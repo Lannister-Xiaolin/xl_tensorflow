@@ -2,6 +2,8 @@
 import logging
 import sys
 import os
+import xml
+
 import tensorflow as tf
 import numpy as np
 import imghdr
@@ -31,12 +33,54 @@ def _int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
 
 
+def _int64_list_feature(value):
+    """int64 list to feature(value don't need to and '[]")"""
+    return tf.train.Feature(int64_list=tf.train.Int64List(value=value))
+
+
+def _float_list_feature(value):
+    """float list to feature(value don't need to and '[]")"""
+    return tf.train.Feature(float_list=tf.train.FloatList(value=value))
+
+
+def _bytes_list_feature(value):
+    """byte list to feature(value don't need to and '[]")"""
+    return tf.train.Feature(bytes_list=tf.train.BytesList(value=value))
+
+
+coordinate_name = ["xmin", "ymin", "xmax", "ymax"]
+
+
+def get_bndbox(xml_file):
+    """提取voc标注文件里面的bounding box坐标
+    Args:
+        xml_file: xml文件
+    Returns：
+        bndboxes:
+            [{"name":annonation_class,"coordinates"：["xmin", "ymin", "xmax", "ymax"]}]
+    """
+    dom = xml.dom.minidom.parse(xml_file)
+    doc = dom.documentElement
+    xmins = []  # List of normalized left x coordinates in bounding box (1 per box)
+    xmaxs = []  # List of normalized right x coordinates in bounding box
+    ymins = []  # List of normalized top y coordinates in bounding box (1 per box)
+    ymaxs = []  # List of normalized bottom y coordinates in bounding box
+    classes_text = []
+    for object_node in doc.getElementsByTagName('object'):
+        classes_text.append(object_node.getElementsByTagName('name')[0].firstChild.data)
+        xmins.append(int(object_node.getElementsByTagName("xmin")[0].firstChild.data))
+        xmaxs.append(int(object_node.getElementsByTagName("xmax")[0].firstChild.data))
+        ymins.append(int(object_node.getElementsByTagName("ymin")[0].firstChild.data))
+        ymaxs.append(int(object_node.getElementsByTagName("ymax")[0].firstChild.data))
+    return xmins, ymins, xmaxs, ymaxs, classes_text
+
+
 def image2tfexample(filename, label="", class_id=0):
     """convert image to tensorflow example"""
     image_bytes = tf.io.read_file(filename)
     image_bytes = tf.image.encode_jpeg(tf.image.decode_image(image_bytes, channels=3))
-    if imghdr.what(filename) == 'png':
-        filename = os.path.basename(filename).replace("png", "jpg")
+    # if imghdr.what(filename) == 'png':
+    #     filename = os.path.basename(filename).replace("png", "jpg")
     image_array = tf.image.decode_image(image_bytes)
     height, width = image_array.shape[0:2]
     example = tf.train.Example(features=tf.train.Features(feature={
@@ -44,13 +88,53 @@ def image2tfexample(filename, label="", class_id=0):
         'height': _int64_feature(height),
         'image': _bytes_feature(image_bytes),
         'label': _bytes_feature(tf.compat.as_bytes(label)),
-        'filename': _bytes_feature(tf.compat.as_bytes(filename)),
+        'filename': _bytes_feature(tf.compat.as_bytes(os.path.basename(filename))),
         "class_id": _int64_feature(class_id),
     }))
     return example
 
 
-def write_tfrecord(record_file, files, label2class_id=None):
+def voc2tfexample(image_file, xml_file, label2id):
+    """
+    convert voc labeled object data to tf.Example
+    Args:
+        image_file: image file
+        xml_file: xml file
+        label2id: label to id
+
+    Returns:
+        tf.Example object
+    """
+    image_bytes = tf.io.read_file(image_file)
+    image_bytes = tf.image.encode_jpeg(tf.image.decode_image(image_bytes, channels=3))
+    image_array = tf.image.decode_image(image_bytes)
+    height, width = image_array.shape[0:2]
+    filename = tf.compat.as_bytes(
+        os.path.basename(image_file))  # Filename of the image. Empty if image is not from file
+    encoded_image_data = image_bytes  # Encoded image bytes
+    image_format = tf.compat.as_bytes(os.path.basename(image_file).split(".")[-1])
+
+    xmins, ymins, xmaxs, ymaxs, classes_text = get_bndbox(xml_file)
+    classes = [label2id[name] for name in classes_text]  # List of integer class id of bounding box (1 per box)
+    classes_text = [tf.compat.as_bytes(name) for name in classes_text]
+    example = tf.train.Example(features=tf.train.Features(feature={
+        'image/height': _int64_feature(height),
+        'image/width': _int64_feature(width),
+        'image/filename': _bytes_feature(filename),
+        'image/source_id': _bytes_feature(filename),
+        'image/encoded': _bytes_feature(encoded_image_data),
+        'image/format': _bytes_feature(image_format),
+        'image/object/bbox/xmin': _float_list_feature(xmins),
+        'image/object/bbox/xmax': _float_list_feature(xmaxs),
+        'image/object/bbox/ymin': _float_list_feature(ymins),
+        'image/object/bbox/ymax': _float_list_feature(ymaxs),
+        'image/object/class/text': _bytes_list_feature(classes_text),
+        'image/object/class/label': _int64_list_feature(classes),
+    }))
+    return example
+
+
+def write_image_tfrecord(record_file, files, label2id=None):
     writer = tf.io.TFRecordWriter(record_file)
     from tqdm import tqdm
     from random import shuffle
@@ -60,15 +144,15 @@ def write_tfrecord(record_file, files, label2class_id=None):
     for file, label in pbar:
         try:
             # label = os.path.split(os.path.split(file)[0])[1] if label2class_id else ""
-            class_id = label2class_id[label] if label2class_id else 0
+            class_id = label2id[label] if label2id else 0
         except KeyError:
             logging.warning("发现严重错误！")
             label = None
             class_id = None
-            for label in label2class_id.keys():
+            for label in label2id.keys():
                 if label in file:
                     label = label
-                    class_id = label2class_id[label] if label2class_id else 0
+                    class_id = label2id[label] if label2id else 0
                     break
         exmple = image2tfexample(file, label, class_id)
         writer.write(exmple.SerializeToString())
@@ -76,7 +160,70 @@ def write_tfrecord(record_file, files, label2class_id=None):
     writer.close()
 
 
-def images_to_tfrecord(root_path, record_file, c2l_file, classes=None, mul_thread=None):
+def write_voc_tfrecord(record_file, files, label2id):
+    """
+    Args:
+        record_file:record file name
+        files: list, ie:[(image_file,xml_file), ......, ]
+        label2id:label to id dict
+    """
+    writer = tf.io.TFRecordWriter(record_file)
+    from tqdm import tqdm
+    from random import shuffle
+    shuffle(files)
+    shuffle(files)
+    pbar = tqdm(files)
+    for image_file, xml_file in pbar:
+        exmple = voc2tfexample(image_file, xml_file, label2id)
+        writer.write(exmple.SerializeToString())
+        pbar.set_description("tfrecord转换进度：")
+    writer.close()
+
+
+def vocs2tfrecord(image_path, xml_path, record_file, label2id, label2id_file=None, mul_thread=None):
+    """
+    convert image to .tfrecord file
+    Args:
+        image_path: image root path, please, confirm images are placed in different directories
+        xml_path
+        record_file: record_file name
+        label2id_file:  classes to label id json file
+        label2id:
+        mul_thread: whether to use multhread, int to use mul thread
+    Returns:
+    """
+    image_files = file_scanning(image_path, file_format="jpg|jpeg|png", sub_scan=True, full_path=True)
+    xml_files = file_scanning(xml_path, file_format="xml", sub_scan=True, full_path=True)
+    valid_files = set([os.path.basename(file).split(".")[0] for file in image_files]) & set(
+        [os.path.basename(file).split(".")[0] for file in xml_files])
+    image_files = (sorted([file for file in image_files if os.path.basename(file).split(".")[0] in valid_files],
+                          key=lambda x: os.path.basename(x).split(".")[0]))
+    xml_files = (sorted([file for file in xml_files if os.path.basename(file).split(".")[0] in valid_files],
+                        key=lambda x: os.path.basename(x).split(".")[0]))
+    files = list(zip(image_files, xml_files))
+    logging.info(f"发现图片：{len(image_files)}张\txml文件：{xml_files}")
+
+    if not mul_thread or mul_thread < 2:
+        write_voc_tfrecord(record_file, files, label2id)
+    else:
+        assert type(mul_thread) == int
+        threads = []
+        number = ceil(len(files) / mul_thread)
+        for i in range(mul_thread):
+            sub_thread_files = files[i * number:(i + 1) * number]
+            sub_record_file = record_file + str(i)
+            thread = threading.Thread(target=write_voc_tfrecord,
+                                      args=(sub_record_file, sub_thread_files, label2id))
+            threads.append(thread)
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+    if label2id_file:
+        save_to_json(label2id, label2id_file, indent=4)
+
+
+def images2tfrecord(root_path, record_file, label2id_file, classes=None, mul_thread=None):
     """
     convert image to .tfrecord file
     Args:
@@ -88,11 +235,12 @@ def images_to_tfrecord(root_path, record_file, c2l_file, classes=None, mul_threa
     Returns:
     """
 
-    labels = [d for d in os.listdir(root_path) if os.path.isdir(os.path.join(root_path, d))] if not classes else classes
+    labels = [d for d in os.listdir(root_path) if os.path.isdir(os.path.join(root_path, d))] \
+        if not classes else classes
     labels = sorted([d for d in labels])
     logging.info(f"发现类别数量：{len(labels)}")
     logging.info("\n".join(labels))
-    label2class_id = {labels[i]: i for i in range(len(labels))} if labels else dict()
+    label2id = {labels[i]: i for i in range(len(labels))} if labels else dict()
     files = []
     for d in labels:
         fs = file_scanning(root_path + "/" + d, file_format="jpg|jpeg|png", sub_scan=True, full_path=True)
@@ -103,7 +251,7 @@ def images_to_tfrecord(root_path, record_file, c2l_file, classes=None, mul_threa
         # files = file_scanning(root_path, file_format="jpg|jpeg|png", sub_scan=True, full_path=True)
     logging.info(f"扫描到有效文件数量：{len(files)}")
     if not mul_thread or mul_thread < 2:
-        write_tfrecord(record_file, files, label2class_id)
+        write_image_tfrecord(record_file, files, label2id)
     else:
         assert type(mul_thread) == int
         threads = []
@@ -111,13 +259,14 @@ def images_to_tfrecord(root_path, record_file, c2l_file, classes=None, mul_threa
         for i in range(mul_thread):
             sub_thread_files = files[i * number:(i + 1) * number]
             sub_record_file = record_file + str(i)
-            thread = threading.Thread(target=write_tfrecord, args=(sub_record_file, sub_thread_files, label2class_id))
+            thread = threading.Thread(target=write_image_tfrecord,
+                                      args=(sub_record_file, sub_thread_files, label2id))
             threads.append(thread)
         for thread in threads:
             thread.start()
         for thread in threads:
             thread.join()
-    save_to_json(label2class_id, c2l_file, indent=4)
+    save_to_json(label2id, label2id_file, indent=4)
 
 
 def tf_image_augmentation(image, size, target_size=(224, 224), adjust_gamma=None, random_brightness=None,
@@ -199,13 +348,13 @@ def tf_image_augmentation(image, size, target_size=(224, 224), adjust_gamma=None
     return tf.clip_by_value(image, 0, 1)
 
 
-def tf_data_from_tfrecord(tf_record_files, num_classes=6, batch_size=8, buffer_size=20000,
-                          num_parallel_calls=tf.data.experimental.AUTOTUNE,
-                          target_size=(224, 224), resize_method="bilinear",
-                          adjust_gamma=None, random_brightness=None,
-                          random_contrast=None, rotate=None, zoom_range=None,
-                          random_crop=None, random_flip_left_right=None, random_flip_up_down=None,
-                          keep_aspect=True):
+def image_from_tfrecord(tf_record_files, num_classes=6, batch_size=8, buffer_size=20000,
+                        num_parallel_calls=tf.data.experimental.AUTOTUNE,
+                        target_size=(224, 224), resize_method="bilinear", normalized_mean=255.0, normalized_std=0,
+                        adjust_gamma=None, random_brightness=None,
+                        random_contrast=None, rotate=None, zoom_range=None,
+                        random_crop=None, random_flip_left_right=None, random_flip_up_down=None,
+                        keep_aspect=True):
     """load data from tfrecord"""
 
     # Todo 评估shuffle、cache等性能
@@ -216,7 +365,8 @@ def tf_data_from_tfrecord(tf_record_files, num_classes=6, batch_size=8, buffer_s
             'width': tf.io.FixedLenFeature(shape=(), dtype=tf.int64),
             'height': tf.io.FixedLenFeature(shape=(), dtype=tf.int64),
         })
-        image = tf.cast(tf.io.decode_jpeg(example['image'][0], channels=3), tf.float32) / 255
+        image = (tf.cast(tf.io.decode_jpeg(example['image'][0], channels=3),
+                         tf.float32) - normalized_std) / normalized_mean
         image = tf_image_augmentation(image, (example['height'][0], example['width'][0]), target_size=target_size,
                                       resize_method=resize_method,
                                       adjust_gamma=adjust_gamma, random_brightness=random_brightness,
@@ -241,7 +391,13 @@ def tf_data_from_tfrecord(tf_record_files, num_classes=6, batch_size=8, buffer_s
 
 
 if __name__ == '__main__':
-    images_to_tfrecord(r"E:\Programming\Python\8_Ganlanz\food_recognition\dataset\自建数据集\2_网络图片\2_未标注",
-                       r"F:\Download\x.tfrecords",
-                       r"F:\Download\a.json",
-                       mul_thread=0)
+    # a = voc2tfexample(
+    #     r"E:\Programming\Python\8_Ganlanz\food_recognition\dataset\自建数据集\1_真实场景\0_已标框\bacon\0a634ce3-4f09-5bd4-99a0-238331e88fad.jpg",
+    #     r"E:\Programming\Python\8_Ganlanz\food_recognition\dataset\自建数据集\1_真实场景\0_已标框\bacon\0a634ce3-4f09-5bd4-99a0-238331e88fad.xml",
+    #     {"bacon": 0})
+    vocs2tfrecord(r"E:\Programming\Python\8_Ganlanz\food_recognition\dataset\自建数据集\1_真实场景\0_已标框",
+                  r"E:\Programming\Python\8_Ganlanz\food_recognition\dataset\自建数据集\1_真实场景\0_已标框",
+                  r"E:\Programming\Python\8_Ganlanz\food_recognition\dataset\自建数据集\1_真实场景\fuck.tfrecord",
+                  {"bacon": 0, "broccoli": 1, "corn": 2, "corn kernels": 3, "hamburger": 4, "pizza": 5,
+                   "pork belly piece": 6},mul_thread=3)
+    # print(a)
