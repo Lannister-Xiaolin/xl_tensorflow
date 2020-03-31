@@ -4,16 +4,18 @@ import os
 import pathlib
 import numpy as np
 import tensorflow as tf
+from xl_tool.xl_concurrence import MyThread
 
 
 def quantize_model(converter, method="float16", int_quantize_sample=(100, 224, 224, 3)):
     """量化模型
     Args:
         converter: tf.lite.TFLiteConverter对象
-        method：str, valid value：float16,int,weight
+        method: str, valid value：float16,int,weight
         int_quantize_sample: int量化时使用的代表性数据集
             https://tensorflow.google.cn/lite/performance/post_training_integer_quant?hl=zh_cn
     """
+    assert method in ("float16", "int", "weight")
     if method == "float16":
         print("float16量化")
         converter.optimizations = [tf.lite.Optimize.DEFAULT]
@@ -83,19 +85,13 @@ def serving_model_export(model, path, version=1, auto_incre_version=True):
         raise AssertionError
 
 
-# tf_saved_model_to_lite(r"E:\Temp\test\eff\1",r"E:\Temp\test\eff\test.tflite",input_shape=[None, 380, 380, 3])
-import tflite_runtime.interpreter as tflite
-
-
 def load_lite_model(lite_model_path="./lite/net_lite/efficientnetb1/13/efficientnetb1_int_quant.tflite"):
+    import tflite_runtime.interpreter as tflite
     interpreter = tflite.Interpreter(model_path=lite_model_path)
     interpreter.allocate_tensors()
     input_details = interpreter.get_input_details()
     output_details = interpreter.get_output_details()
     return interpreter, input_details, output_details
-
-
-from xl_tool.xl_concurrence import MyThread
 
 
 def tflite_evaluate(lite_model_path, keras_data_generater, mul_thread=None):
@@ -104,10 +100,9 @@ def tflite_evaluate(lite_model_path, keras_data_generater, mul_thread=None):
     one_hots = []
     from tqdm import tqdm
     def lite_interpreter(keras_data_generater, start, end):
-        pbar = tqdm(list(range(start,end)))
+        pbar = tqdm(list(range(start, end)))
         interpreter, input_details, output_details = load_lite_model(lite_model_path)
         for i in pbar:
-
             input_data, label = keras_data_generater[i]
             interpreter.set_tensor(input_details[0]['index'], input_data)
             interpreter.invoke()
@@ -141,10 +136,9 @@ def tflite_evaluate(lite_model_path, keras_data_generater, mul_thread=None):
     top1 = np.sum(predicts.argmax(axis=-1) == real) / len(predicts)
     return top1, predicts, real
 
+
 def export_model_config(model_names):
     base = """model_config_list {{\n{}\n}}"""
     config_template = "  config {{\n    name: '{}',\n    " \
                       "base_path: '/models/{}/',\n\tmodel_platform: 'tensorflow'\n  }}"
     return base.format(",\n".join(map(lambda x: config_template.format(x, x), model_names)))
-
-# export_model_config(["efficientnetb1","efficientnetb3"])

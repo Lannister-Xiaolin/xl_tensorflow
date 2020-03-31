@@ -390,6 +390,17 @@ def image_from_tfrecord(tf_record_files, num_classes=6, batch_size=8, buffer_siz
     return parsed_dataset
 
 
+def yolo_data_from_tfrecord():
+    # Todo 待完成，暂不确定加载形式
+    pass
+
+
+def efficientdet_data_from_tfrecord():
+    # Todo 待完成，暂不确定加载形式
+    # [https://github.com/tensorflow/models/blob/master/official/vision/detection/dataloader/tf_example_decoder.py]
+    pass
+
+
 if __name__ == '__main__':
     # a = voc2tfexample(
     #     r"E:\Programming\Python\8_Ganlanz\food_recognition\dataset\自建数据集\1_真实场景\0_已标框\bacon\0a634ce3-4f09-5bd4-99a0-238331e88fad.jpg",
@@ -399,5 +410,5 @@ if __name__ == '__main__':
                   r"E:\Programming\Python\8_Ganlanz\food_recognition\dataset\自建数据集\1_真实场景\0_已标框",
                   r"E:\Programming\Python\8_Ganlanz\food_recognition\dataset\自建数据集\1_真实场景\fuck.tfrecord",
                   {"bacon": 0, "broccoli": 1, "corn": 2, "corn kernels": 3, "hamburger": 4, "pizza": 5,
-                   "pork belly piece": 6},mul_thread=3)
+                   "pork belly piece": 6}, mul_thread=3)
     # print(a)
