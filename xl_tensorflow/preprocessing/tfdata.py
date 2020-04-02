@@ -1,16 +1,11 @@
 #!/usr/bin/python
 import logging
-import sys
 import os
 import xml
 
 import tensorflow as tf
-import numpy as np
-import imghdr
-import threading
 from math import ceil
 from xl_tool.xl_io import file_scanning, save_to_json
-import xl_tool.xl_concurrence
 import threading
 import tensorflow_addons as tfa
 import random
@@ -354,7 +349,7 @@ def image_from_tfrecord(tf_record_files, num_classes=6, batch_size=8, buffer_siz
                         adjust_gamma=None, random_brightness=None,
                         random_contrast=None, rotate=None, zoom_range=None,
                         random_crop=None, random_flip_left_right=None, random_flip_up_down=None,
-                        keep_aspect=True):
+                        keep_aspect=True, noise=None, random_aspect=False):
     """load data from tfrecord"""
 
     # Todo 评估shuffle、cache等性能
@@ -373,7 +368,7 @@ def image_from_tfrecord(tf_record_files, num_classes=6, batch_size=8, buffer_siz
                                       random_contrast=random_contrast, rotate=rotate, zoom_range=zoom_range,
                                       random_crop=random_crop, random_flip_left_right=random_flip_left_right,
                                       random_flip_up_down=random_flip_up_down,
-                                      keep_aspect=keep_aspect)
+                                      keep_aspect=keep_aspect, noise=noise, random_aspect=random_aspect)
 
         class_id = tf.one_hot(example['class_id'][0], depth=num_classes)
         return image, class_id
