@@ -31,7 +31,7 @@ def voc2txt_annotation(xml_files, train_txt, classes, image_path=None, seperator
         if not root.find('object'):
             continue
         train_fp.write(xml_file.replace("xml", "jpg") if not image_path else os.path.join(image_path, os.path.basename(
-            root.find("path").text)))
+            root.find("filename").text)))
         for obj in root.iter('object'):
             difficult = obj.find('difficult').text
             cls = obj.find('name').text
@@ -39,8 +39,9 @@ def voc2txt_annotation(xml_files, train_txt, classes, image_path=None, seperator
                 continue
             cls_id = classes.index(cls)
             xmlbox = obj.find('bndbox')
-            b = (int(xmlbox.find('xmin').text), int(xmlbox.find('ymin').text), int(xmlbox.find('xmax').text),
-                 int(xmlbox.find('ymax').text))
+            b = (int(float(xmlbox.find('xmin').text)), int(float(xmlbox.find('ymin').text)),
+                 int(float(xmlbox.find('xmax').text)),
+                 int(float(xmlbox.find('ymax').text)))
             train_fp.write(seperator + ",".join([str(a) for a in b]) + ',' + str(cls_id))
         train_fp.write("\n")
     train_fp.close()
@@ -109,18 +110,35 @@ def voc2voc_dataset(data_path, target_path, validation_split=None, cat_val=True,
                 f.write("\n".join(files[:val_index]))
 
 
+def voc_merge(voc_07, voc_12, target_path):
+    images_07 = file_scanning(f"{voc_07}/JPEGImages", "jpg|jpeg", sub_scan=True)
+    xmls_07 = file_scanning(f"{voc_07}/Annotations", "xml", sub_scan=True)
+    images_12 = file_scanning(f"{voc_12}/JPEGImages", "jpg|jpeg", sub_scan=True)
+    xmls_12 = file_scanning(f"{voc_12}/Annotations", "xml", sub_scan=True)
+    os.makedirs(f"{target_path}/JPEGImages", exist_ok=True)
+    os.makedirs(f"{target_path}/Annotations", exist_ok=True)
+    os.makedirs(f"{target_path}/ImageSets/Main", exist_ok=True)
+    for file in images_07 + images_12:
+        shutil.copy(file, f"{target_path}/JPEGImages")
+    for file in xmls_07 + xmls_12:
+        shutil.copy(file, f"{target_path}/Annotations")
+    from xl_tool.xl_io import read_txt
+    train = read_txt(f"{voc_07}/ImageSets/Main/train.txt", return_list=True) + read_txt(
+        f"{voc_12}/ImageSets/Main/train.txt", return_list=True)
+    with open(f"{target_path}/ImageSets/Main/train.txt", "w") as f:
+        f.write("\n".join(train))
+
+
 def main():
     classes = os.listdir(r"E:\Programming\Python\8_Ganlanz\food_recognition\dataset\自建数据集\7_增强图片\single_pyramid")
-
     train_text = r"E:\Programming\Python\5_CV\学习案例\xl_tf2_yolov3\model_data\train.txt"
     path = r"E:\Programming\Python\8_Ganlanz\food_recognition\dataset\自建数据集\7_增强图片\single_pyramid"
     xml_files = [i for i in file_scanning(path, sub_scan=True, full_path=True, file_format="xml") if
                  os.path.exists(i.replace("xml", "jpg"))]
-    # print("Dddddddddd")
     voc2txt_annotation(xml_files, train_text, classes, seperator="\t")
 
 
 if __name__ == '__main__':
     voc2voc_dataset(r"E:\Programming\Python\8_Ganlanz\food_recognition\dataset\自建数据集\1_真实场景\0_已标框",
                     r"E:\Programming\Python\8_Ganlanz\food_recognition\dataset\自建数据集\1_真实场景\voc",
-                    validation_split=0.8,cat_val=True)
+                    validation_split=0.8, cat_val=True)

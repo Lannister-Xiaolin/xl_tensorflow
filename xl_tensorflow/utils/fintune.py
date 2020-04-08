@@ -1,4 +1,3 @@
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
 import os
 import shutil
 import re
@@ -103,7 +102,7 @@ def finetune_model(name="", prefix="", class_num=6, train_path="./dataset/specif
                    val_path="./dataset/specified_scenario/val", tf_record=False, tf_record_label2id=None,
                    weights="imagenet", train_from_scratch=False, patience=6, initial_epoch=0, dropout=False,
                    test=True, classes=None, epochs=(5, 30, 60, 120), lrs=(0.00001, 0.003, 0.0003, 0.00003),
-                   optimizer="adam",
+                   optimizer="adam",reducelr=3,
                    batch_size=16, target_size=(224, 224), train_buffer_size=5000, val_buffer_size=5000, prefetch=False):
     """预训训练最后一层与全部训练对比"""
     if tf_record:
@@ -161,21 +160,21 @@ def finetune_model(name="", prefix="", class_num=6, train_path="./dataset/specif
             model = ImageFineModel.create_fine_model(name, class_num, weights=weights, prefix=prefix,
                                                      suffix=f"_{class_num}", dropout=dropout,
                                                      non_flatten_trainable=True, input_shape=(*target_size, 3))
-            call_back = my_call_backs(model.name, patience=patience)
+            call_back = my_call_backs(model.name, patience=patience,reducelr=reducelr)
         if test:
             model.fit(train_gen, validation_data=val_gen, epochs=2, callbacks=call_back, steps_per_epoch=2,
                       validation_steps=2, use_multiprocessing=True, workers=5)
         else:
             with strategy.scope():
-                model.compile(optimizer_dict[optimizer](0.00005), loss="categorical_crossentropy",
+                model.compile(optimizer_dict[optimizer](lrs[0]), loss="categorical_crossentropy",
                               metrics=list(["accuracy", ]))
-            model.fit(train_gen, validation_data=val_gen, epochs=15, callbacks=call_back,
+            model.fit(train_gen, validation_data=val_gen, epochs=epochs[0], callbacks=call_back,
                       initial_epoch=0, use_multiprocessing=False)
             with strategy.scope():
-                model.compile(optimizer_dict[optimizer](0.00001), loss="categorical_crossentropy",
+                model.compile(optimizer_dict[optimizer](lrs[1]), loss="categorical_crossentropy",
                               metrics=list(["accuracy", ]))
-            model.fit_generator(train_gen, validation_data=val_gen, epochs=35, callbacks=call_back,
-                                initial_epoch=15, use_multiprocessing=False)
+            model.fit_generator(train_gen, validation_data=val_gen, epochs=epochs[1], callbacks=call_back,
+                                initial_epoch=epochs[0], use_multiprocessing=False)
     else:
         print("从头开始训练模型！！！")
         strategy = tf.distribute.MirroredStrategy()
@@ -186,7 +185,7 @@ def finetune_model(name="", prefix="", class_num=6, train_path="./dataset/specif
                                                      non_flatten_trainable=True, input_shape=(*target_size, 3))
         if weights and weights != "imagenet":
             model.load_weights(weights)
-        call_back = my_call_backs(model.name, patience=patience)
+        call_back = my_call_backs(model.name, patience=patience,reducelr=reducelr)
         if test:
             model.fit_generator(train_gen, validation_data=val_gen, epochs=2, callbacks=call_back, steps_per_epoch=2,
                                 validation_steps=2, use_multiprocessing=True, workers=5)

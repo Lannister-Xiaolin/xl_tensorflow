@@ -7,6 +7,7 @@ import numpy as np
 import requests
 from PIL import Image
 import grpc
+import base64
 import tensorflow as tf
 from tensorflow_serving.apis import predict_pb2
 from tensorflow_serving.apis import prediction_service_pb2_grpc
@@ -27,7 +28,8 @@ eff_input_dict = {'efficientnetb0': 224, 'efficientnetb1': 240,
 
 def serving_request_image_classifier(image_files, cat2id, id2cat=None, model_name="efficientnetb2", target_size=None,
                                      top=3,
-                                     serving_host="http://10.125.31.57:8501/v1/models/{}:predict", mean=0, std=255.0):
+                                     serving_host="http://10.125.31.57:8501/v1/models/{}:predict",
+                                     mean=0, std=255.0, b64_mode=False):
     """
     tensorflow.serving食物请求sdk
     Args:
@@ -41,14 +43,22 @@ def serving_request_image_classifier(image_files, cat2id, id2cat=None, model_nam
         出现错误时：
             返回错误提示字典
     """
-    if not target_size:
-        target_size = [eff_input_dict[model_name]] * 2 if model_name in eff_input_dict.keys() else (224, 224)
-    data = np.stack([np.array(Image.open(image_file).resize(target_size)) - mean / std for image_file in image_files])
-    data = data.tolist()
-    data = json.dumps({
-        "signature_name": "serving_default",
-        "instances": data
-    })
+    if not b64_mode:
+        if not target_size:
+            target_size = [eff_input_dict[model_name]] * 2 if model_name in eff_input_dict.keys() else (224, 224)
+        data = np.stack(
+            [np.array(Image.open(image_file).resize(target_size)) - mean / std for image_file in image_files])
+        data = data.tolist()
+        data = json.dumps({
+            "signature_name": "serving_default",
+            "instances": data
+        })
+    else:
+        data = [[base64.urlsafe_b64encode(open(i, "rb").read()).decode()] for i in image_files]
+        data = json.dumps({
+            "signature_name": "serving_default",
+            "instances": data
+        })
     result = requests.post(serving_host.format(model_name),
                            headers={"content-type": "application/json"},
                            data=data)
@@ -66,13 +76,19 @@ def serving_request_image_classifier(image_files, cat2id, id2cat=None, model_nam
 
 def serving_grpc_image_classifier(image_files, cat2id, id2cat=None, model_name="efficientnetb0",
                                   target_size=None, top=3,
-                                  serving_host="10.125.31.57:8500", mean=0, std=255.0):
-    """grpc接口，速度为restful接口的1/3至1/5"""
-    if not target_size:
-        target_size = (
-            eff_input_dict[model_name], eff_input_dict[model_name]) if model_name in eff_input_dict.keys() else (
-            224, 224)
-    data = np.stack([np.array(Image.open(image_file).resize(target_size)) - mean / std for image_file in image_files])
+                                  serving_host="10.125.31.57:8500", mean=0, std=255.0, b64_mode=False):
+    """grpc接口，速度为restful接口的1/3至1/5
+    Notes: 注意输入层名字为：images_tensor， 输出层为：outputs
+    """
+    if not b64_mode:
+        if not target_size:
+            target_size = (
+                eff_input_dict[model_name], eff_input_dict[model_name]) if model_name in eff_input_dict.keys() else (
+                224, 224)
+        data = np.stack(
+            [np.array(Image.open(image_file).resize(target_size)) - mean / std for image_file in image_files])
+    else:
+        data = [[base64.urlsafe_b64encode(open(i, "rb").read()).decode()] for i in image_files]
     length = len(data)
     channel = grpc.insecure_channel(serving_host)
     stub = prediction_service_pb2_grpc.PredictionServiceStub(channel)
@@ -82,9 +98,10 @@ def serving_grpc_image_classifier(image_files, cat2id, id2cat=None, model_name="
         # model_pb2.py指定了version version_label signature_name name
         request.model_spec.name = model_name
         request.model_spec.signature_name = 'serving_default'
-        request.inputs['images_tensor'].CopyFrom(
-            tf.make_tensor_proto(data.astype("float32"),
-                                 shape=[length, target_size[0], target_size[1], 3]))
+        request.inputs['images_tensor' if not b64_mode else "image_b64"].CopyFrom(
+            tf.make_tensor_proto(data.astype("float32"), shape=[length, target_size[0], target_size[1], 3])
+            if not base64 else
+            tf.make_tensor_proto(data, shape=[length, 1]))
         result = stub.Predict(request, 10.0)
         outputs = (json.loads(MessageToJson(result))["outputs"]).values()
         predict = np.array(list(outputs)[0]['floatVal']).reshape((length, len(cat2id)))
@@ -95,6 +112,8 @@ def serving_grpc_image_classifier(image_files, cat2id, id2cat=None, model_name="
     except grpc.RpcError as rpc_e:
         return {'error': rpc_e}
     return result
+
+
 
 
 if __name__ == '__main__':
@@ -137,6 +156,6 @@ if __name__ == '__main__':
         "whole_chicken": 35
     }
     print(serving_request_image_classifier([r"F:\Download\A60200000042_20200323151101.jpg"], cat2id,
-                                           model_name="efficientnetb6",top=4))
+                                           model_name="efficientnetb6", top=4))
     print(serving_grpc_image_classifier([r"F:\Download\A60200000042_20200323151101.jpg"], cat2id,
-                                        model_name="efficientnetb6",top=4))
+                                        model_name="efficientnetb6", top=4))

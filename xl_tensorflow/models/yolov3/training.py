@@ -16,17 +16,6 @@ from .model import yolo_body, tiny_yolo_body, yolo_loss, \
 from .utils import get_random_data, preprocess_true_boxes, get_anchors, get_classes, data_generator_wrapper
 
 
-def create_datagenerator(train_annotation_path, val_annotation_path, batch_size, input_shape, anchors, num_classes):
-    with open(train_annotation_path, encoding="utf-8") as f:
-        train_lines = f.readlines()
-    with open(val_annotation_path, encoding="utf-8") as f:
-        val_lines = f.readlines()
-    train = data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes)
-    val = data_generator_wrapper(val_lines, batch_size, input_shape, anchors,
-                                 num_classes)
-    return train, val
-
-
 def _main(train_annotation_path, val_annotation_path, classes_path, anchors_path, weights_path):
     log_dir = './logs/000/'
     class_names = get_classes(classes_path)
@@ -159,6 +148,92 @@ def create_tiny_model(input_shape, anchors, num_classes, load_pretrained=True, f
         [*model_body.output, *y_true])
     model = Model([model_body.input, *y_true], model_loss)
 
+    return model
+
+
+def create_datagenerator(train_annotation_path, val_annotation_path, batch_size, input_shape, anchors, num_classes,
+                         seed=100):
+    with open(train_annotation_path, encoding="utf-8") as f:
+        train_lines = f.readlines()
+    with open(val_annotation_path, encoding="utf-8") as f:
+        val_lines = f.readlines()
+    num_train = int(len(train_lines))
+    np.random.seed(seed)
+    np.random.shuffle(train_lines)
+    num_val = len(val_lines)
+    train = data_generator_wrapper(train_lines, batch_size, input_shape, anchors, num_classes)
+    val = data_generator_wrapper(val_lines, batch_size, input_shape, anchors,
+                                 num_classes)
+    return train, val, num_train, num_val
+
+
+def create_callback(log_dir, checkpoint_dir, reduce_lr_patience=5, early_stopping_patience=10):
+    log_dir = log_dir
+    log = TensorBoard(log_dir=log_dir)
+    checkpoint = ModelCheckpoint(checkpoint_dir,
+                                 monitor='val_loss', save_weights_only=True, save_best_only=True, period=3)
+    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=reduce_lr_patience, verbose=1)
+    early_stopping = EarlyStopping(monitor='val_loss', patience=early_stopping_patience, verbose=1)
+    return [checkpoint, reduce_lr, early_stopping]
+
+
+body_dict = {
+    "darknet": yolo_body,
+    "efficientnetb0": yolo_efficientnetb0_body,
+    "efficientnetb3": yolo_efficientnetb3_body,
+    "efficientnetliteb1": yolo_efficientnetliteb1_body,
+    "efficientnetliteb4": yolo_efficientnetliteb4_body
+}
+
+
+def mul_gpu_training(train_annotation_path, val_annotation_path, classes_path, batch_size=8,
+                     input_shape=(416, 416), body="darknet", suffix="voc", pre_weights=None):
+    """
+    Todo 加速训练
+    Args:
+        number_classes:
+        input_shape:
+        body:
+
+    Returns:
+
+    """
+    import tensorflow as tf
+    from xl_tensorflow.models.yolov3.model import YoloLoss
+    class_names = get_classes(classes_path)
+    num_classes = len(class_names)
+    mirrored_strategy = tf.distribute.MirroredStrategy()
+    with mirrored_strategy.scope():
+        image_input = Input(shape=(*input_shape, 3))
+        model = body_dict[body](image_input, 3, num_classes, reshape_y=True)
+        if pre_weights:
+            model.load_weights(pre_weights, by_name=True, skip_mismatch=True)
+        model.compile(loss=[YoloLoss(i, input_shape, num_classes, giou_loss=True) for i in range(3)])
+    callback = create_callback(f"./log/yolo_{body}_{suffix}", f"./mdoel/yolo_{body}_{suffix}_weights.h5",
+                               early_stopping_patience=20)
+    # 创建训练数据
+    train_dataset, val_dataset, num_train, num_val = create_datagenerator(train_annotation_path, val_annotation_path,
+                                                                          batch_size, input_shape,
+                                                                          YoloLoss.defalt_anchors, num_classes)
+    with mirrored_strategy.scope():
+        for i in range(185): model.layers[i].trainable = False
+        model.compile(loss=[YoloLoss(i, input_shape, num_classes, giou_loss=True) for i in range(3)])
+    model.fit(train_dataset, validation_data=val_dataset,
+              epochs=50,
+              steps_per_epoch=max(1, num_train // batch_size),
+              validation_steps=max(1, num_val // batch_size),
+              initial_epoch=0,
+              callbacks=callback)
+    callback = create_callback(f"./log/yolo_{body}_{suffix}", f"./mdoel/yolo_{body}_{suffix}_weights.h5")
+    with mirrored_strategy.scope():
+        for i in range(185): model.layers[i].trainable = True
+        model.compile(loss=[YoloLoss(i, input_shape, num_classes, giou_loss=True) for i in range(3)])
+    model.fit(train_dataset, validation_data=val_dataset,
+              epochs=100,
+              steps_per_epoch=max(1, num_train // batch_size),
+              validation_steps=max(1, num_val // batch_size),
+              initial_epoch=30,
+              callbacks=callback)
     return model
 
 

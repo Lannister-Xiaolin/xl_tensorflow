@@ -17,16 +17,18 @@ from .utils import compose
 
 def output_wrapper(func):
     """将backbone的输出形状(batch,anchor,anchor,3*(5+num_classes))
-     reshape为(batch,anchor,anchor,3，(5+num_classes))"""
+     reshape为(batch,anchor,anchor,3，(5+num_classes)),主要用于自定义的yololoss"""
 
     @wraps(func)
     def wrapper(inputs, num_anchors, num_classes, reshape_y=False):
         model = func(inputs, num_anchors, num_classes)
         if reshape_y:
             y1, y2, y3 = model.outputs
-            y1 = tf.keras.layers.Reshape((-1, y1.shape[1], y1.shape[2], num_anchors, num_classes + 5))(y1)
-            y2 = tf.keras.layers.Reshape((-1, y2.shape[1], y2.shape[2], num_anchors, num_classes + 5))(y1)
-            y3 = tf.keras.layers.Reshape((-1, y3.shape[1], y3.shape[2], num_anchors, num_classes + 5))(y1)
+            # print(y1, y2, y3)
+            y1 = tf.keras.layers.Reshape((y1.shape[1], y1.shape[2], num_anchors, num_classes + 5))(y1)
+            y2 = tf.keras.layers.Reshape((y2.shape[1], y2.shape[2], num_anchors, num_classes + 5))(y2)
+            y3 = tf.keras.layers.Reshape((y3.shape[1], y3.shape[2], num_anchors, num_classes + 5))(y3)
+            # print("   ", y1, y2, y3)
             model = Model(inputs, [y1, y2, y3])
         return model
 
@@ -952,7 +954,7 @@ class YoloLoss(tf.keras.losses.Loss):
         # relative to specified gird
         raw_true_xy = y_true[..., :2] * grid_shape[::-1] - grid
         # wh 还原到与yolobody对应的值即原文中的tw和th
-        raw_true_wh = K.log(y_true[..., 2:4] / self.anchor * self.input_shape[::-1])
+        raw_true_wh = K.log(y_true[..., 2:4] / self.anchor * self.input_shape[::-1]+1e-10)
         raw_true_wh = K.switch(object_mask, raw_true_wh, K.zeros_like(raw_true_wh))  # avoid log(0)=-inf
         # box_loss_scale used for scale imbalance large value for small object and small value for large object
         box_loss_scale = 2 - y_true[..., 2:3] * y_true[..., 3:4]

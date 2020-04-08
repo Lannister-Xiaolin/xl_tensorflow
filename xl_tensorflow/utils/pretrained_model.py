@@ -29,18 +29,18 @@ eff_input_dict = {'efficientnetb0': 224, 'efficientnetb1': 240,
                   'efficientnetliteb4': 300}
 
 
-def my_call_backs(model_name, monitor="val_loss", patience=5, reducelr=3):
+def my_call_backs(model_name, log_path=None, model_path=None, monitor="val_loss", patience=5, reducelr=3):
     """回调函数列表，包括tensorboard, 学习率衰减, 提前终止，模型检测点"""
     if "win" in sys.platform:
-        log_dir = os.path.join(os.getcwd(), r"\logs\{}".format(model_name))
-        # print(log_dir)
+        log_dir = os.path.join(os.getcwd(), r"\logs\{}".format(model_name)) if not log_path else os.path.join(log_path,
+                                                                                                              model_name)
     else:
-        log_dir = r"./logs/{}".format(model_name)
+        log_dir = r"./logs/{}".format(model_name) if not model_path else os.path.join(model_path, model_name)
     model_path = "./model"
     os.makedirs(model_path, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
     tensorboard = TensorBoard(log_dir=log_dir, write_graph=False, histogram_freq=False)
-    reducelr = ReduceLROnPlateau(monitor=monitor, factor=0.2, patience=reducelr, min_lr=0.00002)
+    reducelr = ReduceLROnPlateau(monitor=monitor, factor=0.2, patience=reducelr)
     early_stop = EarlyStopping(monitor=monitor, min_delta=1e-7, patience=patience, verbose=0, mode='auto',
                                baseline=None)
     model_check_point = ModelCheckpoint("./model/{}_weight.h5".format(model_name), verbose=1, save_best_only=True,

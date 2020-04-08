@@ -362,7 +362,9 @@ def image_from_tfrecord(tf_record_files, num_classes=6, batch_size=8, buffer_siz
         })
         image = (tf.cast(tf.io.decode_jpeg(example['image'][0], channels=3),
                          tf.float32) - normalized_std) / normalized_mean
-        image = tf_image_augmentation(image, (example['height'][0], example['width'][0]), target_size=target_size,
+        image = tf_image_augmentation(image,
+                                      (tf.cast(example['height'][0], tf.int32), tf.cast(example['width'][0], tf.int32)),
+                                      target_size=target_size,
                                       resize_method=resize_method,
                                       adjust_gamma=adjust_gamma, random_brightness=random_brightness,
                                       random_contrast=random_contrast, rotate=rotate, zoom_range=zoom_range,

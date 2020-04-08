@@ -25,21 +25,22 @@ from tensorflow.keras.layers import Input, Lambda
 def test_yolo_tflosss():
     mirrored_strategy = tf.distribute.MirroredStrategy()
     with mirrored_strategy.scope():
-        defalt_anchors = np.array([[10., 13.],
-                                   [16., 30.],
-                                   [33., 23.],
-                                   [30., 61.],
-                                   [62., 45.],
-                                   [59., 119.],
-                                   [116., 90.],
-                                   [156., 198.],
-                                   [373., 326.]], dtype="float")
+        # defalt_anchors = np.array([[10., 13.],
+        #                            [16., 30.],
+        #                            [33., 23.],
+        #                            [30., 61.],
+        #                            [62., 45.],
+        #                            [59., 119.],
+        #                            [116., 90.],
+        #                            [156., 198.],
+        #                            [373., 326.]], dtype="float")
         image_input = Input(shape=(416, 416, 3))
-        model_body = yolo_body(image_input, 3, 15, False)
-        y1 = tf.reshape(model_body.outputs[0], (-1, 13, 13, 3, 20))
-        y2 = tf.reshape(model_body.outputs[1], (-1, 26, 26, 3, 20))
-        y3 = tf.reshape(model_body.outputs[2], (-1, 52, 52, 3, 20))
-        model = Model(model_body.inputs, [y1, y2, y3])
+        # model_body = yolo_body(image_input, 3, 15, False)
+        # y1 = tf.reshape(model_body.outputs[0], (-1, 13, 13, 3, 20))
+        # y2 = tf.reshape(model_body.outputs[1], (-1, 26, 26, 3, 20))
+        # y3 = tf.reshape(model_body.outputs[2], (-1, 52, 52, 3, 20))
+        # model = Model(model_body.inputs, [y1, y2, y3])
+        model= yolo_body(image_input, 3, 15, True)
         model.compile(loss=[YoloLoss(i, (416, 416), 15, giou_loss=True) for i in range(3)])
     num_classes = 15
     anchors = get_anchors(r"E:\Programming\Python\5_CV\学习案例\xl_tf2_yolov3\model_data\yolo_anchors.txt")
@@ -48,8 +49,8 @@ def test_yolo_tflosss():
         train_lines = f.readlines()
     train_gen = data_generator_wrapper(train_lines, 4, input_shape, anchors, num_classes)
     for i in range(10):
-        inputs = next(train_gen)[0]
-        image, labels = inputs[0], inputs[1:]
+        image, labels = next(train_gen)
+        # image, labels = inputs[0], inputs[1:]
         model.fit(image, labels)
 
 

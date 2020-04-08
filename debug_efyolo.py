@@ -7,8 +7,8 @@ from tensorflow.keras.layers import Dense,GlobalAveragePooling2D
 from xl_tensorflow.models.yolov3.training import *
 
 image_input = Input(shape=(416, 416, 3))
-model_body = yolo_efficientnetliteb1_body(image_input, 3, 16)
-# input()
+model_body = yolo_efficientnetliteb1_body(image_input, 3, 16,True)
+input()
 x = GlobalAveragePooling2D()(model_body.outputs[0])
 x = Dense(16, activation="softmax")(x)
 # print()
