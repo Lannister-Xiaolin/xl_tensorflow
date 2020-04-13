@@ -345,7 +345,7 @@ def tf_image_augmentation(image, size, target_size=(224, 224), adjust_gamma=None
 
 def image_from_tfrecord(tf_record_files, num_classes=6, batch_size=8, buffer_size=20000,
                         num_parallel_calls=tf.data.experimental.AUTOTUNE,
-                        target_size=(224, 224), resize_method="bilinear", normalized_mean=255.0, normalized_std=0,
+                        target_size=(224, 224), resize_method="bilinear", normalized_mean=0.0, normalized_std=255.0,
                         adjust_gamma=None, random_brightness=None,
                         random_contrast=None, rotate=None, zoom_range=None,
                         random_crop=None, random_flip_left_right=None, random_flip_up_down=None,
@@ -361,7 +361,7 @@ def image_from_tfrecord(tf_record_files, num_classes=6, batch_size=8, buffer_siz
             'height': tf.io.FixedLenFeature(shape=(), dtype=tf.int64),
         })
         image = (tf.cast(tf.io.decode_jpeg(example['image'][0], channels=3),
-                         tf.float32) - normalized_std) / normalized_mean
+                         tf.float32) - normalized_mean) / normalized_std
         image = tf_image_augmentation(image,
                                       (tf.cast(example['height'][0], tf.int32), tf.cast(example['width'][0], tf.int32)),
                                       target_size=target_size,

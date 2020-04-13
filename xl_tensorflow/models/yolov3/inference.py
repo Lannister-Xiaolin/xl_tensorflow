@@ -10,6 +10,7 @@ from xl_tensorflow.models.yolov3.model import yolo_body, tiny_yolo_body, \
     yolo_efficientnetliteb4_body, yolo_efficientnetliteb1_body
 from tensorflow.keras import Input, Model
 from xl_tool.xl_io import file_scanning
+from .training import body_dict
 
 
 def draw_rectanngle(img, box, label, rectange_color=(0, 255, 0), label_color=(255, 0, 0)):
@@ -57,9 +58,6 @@ def single_inference_model_lite(model_name, weights, num_classes, image_shape=(4
     专门用于移动端处理，无5维tensor和掩码
     """
     # Todo 把iou和置信度,以及输入图片尺寸（高宽）， 写入模型
-    body_dict = {"efficientnetliteb4": yolo_efficientnetliteb4_body,
-                 "efficientnetliteb": yolo_efficientnetliteb1_body,
-                 "darknet": yolo_body}
     if anchors == None:
         anchors = _get_anchors("./config/yolo_anchors.txt")
     yolo_model = body_dict[model_name](Input(shape=(*input_shape, 3)), len(anchors) // 3, num_classes)
@@ -72,34 +70,7 @@ def single_inference_model_lite(model_name, weights, num_classes, image_shape=(4
     return model
 
 
-def single_inference_model_serving(model_name, weights,
-                                   num_classes,
-                                   image_shape=(416, 416),
-                                   anchors=None,
-                                   input_shape=(416, 416),
-                                   score_threshold=.1,
-                                   iou_threshold=.5):
-    """
-    用于部署在serving端的模型，固定输入尺寸和图片尺寸，会对iou值和置信度进行过滤0.1
-    暂时不将尺寸和阙值写入模型，因此返回框的尺寸和位置需要根据图片进行重新调整（与resize方式有关）
-    Args:
-        image_shape: 宽高
-    """
-    # Todo 把iou和置信度,以及输入图片尺寸（高宽）， 写入模型
-    body_dict = {"efficientnetliteb4": yolo_efficientnetliteb4_body,
-                 "efficientnetliteb": yolo_efficientnetliteb1_body,
-                 "darknet": yolo_body}
-    if anchors == None:
-        anchors = _get_anchors("./config/yolo_anchors.txt")
-    yolo_model = body_dict[model_name](Input(shape=(*input_shape, 3)),
-                                       len(anchors) // 3, num_classes)
-    yolo_model.load_weights(weights)
-    boxes_, scores_, classes_ = yolo_eval(yolo_model.outputs,
-                                          anchors, num_classes, image_shape, 20,
-                                          score_threshold,
-                                          iou_threshold)
-    model = Model(inputs=yolo_model.inputs, outputs=(boxes_, scores_, classes_))
-    return model
+
 
 
 def predict_image(model, image_file, input_shape=(416, 416), xy_order=False):
@@ -190,7 +161,7 @@ if __name__ == '__main__':
 
         st = time.time()
         boxes_, scores_, classes_ = model.predict(image_data)
-        print(boxes_,scores_,classes_)
+        print(boxes_, scores_, classes_)
         print(f"第 {i + 1} 个，预测时间{time.time() - st:.2f}")
         boxes_, scores_, classes_ = boxes_[0], scores_[0], classes_[0]
         if boxes_.shape[0] == 0:

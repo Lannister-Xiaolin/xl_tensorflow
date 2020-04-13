@@ -954,7 +954,7 @@ class YoloLoss(tf.keras.losses.Loss):
         # relative to specified gird
         raw_true_xy = y_true[..., :2] * grid_shape[::-1] - grid
         # wh 还原到与yolobody对应的值即原文中的tw和th
-        raw_true_wh = K.log(y_true[..., 2:4] / self.anchor * self.input_shape[::-1]+1e-10)
+        raw_true_wh = K.log(y_true[..., 2:4] / self.anchor * self.input_shape[::-1] + 1e-10)
         raw_true_wh = K.switch(object_mask, raw_true_wh, K.zeros_like(raw_true_wh))  # avoid log(0)=-inf
         # box_loss_scale used for scale imbalance large value for small object and small value for large object
         box_loss_scale = 2 - y_true[..., 2:3] * y_true[..., 3:4]
@@ -992,6 +992,7 @@ class YoloLoss(tf.keras.losses.Loss):
         class_loss = object_mask * K.binary_crossentropy(true_class_probs, raw_pred[..., 5:], from_logits=True)
         confidence_loss = tf.reduce_sum(confidence_loss) / batch_tensor
         class_loss = tf.reduce_sum(class_loss) / batch_tensor
+        # Todo GIOU LOSS 有问题，暂时不要使用
         if self.giou_loss:
             pred_max = tf.reverse(pred_xy + pred_wh / 2., [-1])
             pred_min = tf.reverse(pred_xy - pred_wh / 2., [-1])

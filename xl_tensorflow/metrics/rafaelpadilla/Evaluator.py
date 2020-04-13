@@ -506,3 +506,8 @@ def map_raf_from_lists(detections, ground_truths, iou_threshold=0.5, box_format=
     mAP_str = "{0:.2f}%".format(mAP * 100)
     print('mAP: %s' % mAP_str)
     return mAP, metricsPerClasses
+
+
+def voc2ratxt():
+    # TODO voc转成相应的文件格式
+    pass
