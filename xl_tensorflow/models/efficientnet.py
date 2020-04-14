@@ -140,7 +140,8 @@ def round_repeats(repeats, depth_coefficient):
     return int(math.ceil(depth_coefficient * repeats))
 
 
-def mb_conv_block(inputs, block_args, activation, drop_rate=None, prefix='', using_se_global_pooling=True
+def mb_conv_block(inputs, block_args, activation, drop_rate=None, prefix='',
+                  using_se_global_pooling=True
                   ):
     """Mobile Inverted Residual Bottleneck."""
 
@@ -667,7 +668,7 @@ setattr(EfficientNetLiteB4, '__doc__', EfficientNet.__doc__)
 
 
 def main():
-    model = EfficientNetLiteB4(include_top=True, weights="imagenet")
+    model = EfficientNetB1(include_top=True, weights="imagenet",using_se_global_pooling=False)
     print(model.summary())
 
 
