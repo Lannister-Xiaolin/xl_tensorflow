@@ -62,7 +62,7 @@ def serving_request_image_classifier(image_files, cat2id, id2cat=None, model_nam
     result = requests.post(serving_host.format(model_name),
                            headers={"content-type": "application/json"},
                            data=data)
-    id2cat = dict(map(lambda i: (i[1], i[0]), cat2id.items())) if not id2cat else id2cat
+    id2cat = {v: k for k, v in cat2id.items()} if not id2cat else id2cat
     try:
         predict = np.array(json.loads(result.text)["predictions"])
         labels_top3 = predict.argsort()[:, -top:].tolist()
@@ -93,7 +93,7 @@ def serving_grpc_image_classifier(image_files, cat2id, id2cat=None, model_name="
     channel = grpc.insecure_channel(serving_host)
     stub = prediction_service_pb2_grpc.PredictionServiceStub(channel)
     request = predict_pb2.PredictRequest()
-    id2cat = dict(map(lambda i: (i[1], i[0]), cat2id.items())) if not id2cat else id2cat
+    id2cat = {v: k for k, v in cat2id.items()} if not id2cat else id2cat
     try:
         # model_pb2.py指定了version version_label signature_name name
         request.model_spec.name = model_name
@@ -112,8 +112,6 @@ def serving_grpc_image_classifier(image_files, cat2id, id2cat=None, model_name="
     except grpc.RpcError as rpc_e:
         return {'error': rpc_e}
     return result
-
-
 
 
 if __name__ == '__main__':

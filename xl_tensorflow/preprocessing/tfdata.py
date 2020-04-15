@@ -225,7 +225,7 @@ def images2tfrecord(root_path, record_file, label2id_file, classes=None, mul_thr
         root_path: image root path, please, confirm images are placed in different directories
         record_file: record_file name
         c2l_file:  classes to label id json file
-        classes: 是否指定类别
+        classes: List of String是否指定类别
         mul_thread: whether to use multhread, int to use mul thread
     Returns:
     """

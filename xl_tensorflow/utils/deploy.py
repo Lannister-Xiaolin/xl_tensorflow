@@ -75,8 +75,11 @@ def serving_model_export(model, path, version=1, auto_incre_version=True):
         auto_incre_version: 是否自动叠加版本
     """
     if auto_incre_version is True:
-        version = max([int(i) for i in os.listdir(path) if os.path.isdir(path + "/" + i)]) + 1 if os.listdir(
-            path) else version
+        old_version = [int(i) for i in os.listdir(path) if i[0] in "0123456789" and os.path.isdir(path + "/" + i)]
+        if old_version:
+            version = max(old_version) + 1
+        else:
+            version = version
     version_path = os.path.join(path, str(version))
     os.makedirs(version_path, exist_ok=True)
     try:
