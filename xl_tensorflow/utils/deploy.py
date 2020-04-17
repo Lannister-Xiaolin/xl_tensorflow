@@ -90,7 +90,7 @@ def serving_model_export(model, path, version=1, auto_incre_version=True):
 
 
 def b64_image_model_wrapper(model, target_size, method=tf.image.ResizeMethod.BILINEAR, mean=0.0, std=255.0,
-                            input_name="image_b64", output_name="output_tensor"):
+                            input_name="image_b64"):
     """使用b64的方式对图片进行处理, 注意图片必须未websafebase64方式，tensorflow默认以该方式解码"""
 
     def preprocess_and_decode(img_str, new_shape=target_size):
@@ -105,8 +105,7 @@ def b64_image_model_wrapper(model, target_size, method=tf.image.ResizeMethod.BIL
     x = (ouput_tensor - mean) / std
     x = model(x)
     new_model = tf.keras.Model(input64, x)
-    new_model.layers[-1]._name = output_name
-    return model
+    return new_model
 
 
 def load_lite_model(lite_model_path="./lite/net_lite/efficientnetb1/13/efficientnetb1_int_quant.tflite"):

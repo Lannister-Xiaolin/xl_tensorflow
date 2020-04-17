@@ -16,11 +16,11 @@
 # tf_saved_model_to_lite(r"E:\Temp\test\5",r"E:\Temp\test\int_quant_model.tflite",input_shape=[1,416,416,3],quantize_method="int")
 import tensorflow as tf
 
-tf.compat.v1.disable_eager_execution()
+# tf.compat.v1.disable_eager_execution()
 from xl_tensorflow.models.yolov3.model import *
 from xl_tensorflow.models.yolov3.utils import *
 from tensorflow.keras.layers import Input, Lambda
-
+from xl_tensorflow.models.yolov3.inference import tf_saved_model_to_lite
 
 def test_yolo_tflosss():
     mirrored_strategy = tf.distribute.MirroredStrategy()
@@ -54,7 +54,12 @@ def test_yolo_tflosss():
         model.fit(image, labels)
 
 
+def tflite():
+    tf_saved_model_to_lite(r"E:\Temp\test\yolo\2", r"E:\Temp\test\yolo.tflite",
+                           input_shape=[None, 416,416, 3],allow_custom_ops=True)
+
 if __name__ == '__main__':
-    test_yolo_tflosss()
+    # test_yolo_tflosss()
+    tflite()
 
 

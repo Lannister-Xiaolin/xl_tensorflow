@@ -11,7 +11,8 @@ from xl_tensorflow.models.yolov3.model import yolo_body, tiny_yolo_body, \
 from tensorflow.keras import Input, Model
 from xl_tool.xl_io import file_scanning
 from .training import body_dict
-
+import tensorflow as tf
+import pathlib
 
 def draw_rectanngle(img, box, label, rectange_color=(0, 255, 0), label_color=(255, 0, 0)):
     img = img if type(img) not in (np.ndarray,) else Image.fromarray(img)
@@ -71,7 +72,29 @@ def single_inference_model_lite(model_name, weights, num_classes, image_shape=(4
 
 
 
+def tf_saved_model_to_lite(model_path, save_lite_file, input_shape=None, quantize_method=None, allow_custom_ops=False):
+    """
+    tensorflow saved model转成lite格式
+    Args:
+        model_path:  saved_model path（include version directory）
+        save_lite_file: lite file name(full path)
+        input_shape； specified input shape, if none means  [None, 224, 224, 3]
+        quantize_method: str, valid value：float16,int,weight
+        allow_custom_ops:是否允许自定义算子
+    """
 
+    try:
+        converter = tf.lite.TFLiteConverter.from_saved_model(model_path)
+    except ValueError:
+        model = tf.saved_model.load(model_path)
+        concrete_func = model.signatures[tf.saved_model.DEFAULT_SERVING_SIGNATURE_DEF_KEY]
+        concrete_func.inputs[0].set_shape(input_shape if input_shape else [None, 224, 224, 3])
+        converter = tf.lite.TFLiteConverter.from_concrete_functions([concrete_func])
+    if allow_custom_ops:
+        converter.allow_custom_ops = True
+        print("允许使用自定义算子")
+        converter.target_spec.supported_ops = [tf.lite.OpsSet.SELECT_TF_OPS]
+    return pathlib.Path(save_lite_file).write_bytes(converter.convert())
 
 def predict_image(model, image_file, input_shape=(416, 416), xy_order=False):
     # todo 计算公式中需要输入图片的尺寸不能直接用于部署，需要进行修改
@@ -120,10 +143,10 @@ if __name__ == '__main__':
     unrecognized = 0
     # for file in tqdm(files[:100]):
     input_shape = (416, 416)
-    model = single_inference_model_serving("darknet",
-                                           r"F:\Download\yolo_darknet_weigths.h5",
-                                           15, score_threshold=0.2,
-                                           input_shape=input_shape, image_shape=(480, 640))
+    # model = single_inference_model_serving("darknet",
+    #                                        r"F:\Download\yolo_darknet_weigths.h5",
+    #                                        15, score_threshold=0.2,
+    #                                        input_shape=input_shape, image_shape=(480, 640))
     count = [0, 0]
     # from xl_tensorflow.utils.deploy import serving_model_export, tf_saved_model_to_lite
     #
