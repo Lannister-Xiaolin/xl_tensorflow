@@ -23,13 +23,13 @@ eff_input_dict = {'efficientnetb0': 224, 'efficientnetb1': 240,
                   'efficientnetb4': 380}
 
 optimizer_dict = {
-    "RMSprop": RMSprop,
-    "Adam": Adam,
-    "Ftrl": Ftrl,
-    "SGD": SGD,
-    "Nadam": Nadam,
-    "Adamax": Adamax,
-    "Adadelta": Adadelta, "Adagrad": Adagrad
+    "RMSprop".lower(): RMSprop,
+    "Adam".lower(): Adam,
+    "Ftrl".lower(): Ftrl,
+    "SGD".lower(): SGD,
+    "Nadam".lower(): Nadam,
+    "Adamax".lower(): Adamax,
+    "Adadelta".lower(): Adadelta, "Adagrad": Adagrad
 
 }
 
