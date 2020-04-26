@@ -11,36 +11,7 @@ import tensorflow_addons as tfa
 import random
 
 
-def _bytes_feature(value):
-    """Returns a bytes_list from a string / byte."""
-    if isinstance(value, type(tf.constant(0))):
-        value = value.numpy()  # BytesList won't unpack a string from an EagerTensor.
-    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
 
-
-def _float_feature(value):
-    """Returns a float_list from a float / double."""
-    return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
-
-
-def _int64_feature(value):
-    """Returns an int64_list from a bool / enum / int / uint."""
-    return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
-
-
-def _int64_list_feature(value):
-    """int64 list to feature(value don't need to and '[]")"""
-    return tf.train.Feature(int64_list=tf.train.Int64List(value=value))
-
-
-def _float_list_feature(value):
-    """float list to feature(value don't need to and '[]")"""
-    return tf.train.Feature(float_list=tf.train.FloatList(value=value))
-
-
-def _bytes_list_feature(value):
-    """byte list to feature(value don't need to and '[]")"""
-    return tf.train.Feature(bytes_list=tf.train.BytesList(value=value))
 
 
 coordinate_name = ["xmin", "ymin", "xmax", "ymax"]
@@ -289,7 +260,6 @@ def tf_image_augmentation(image, size, target_size=(224, 224), adjust_gamma=None
 
     """
     # ToDO 新增其他数据增强方式
-
     if adjust_gamma:
         gamma = random.uniform(*adjust_gamma) if type(adjust_gamma) == tuple else adjust_gamma
         image = tf.image.adjust_gamma(image, gamma)
@@ -342,8 +312,50 @@ def tf_image_augmentation(image, size, target_size=(224, 224), adjust_gamma=None
 
     return tf.clip_by_value(image, 0, 1)
 
-
 def image_from_tfrecord(tf_record_files, num_classes=6, batch_size=8, buffer_size=20000,
+                        num_parallel_calls=tf.data.experimental.AUTOTUNE,
+                        target_size=(224, 224), resize_method="bilinear", normalized_mean=0.0, normalized_std=255.0,
+                        adjust_gamma=None, random_brightness=None,
+                        random_contrast=None, rotate=None, zoom_range=None,
+                        random_crop=None, random_flip_left_right=None, random_flip_up_down=None,
+                        keep_aspect=True, noise=None, random_aspect=False):
+    """load data from tfrecord"""
+
+    # Todo 评估shuffle、cache等性能
+    def parse_map_function(eg):
+        example = tf.io.parse_example(eg[tf.newaxis], {
+            'image': tf.io.FixedLenFeature(shape=(), dtype=tf.string),
+            'class_id': tf.io.FixedLenFeature(shape=(), dtype=tf.int64),
+            'width': tf.io.FixedLenFeature(shape=(), dtype=tf.int64),
+            'height': tf.io.FixedLenFeature(shape=(), dtype=tf.int64),
+        })
+        image = (tf.cast(tf.io.decode_jpeg(example['image'][0], channels=3),
+                         tf.float32) - normalized_mean) / normalized_std
+        image = tf_image_augmentation(image,
+                                      (tf.cast(example['height'][0], tf.int32), tf.cast(example['width'][0], tf.int32)),
+                                      target_size=target_size,
+                                      resize_method=resize_method,
+                                      adjust_gamma=adjust_gamma, random_brightness=random_brightness,
+                                      random_contrast=random_contrast, rotate=rotate, zoom_range=zoom_range,
+                                      random_crop=random_crop, random_flip_left_right=random_flip_left_right,
+                                      random_flip_up_down=random_flip_up_down,
+                                      keep_aspect=keep_aspect, noise=noise, random_aspect=random_aspect)
+
+        class_id = tf.one_hot(example['class_id'][0], depth=num_classes)
+        return image, class_id
+
+    raw_dataset = tf.data.TFRecordDataset(tf_record_files)
+    length = 0
+    if not buffer_size:
+        for _ in raw_dataset:
+            length += 1
+    buffer_size = buffer_size if buffer_size else length
+    parsed_dataset = raw_dataset.map(parse_map_function, num_parallel_calls=num_parallel_calls).shuffle(buffer_size,
+                                                                                                        reshuffle_each_iteration=True).batch(
+        batch_size)
+    return parsed_dataset
+
+def image_from_tfrecord_hand(tf_record_files, num_classes=6, batch_size=8, buffer_size=20000,
                         num_parallel_calls=tf.data.experimental.AUTOTUNE,
                         target_size=(224, 224), resize_method="bilinear", normalized_mean=0.0, normalized_std=255.0,
                         adjust_gamma=None, random_brightness=None,

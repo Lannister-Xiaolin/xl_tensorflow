@@ -9,7 +9,7 @@ from tensorflow.keras.optimizers import Adam, RMSprop, SGD, Nadam, Adadelta, Ada
 import numpy as np
 import matplotlib.pyplot as plt
 import logging
-from ..preprocessing.tfdata import image_from_tfrecord
+from .tfrecord import image_from_tfrecord, AutoAugment, RandAugment
 
 logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s',
                     level=logging.INFO,
@@ -102,28 +102,23 @@ def finetune_model(name="", prefix="", class_num=6, train_path="./dataset/specif
                    val_path="./dataset/specified_scenario/val", tf_record=False, tf_record_label2id=None,
                    weights="imagenet", train_from_scratch=False, patience=6, initial_epoch=0, dropout=False,
                    test=True, classes=None, epochs=(5, 30, 60, 120), lrs=(0.00001, 0.003, 0.0003, 0.00003),
-                   optimizer="adam",reducelr=3,
+                   optimizer="adam", reducelr=3,
                    batch_size=16, target_size=(224, 224), train_buffer_size=5000, val_buffer_size=5000, prefetch=False):
     """预训训练最后一层与全部训练对比"""
     if tf_record:
+
+        train_gen = image_from_tfrecord(train_path, class_num, batch_size,
+                                        target_size=target_size,
+                                        augmenter=AutoAugment(translate_const=target_size[0] * 0.1),
+                                        is_training=True,
+                                        buffer_size=train_buffer_size)
+        val_gen = image_from_tfrecord(val_path, class_num, batch_size, is_training=False,
+                                      target_size=target_size, buffer_size=val_buffer_size)
         if prefetch:
-            train_gen = image_from_tfrecord(train_path, class_num, batch_size,
-                                            target_size=target_size, random_brightness=0.15,
-                                            random_contrast=(0.8, 1.3), rotate=0.3, zoom_range=0.15, noise=0.04,
-                                            random_crop=0.85, random_flip_left_right=True, random_flip_up_down=False,
-                                            random_aspect=True, buffer_size=train_buffer_size).prefetch(
+            train_gen = train_gen.prefetch(
                 tf.data.experimental.AUTOTUNE)
-            val_gen = image_from_tfrecord(val_path, class_num, batch_size,
-                                          target_size=target_size, buffer_size=val_buffer_size).prefetch(
+            val_gen = val_gen.prefetch(
                 tf.data.experimental.AUTOTUNE)
-        else:
-            train_gen = image_from_tfrecord(train_path, class_num, batch_size,
-                                            target_size=target_size, random_brightness=0.15,
-                                            random_contrast=(0.8, 1.3), rotate=0.3, zoom_range=0.15, noise=0.04,
-                                            random_crop=0.85, random_flip_left_right=True, random_flip_up_down=False,
-                                            random_aspect=True, buffer_size=train_buffer_size)
-            val_gen = image_from_tfrecord(val_path, class_num, batch_size,
-                                          target_size=target_size, buffer_size=val_buffer_size)
         cat_id = read_json(tf_record_label2id)
         print(cat_id)
         labels = [j[1] for j in sorted([(i[1], i[0]) for i in cat_id.items()], key=lambda x: x[1])]
@@ -135,6 +130,7 @@ def finetune_model(name="", prefix="", class_num=6, train_path="./dataset/specif
             classes = read_json(classes)
             classes = [i[0] for i in sorted(classes.items(), key=lambda x: x[1])]
         train_gen, val_gen = train_data_from_directory(train_path, val_path, classes=classes, batch_size=batch_size,
+                                                       target_size=target_size,
                                                        rescale=1. / 255, rotation_range=20, width_shift_range=0.2,
                                                        height_shift_range=0.20, zoom_range=0.3, vertical_flip=True,
                                                        horizontal_flip=True, brightness_range=(0.7, 1.2))
@@ -160,7 +156,7 @@ def finetune_model(name="", prefix="", class_num=6, train_path="./dataset/specif
             model = ImageFineModel.create_fine_model(name, class_num, weights=weights, prefix=prefix,
                                                      suffix=f"_{class_num}", dropout=dropout,
                                                      non_flatten_trainable=True, input_shape=(*target_size, 3))
-            call_back = my_call_backs(model.name, patience=patience,reducelr=reducelr)
+            call_back = my_call_backs(model.name, patience=patience, reducelr=reducelr)
         if test:
             model.fit(train_gen, validation_data=val_gen, epochs=2, callbacks=call_back, steps_per_epoch=2,
                       validation_steps=2, use_multiprocessing=True, workers=5)
@@ -185,7 +181,7 @@ def finetune_model(name="", prefix="", class_num=6, train_path="./dataset/specif
                                                      non_flatten_trainable=True, input_shape=(*target_size, 3))
         if weights and weights != "imagenet":
             model.load_weights(weights)
-        call_back = my_call_backs(model.name, patience=patience,reducelr=reducelr)
+        call_back = my_call_backs(model.name, patience=patience, reducelr=reducelr)
         if test:
             model.fit_generator(train_gen, validation_data=val_gen, epochs=2, callbacks=call_back, steps_per_epoch=2,
                                 validation_steps=2, use_multiprocessing=True, workers=5)

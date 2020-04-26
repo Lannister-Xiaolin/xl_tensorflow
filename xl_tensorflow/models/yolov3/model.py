@@ -14,6 +14,16 @@ from ..efficientnet import EfficientNetB4, EfficientNetB3, \
     EfficientNetLiteB4, mb_conv_block, BlockArgs, get_swish, EfficientNetLiteB1, EfficientNetB0
 from .utils import compose
 
+DEFALT_ANCHORS = np.array([[10., 13.],
+                           [16., 30.],
+                           [33., 23.],
+                           [30., 61.],
+                           [62., 45.],
+                           [59., 119.],
+                           [116., 90.],
+                           [156., 198.],
+                           [373., 326.]], dtype="float")
+
 
 def output_wrapper(func):
     """将backbone的输出形状(batch,anchor,anchor,3*(5+num_classes))
@@ -630,7 +640,7 @@ def yolo_eval(yolo_outputs,
               image_shape,
               max_boxes=20,
               score_threshold=.6,
-              iou_threshold=.5):
+              iou_threshold=.5, return_xy=True):
     """Evaluate YOLO model on given input and return filtered boxes.
     只适用于一张图片的处理，不适合批处理
     Args:
@@ -670,13 +680,20 @@ def yolo_eval(yolo_outputs,
         scores_.append(class_box_scores)
         classes_.append(classes)
     # 此处更改是为了直接把后处理写入模型中
+
     boxes_ = K.expand_dims(K.concatenate(boxes_, axis=0), axis=0)
     scores_ = K.expand_dims(K.concatenate(scores_, axis=0), axis=0)
     classes_ = K.expand_dims(K.concatenate(classes_, axis=0), axis=0)
+    if return_xy:
+        boxes_ = K.concatenate([
+            boxes_[..., 1:2],  # y_min
+            boxes_[..., 0:1],  # x_min
+            boxes_[..., 3:],  # y_max
+            boxes_[..., 2:3]  # x_max
+        ])
     # boxes_ = K.concatenate(boxes_, axis=0)
     # scores_ = K.concatenate(scores_, axis=0)
     # classes_ = K.concatenate(classes_, axis=0)
-
     return boxes_, scores_, classes_
 
 
@@ -684,15 +701,8 @@ def yolo_eval_lite(yolo_outputs,
                    anchors,
                    num_classes,
                    image_shape,
-                   max_boxes=20,
-                   score_threshold=.6,
-                   iou_threshold=.5):
-    """Evaluate YOLO model on given input and return filtered boxes.
-    只适用于一张图片的处理，不适合批处理
-    Args:
-        image_shape: 原始输入图片尺寸, 高X宽
-    Returns:
-        boxes,其中box格式为[y1,x1,y2,x2]
+                   return_xy=True):
+    """Todo 未测试和完善
     """
     num_layers = len(yolo_outputs)
     anchor_mask = [[6, 7, 8], [3, 4, 5], [0, 1, 2]] if num_layers == 3 else [[3, 4, 5], [1, 2, 3]]  # default setting
@@ -706,8 +716,16 @@ def yolo_eval_lite(yolo_outputs,
         boxes.append(_boxes)
         box_scores.append(_box_scores)
     boxes = K.concatenate(boxes, axis=0)
-
+    if return_xy:
+        boxes = K.concatenate([
+            boxes[..., 1:2],  # y_min
+            boxes[..., 0:1],  # x_min
+            boxes[..., 3:],  # y_max
+            boxes[..., 2:3]  # x_max
+        ])
     box_scores = K.concatenate(box_scores, axis=0)
+
+    # Todo 此处需要注意是为了方便java
     box_scores = tf.transpose(box_scores)
     return K.expand_dims(boxes, 0), K.expand_dims(box_scores, 0)
 
@@ -889,15 +907,7 @@ class YoloLoss(tf.keras.losses.Loss):
     定义模型为标准输出，把yolo head写入模型里面（即还原成相对坐标形式）
     不把损失函数写入模型里面
     """
-    defalt_anchors = np.array([[10., 13.],
-                               [16., 30.],
-                               [33., 23.],
-                               [30., 61.],
-                               [62., 45.],
-                               [59., 119.],
-                               [116., 90.],
-                               [156., 198.],
-                               [373., 326.]], dtype="float")
+    defalt_anchors = DEFALT_ANCHORS
 
     def __init__(self,
                  scale_stage,

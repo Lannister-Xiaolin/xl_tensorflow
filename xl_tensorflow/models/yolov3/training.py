@@ -187,7 +187,7 @@ body_dict = {
 
 
 def mul_gpu_training(train_annotation_path, val_annotation_path, classes_path, batch_size=8,
-                     input_shape=(416, 416), body="darknet", suffix="voc", pre_weights=None):
+                     input_shape=(416, 416), body="darknet", suffix="voc", pre_weights=None,giou_loss=False,mul_gpu=False):
     """
     Todo 加速训练
     Args:
@@ -202,7 +202,9 @@ def mul_gpu_training(train_annotation_path, val_annotation_path, classes_path, b
     from xl_tensorflow.models.yolov3.model import YoloLoss
     class_names = get_classes(classes_path)
     num_classes = len(class_names)
-    mirrored_strategy = tf.distribute.MirroredStrategy()
+    if mul_gpu:
+        mirrored_strategy = tf.distribute.MirroredStrategy()
+
     with mirrored_strategy.scope():
         image_input = Input(shape=(*input_shape, 3))
         model = body_dict[body](image_input, 3, num_classes, reshape_y=True)
@@ -217,7 +219,7 @@ def mul_gpu_training(train_annotation_path, val_annotation_path, classes_path, b
                                                                           YoloLoss.defalt_anchors, num_classes)
     with mirrored_strategy.scope():
         for i in range(185): model.layers[i].trainable = False
-        model.compile(loss=[YoloLoss(i, input_shape, num_classes, giou_loss=True) for i in range(3)])
+        model.compile(loss=[YoloLoss(i, input_shape, num_classes, giou_loss=giou_loss) for i in range(3)])
     model.fit(train_dataset, validation_data=val_dataset,
               epochs=50,
               steps_per_epoch=max(1, num_train // batch_size),
@@ -227,7 +229,7 @@ def mul_gpu_training(train_annotation_path, val_annotation_path, classes_path, b
     callback = create_callback(f"./log/yolo_{body}_{suffix}", f"./mdoel/yolo_{body}_{suffix}_weights.h5")
     with mirrored_strategy.scope():
         for i in range(185): model.layers[i].trainable = True
-        model.compile(loss=[YoloLoss(i, input_shape, num_classes, giou_loss=True) for i in range(3)])
+        model.compile(loss=[YoloLoss(i, input_shape, num_classes, giou_loss=giou_loss) for i in range(3)])
     model.fit(train_dataset, validation_data=val_dataset,
               epochs=100,
               steps_per_epoch=max(1, num_train // batch_size),

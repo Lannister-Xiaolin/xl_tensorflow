@@ -18,6 +18,7 @@ import numpy as np
 from .BoundingBox import *
 from .BoundingBoxes import *
 from .utils import *
+from xl_tool.data.image.annonation import get_bndbox
 
 
 class Evaluator:
@@ -508,6 +509,19 @@ def map_raf_from_lists(detections, ground_truths, iou_threshold=0.5, box_format=
     return mAP, metricsPerClasses
 
 
-def voc2ratxt():
-    # TODO voc转成相应的文件格式
-    pass
+def voc2ratxt(xml_file, box_format="xywh"):
+    """
+    Args:
+        xml_file:
+        box_format:
+    Returns:
+    """
+    boxes = get_bndbox(xml_file)
+    image_id = os.path.basename(xml_file).split(".")[0]
+    boxes = [[box['name'], *box["coordinates"]] for box in boxes]
+    if box_format == "xywh":
+        for box in boxes:
+            x, y = box[1:3]
+            w, h = box[2] - box[0], box[3] - box[1]
+            box[1:] = [x, y, w, h]
+    return [image_id, boxes]
