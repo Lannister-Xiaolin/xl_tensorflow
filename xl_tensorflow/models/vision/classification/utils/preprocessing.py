@@ -22,7 +22,7 @@ from __future__ import print_function
 import tensorflow as tf
 from typing import List, Optional, Text, Tuple
 
-import xl_tensorflow.models.vision.classification.utils.autoaug as augment
+from .autoaug import ImageAugment
 
 # Calculated from the ImageNet training set
 MEAN_RGB = (0.485 * 255, 0.456 * 255, 0.406 * 255)
@@ -372,7 +372,7 @@ def build_eval_dataset(filenames: List[Text],
 
 def preprocess_for_train(image_bytes: tf.Tensor,
                          image_size: int = IMAGE_SIZE,
-                         augmenter: Optional[augment.ImageAugment] = None,
+                         augmenter: Optional[ImageAugment] = None,
                          mean_subtract: bool = False,
                          standardize: bool = False,
                          dtype: tf.dtypes.DType = tf.float32,
