@@ -10,6 +10,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import logging
 from .tfrecord import image_from_tfrecord, AutoAugment, RandAugment
+import time
+from contextlib import contextmanager
 
 logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s',
                     level=logging.INFO,
@@ -32,6 +34,19 @@ optimizer_dict = {
     "Adadelta".lower(): Adadelta, "Adagrad": Adagrad
 
 }
+
+
+class nondistribute:
+    """空策略，替代单GPU和CPU"""
+
+    @contextmanager
+    def scope(self):
+        start = time.time()
+        try:
+            yield
+        finally:
+            end = time.time()
+            print('{}: {}'.format("执行时间", end - start))
 
 
 def file_scanning(path, file_format=r".txt$", full_path=True, sub_scan=False):
@@ -149,9 +164,10 @@ def finetune_model(name="", prefix="", class_num=6, train_path="./dataset/specif
         except RuntimeError as e:
             print(e)
             # indexs = []
+    logging.info('Number of gpu devices: %d' % len(gpus))
+    strategy = tf.distribute.MirroredStrategy() if len(gpus) > 1 else nondistribute
     if not train_from_scratch:
-        strategy = tf.distribute.MirroredStrategy()
-        logging.info('Number of devices: %d' % strategy.num_replicas_in_sync)
+        logging.info("预训练")
         with strategy.scope():
             model = ImageFineModel.create_fine_model(name, class_num, weights=weights, prefix=prefix,
                                                      suffix=f"_{class_num}", dropout=dropout,
@@ -172,8 +188,8 @@ def finetune_model(name="", prefix="", class_num=6, train_path="./dataset/specif
             model.fit_generator(train_gen, validation_data=val_gen, epochs=epochs[1], callbacks=call_back,
                                 initial_epoch=epochs[0], use_multiprocessing=False)
     else:
-        print("从头开始训练模型！！！")
-        strategy = tf.distribute.MirroredStrategy()
+        logging.info("从头开始训练模型！！！")
+        # strategy = tf.distribute.MirroredStrategy()
         with strategy.scope():
             model = ImageFineModel.create_fine_model(name, class_num,
                                                      weights=weights if weights == "imagenet" else None, prefix=prefix,
