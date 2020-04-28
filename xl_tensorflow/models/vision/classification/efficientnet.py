@@ -668,7 +668,7 @@ setattr(EfficientNetLiteB4, '__doc__', EfficientNet.__doc__)
 
 
 def main():
-    model = EfficientNetB1(include_top=True, weights="imagenet",using_se_global_pooling=False)
+    model = EfficientNetB0(include_top=True, weights="imagenet",using_se_global_pooling=False)
     print(model.summary())
 
 
