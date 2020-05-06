@@ -79,7 +79,7 @@ def images2tfrecord(root_path, record_file, label2index_file, classes=None, mul_
     label2index = {labels[i]: i for i in range(len(labels))} if labels else dict()
     files = []
     for d in labels:
-        fs = file_scanning(root_path + "/" + d, file_format="jpg|jpeg|png", sub_scan=True, full_path=True)
+        fs = file_scanning(root_path + "/" + d, file_format="jpg|jpeg|png|JPG|JPEG|PNG", sub_scan=True, full_path=True)
         logging.info(d + ": {}".format(len(fs)))
         lbs = [d, ] * len(fs)
         fs = list(zip(fs, lbs))
