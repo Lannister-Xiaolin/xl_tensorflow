@@ -3,7 +3,7 @@
 import tensorflow as tf
 from ..configs.anchors import YOLOV3_ANCHORS
 import tensorflow.keras.backend as K
-from ..body.yolo import yolo_head_sp
+from ..body.yolo import yolo_head_sp, box_iou
 
 
 class YoloLoss(tf.keras.losses.Loss):
@@ -17,9 +17,9 @@ class YoloLoss(tf.keras.losses.Loss):
                  scale_stage,
                  input_shape,
                  num_class,
-                 giou_loss=False,
+                 iou_loss="",
                  anchors=None,
-                 ignore_thresh=.5,
+                 ignore_thresh=.4,
                  print_loss=False):
         """
         计算每个stage的损失
@@ -37,7 +37,7 @@ class YoloLoss(tf.keras.losses.Loss):
             anchors else self.defalt_anchors[anchor_masks[scale_stage]]
         self.input_shape = input_shape
         self.num_class = num_class
-        self.giou_loss = giou_loss
+        self.iou_loss = iou_loss
         self.print_loss = print_loss
         self.grid_shape = ((input_shape[0] // 32) * (scale_stage + 1), (input_shape[1] // 32) * (scale_stage + 1))
 
@@ -65,8 +65,6 @@ class YoloLoss(tf.keras.losses.Loss):
                                                         input_shape, self.grid_shape,
                                                         calc_loss=True)
 
-
-
         pred_box = K.concatenate([pred_xy, pred_wh])
         # relative to specified gird
         raw_true_xy = y_true[..., :2] * grid_shape[::-1] - grid
@@ -76,32 +74,36 @@ class YoloLoss(tf.keras.losses.Loss):
         # box_loss_scale used for scale imbalance large value for small object and small value for large object
         box_loss_scale = 2 - y_true[..., 2:3] * y_true[..., 3:4]
         # Find ignore mask, iterate over each of batch.
-        ignore_mask = tf.TensorArray(K.dtype(y_true), size=1, dynamic_size=True)
+
         object_mask_bool = K.cast(object_mask, 'bool')
 
-        best_iou = tf.map_fn(
-            lambda pred_box_one,true_box_one,object_mask_bool_one: tf.reduce_max(box_iou(pred_box_one, tf.boolean_mask(
-                true_box_one, object_mask_bool_one)), axis=-1),
-            (pred_box, true_boxes, obj_mask),
-            tf.float32)
+        def iou_best(elems):
+            pred_box_one, y_true_one, object_mask_bool_one = elems
+            true_box_one = tf.boolean_mask(y_true_one[..., 0:4], object_mask_bool_one[..., 0])
+            iou = box_iou(pred_box_one, true_box_one)
+            best_iou = K.cast(K.max(iou, axis=-1) < self.ignore_thresh, tf.float32)
+            return best_iou
 
-
-
-        def loop_body(b, ignore_mask):
-            # 每张图片的真实box,应为二维tensor
-            true_box = tf.boolean_mask(y_true[b, ..., 0:4], object_mask_bool[b, ..., 0])
-            # pred_box batch,26,26,3,4，iou shape like  (26,26,3,real_box_num)
-            iou = box_iou(pred_box[b], true_box)
-            # 26,26,3，所有grid的预测值与真实box最好的iou值
-            best_iou = K.max(iou, axis=-1)
-            # 小于阙值的为真，即确定当前值是否参与计算
-            ignore_mask = ignore_mask.write(b, K.cast(best_iou < self.ignore_thresh, K.dtype(true_box)))
-            return b + 1, ignore_mask
-
-        # ignoremask  即所有与真实框iou小于指定值的位置为1，其他位置为0，即看作负样本
-        _, ignore_mask = tf.while_loop(lambda b, *args: b < batch, loop_body, [0, ignore_mask])
-        ignore_mask = ignore_mask.stack()
+        ignore_mask = tf.map_fn(iou_best, (pred_box, y_true, object_mask_bool), tf.float32)
         ignore_mask = K.expand_dims(ignore_mask, -1)
+        # ---------------------------旧版写法
+        # ignore_mask = tf.TensorArray(K.dtype(y_true), size=1, dynamic_size=True)
+        # def loop_body(b, ignore_mask):
+        #     # 每张图片的真实box,应为二维tensor
+        #     true_box = tf.boolean_mask(y_true[b, ..., 0:4], object_mask_bool[b, ..., 0])
+        #     # pred_box batch,26,26,3,4，iou shape like  (26,26,3,real_box_num)
+        #     iou = box_iou(pred_box[b], true_box)
+        #     # 26,26,3，所有grid的预测值与真实box最好的iou值
+        #     best_iou = K.max(iou, axis=-1)
+        #     # 小于阙值的为真，即确定当前值是否参与计算
+        #     ignore_mask = ignore_mask.write(b, K.cast(best_iou < self.ignore_thresh, K.dtype(true_box)))
+        #     return b + 1, ignore_mask
+        #
+        # # ignoremask  即所有与真实框iou小于指定值的位置为1，其他位置为0，即看作负样本
+        # _, ignore_mask = tf.while_loop(lambda b, *args: b < batch, loop_body, [0, ignore_mask])
+        # ignore_mask = ignore_mask.stack()
+        # ignore_mask = K.expand_dims(ignore_mask, -1)
+        # ---------------------------旧版写法
         """
         损失函数组成：
             1、中心定位误差，采用交叉熵，只计算有真实目标位置的损失
@@ -117,24 +119,16 @@ class YoloLoss(tf.keras.losses.Loss):
         class_loss = object_mask * K.binary_crossentropy(true_class_probs, raw_pred[..., 5:], from_logits=True)
         confidence_loss = tf.reduce_sum(confidence_loss) / batch_tensor
         class_loss = tf.reduce_sum(class_loss) / batch_tensor
-        # Todo GIOU LOSS 有问题，暂时不要使用
-        if self.giou_loss:
-            pred_max = tf.reverse(pred_xy + pred_wh / 2., [-1])
-            pred_min = tf.reverse(pred_xy - pred_wh / 2., [-1])
-            pred_box = tf.concat([pred_min, pred_max], -1)
-
-            true_xy = y_true[..., :2]
-            true_wh = y_true[..., 2:4]
-            true_max = tf.reverse(true_xy + true_wh / 2., [-1])
-            true_min = tf.reverse(true_xy - true_wh / 2., [-1])
-            true_box = tf.concat([true_min, true_max], -1)
-            true_box = tf.clip_by_value(true_box, 0, 1)
-            giou = do_giou_calculate(pred_box, true_box)
-            giou_loss = object_mask * (1 - tf.expand_dims(giou, -1))
-            giou_loss = tf.reduce_sum(giou_loss) / batch_tensor
-            loss += giou_loss + confidence_loss + class_loss
+        class_loss = tf.identity(class_loss, "class_loss")
+        confidence_loss = tf.identity(confidence_loss, "confidence_loss")
+        if self.iou_loss in ("giou", "ciou", "diou","iou"):
+            iou = box_iou(y_true, y_pred, method=self.iou_loss, as_loss=True)
+            iou_loss = object_mask * (1 - tf.expand_dims(iou, -1))
+            iou_loss = tf.reduce_sum(iou_loss) / batch_tensor
+            iou_loss = tf.identity(iou_loss, self.iou_loss + "_loss")
+            loss += iou_loss + confidence_loss + class_loss
             if self.print_loss:
-                tf.print(str(self.idx) + ':', giou_loss, confidence_loss, class_loss, tf.reduce_sum(ignore_mask))
+                tf.print(str(self.idx) + ':', iou_loss, confidence_loss, class_loss, tf.reduce_sum(ignore_mask))
         else:
             xy_loss = object_mask * box_loss_scale * K.binary_crossentropy(raw_true_xy, raw_pred[..., 0:2],
                                                                            from_logits=True)

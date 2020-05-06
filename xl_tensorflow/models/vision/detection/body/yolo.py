@@ -726,28 +726,31 @@ def yolo_eval_lite(yolo_outputs,
     return K.expand_dims(boxes, 0), K.expand_dims(box_scores, 0)
 
 
-def box_iou(b1, b2, method="iou"):
+def box_iou(b1, b2, method="iou", as_loss=False):
     '''Return iou tensor, 即所有预测box与真实box的iou值
     Parameters
     ----------
     b1: predict box tensor, shape=(i1,...,iN, 4), xywh, shape like 26*26*3*4
     b2: true box tensor, tensor, shape=(j, 4), xywh, j mean the real box number for image
     method: must be one of "iou giou ciou diou"
+    as_loss: whether to use iou as loss
     Returns
     -------
     iou: tensor, shape=(i1,...,iN, j)
     '''
 
     # Expand dim to apply broadcasting.
-    b1 = K.expand_dims(b1, -2)
+    if not as_loss:
+        b1 = K.expand_dims(b1, -2)
     b1_xy = b1[..., :2]
-    b1_wh = b1[..., 2:4]
+    b1_wh = tf.maximum(0,b1[..., 2:4])
     b1_wh_half = b1_wh / 2.
     b1_mins = b1_xy - b1_wh_half
     b1_maxes = b1_xy + b1_wh_half
 
     # Expand dim to apply broadcasting.
-    b2 = K.expand_dims(b2, 0)
+    if not as_loss:
+        b2 = K.expand_dims(b2, 0)
     b2_xy = b2[..., :2]
     b2_wh = b2[..., 2:4]
     b2_wh_half = b2_wh / 2.
