@@ -1,7 +1,7 @@
 #!usr/bin/env python3
 # -*- coding: UTF-8 -*-
 import tensorflow as tf
-from tensorflow.keras import layers,backend
+from tensorflow.keras import layers, backend
 from tensorflow.python.keras.utils import tf_utils
 
 
@@ -22,6 +22,7 @@ class HSwish(layers.Layer):
     def compute_output_shape(self, input_shape):
         return input_shape
 
+
 class Swish(layers.Layer):
     def __init__(self, **kwargs):
         super(Swish, self).__init__(**kwargs)
@@ -40,6 +41,23 @@ class Swish(layers.Layer):
         return input_shape
 
 
+class Mish(layers.Layer):
+    def __init__(self, **kwargs):
+        super(Mish, self).__init__(**kwargs)
+
+    def call(self, inputs, **kwargs):
+        # alpha is used for leaky relu slope in activations instead of
+        # negative_slope.
+        return tf.multiply(backend.tanh(backend.softplus(inputs)), inputs)
+
+    def get_config(self):
+        base_config = super(Mish, self).get_config()
+        return base_config
+
+    @tf_utils.shape_type_conversion
+    def compute_output_shape(self, input_shape):
+        return input_shape
+
 
 def get_swish(**kwargs):
     def swish(x):
@@ -49,3 +67,10 @@ def get_swish(**kwargs):
         return tf.nn.swish(x)
 
     return swish
+
+
+def get_mish():
+    def mish(inputs):
+        return tf.multiply(backend.tanh(backend.softplus(inputs)), inputs)
+
+    return mish

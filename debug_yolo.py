@@ -60,6 +60,12 @@ def tflite():
 
 if __name__ == '__main__':
     # test_yolo_tflosss()
-    tflite()
+    # tflite()
+    # from xl_tensorflow.models.vision.detection.configs.yolo import get_yolo_config
+    # print(get_yolo_config())
+    from xl_tensorflow.models.vision.classification.darknet import DarkNet53,CspDarkNet53
+    model = CspDarkNet53(input_shape=(608,608,3),weights=None)
+    model.save(r"E:\Temp\test\fuck.h5")
+    print(model.summary())
 
 

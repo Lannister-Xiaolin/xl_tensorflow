@@ -10,11 +10,11 @@ from tensorflow.keras.models import Model, Sequential, load_model
 from tensorflow.keras.layers import Dense, Flatten, GlobalAveragePooling2D, Conv2D, Input, Dropout
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping, TensorBoard, ReduceLROnPlateau, ModelCheckpoint
-from xl_tensorflow.models.efficientnet import EfficientNetB0, EfficientNetB1, \
+from xl_tensorflow.models.vision.classification.efficientnet import EfficientNetB0, EfficientNetB1, \
     EfficientNetB2, EfficientNetB3, EfficientNetB4, \
     EfficientNetB5, EfficientNetB6, EfficientNetB7, EfficientNetLiteB1, EfficientNetLiteB2, EfficientNetLiteB3, \
     EfficientNetLiteB4
-from xl_tensorflow.models import MobileNetV3Small, MobileNetV3Large
+from xl_tensorflow.models.vision.classification.mobilenet_v3 import MobileNetV3Small, MobileNetV3Large
 
 eff_input_dict = {'efficientnetb0': 224, 'efficientnetb1': 240,
                   'efficientnetb2': 260,
@@ -30,7 +30,7 @@ eff_input_dict = {'efficientnetb0': 224, 'efficientnetb1': 240,
 
 
 def my_call_backs(model_name, log_path=None, model_path=None, monitor="val_loss", patience=5,
-                  reducelr=3, factor=0.2,update_freq="epoch"):
+                  reducelr=3, factor=0.2, update_freq="epoch"):
     """回调函数列表，包括tensorboard, 学习率衰减, 提前终止，模型检测点"""
     if "win" in sys.platform:
         log_dir = os.path.join(os.getcwd(), r"\logs\{}".format(model_name)) if not log_path else os.path.join(log_path,
@@ -40,7 +40,7 @@ def my_call_backs(model_name, log_path=None, model_path=None, monitor="val_loss"
     model_path = "./model"
     os.makedirs(model_path, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
-    tensorboard = TensorBoard(log_dir=log_dir, write_graph=False, histogram_freq=False,update_freq=update_freq)
+    tensorboard = TensorBoard(log_dir=log_dir, write_graph=False, histogram_freq=False, update_freq=update_freq)
     reducelr = ReduceLROnPlateau(monitor=monitor, factor=factor, patience=reducelr)
     early_stop = EarlyStopping(monitor=monitor, min_delta=1e-7, patience=patience, verbose=0, mode='auto',
                                baseline=None)

@@ -10,7 +10,7 @@ from tensorflow.keras.layers import LeakyReLU
 from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras.models import Model
 from tensorflow.keras.regularizers import l2
-from ..efficientnet import EfficientNetB4, EfficientNetB3, \
+from xl_tensorflow.models.vision.classification.efficientnet import EfficientNetB4, EfficientNetB3, \
     EfficientNetLiteB4, mb_conv_block, BlockArgs, get_swish, EfficientNetLiteB1, EfficientNetB0
 from .utils import compose
 
