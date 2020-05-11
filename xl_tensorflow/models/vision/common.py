@@ -34,3 +34,12 @@ def _float_list_feature(value):
 def _bytes_list_feature(value):
     """byte list to feature(value don't need to and '[]")"""
     return tf.train.Feature(bytes_list=tf.train.BytesList(value=value))
+
+DENSE_KERNEL_INITIALIZER = {
+    'class_name': 'VarianceScaling',
+    'config': {
+        'scale': 1. / 3.,
+        'mode': 'fan_out',
+        'distribution': 'uniform'
+    }
+}
