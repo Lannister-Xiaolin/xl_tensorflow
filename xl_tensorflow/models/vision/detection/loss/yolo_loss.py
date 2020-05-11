@@ -61,9 +61,9 @@ class YoloLoss(tf.keras.losses.Loss):
         true_class_probs = y_true[..., 5:]
         input_shape = tf.shape(y_pred)[1:3]
         grid, raw_pred, pred_xy, pred_wh = yolo_head(y_pred,
-                                                        self.anchor, self.num_class,
-                                                        input_shape, self.grid_shape,
-                                                        calc_loss=True)
+                                                     self.anchor,
+                                                     input_shape,
+                                                     calc_loss=True)
 
         pred_box = K.concatenate([pred_xy, pred_wh])
         # relative to specified gird
@@ -121,7 +121,7 @@ class YoloLoss(tf.keras.losses.Loss):
         class_loss = tf.reduce_sum(class_loss) / batch_tensor
         class_loss = tf.identity(class_loss, "class_loss")
         confidence_loss = tf.identity(confidence_loss, "confidence_loss")
-        if self.iou_loss in ("giou", "ciou", "diou","iou"):
+        if self.iou_loss in ("giou", "ciou", "diou", "iou"):
             iou = box_iou(y_true, y_pred, method=self.iou_loss, as_loss=True)
             iou_loss = object_mask * (1 - tf.expand_dims(iou, -1))
             iou_loss = tf.reduce_sum(iou_loss) / batch_tensor

@@ -53,8 +53,8 @@ def output_wrapper(func):
      reshape为(batch,anchor,anchor,3，(5+num_classes)),主要用于自定义的yololoss"""
 
     @wraps(func)
-    def wrapper(inputs, num_anchors, num_classes, backbone, reshape_y=False):
-        model = func(inputs, num_anchors, num_classes, backbone)
+    def wrapper(inputs, num_anchors, num_classes, architecture, reshape_y=False):
+        model = func(inputs, num_anchors, num_classes, architecture)
         if reshape_y:
             y1, y2, y3 = model.outputs
             # print(y1, y2, y3)
@@ -69,9 +69,9 @@ def output_wrapper(func):
 
 
 @output_wrapper
-def yolo_body(inputs, num_anchors, num_classes, backbone="cspdarknet53"):
+def yolo_body(inputs, num_anchors, num_classes, architecture="yolov4"):
     """Create YOLO_V3 model CNN body in Keras."""
-    if backbone == "cspdarknet53":
+    if architecture == "yolov4":
         config = get_yolo_config("yolov4", num_anchors, num_classes)
         outputs = spatial_pyramid_block(cspdarknet_body(inputs)) if config.spp else cspdarknet_body(inputs)
         body = Model(inputs, outputs)
@@ -166,7 +166,7 @@ def box_iou(b1, b2, method="iou", as_loss=False):
     return iou
 
 
-def yolo_head(feats, anchors, num_classes, input_shape, grid_shape, calc_loss=False):
+def yolo_head(feats, anchors, input_shape, calc_loss=False):
     """计算grid和预测box的坐标和长宽(专门用于指定的tf loss类)
         Args:
             feats, 即yolobody的输出，未经过未经过sigmoid函数处理,输出为batch 26,26,3,85
@@ -241,12 +241,12 @@ def yolo_correct_boxes(box_xy, box_wh, input_shape, image_shape):
     return boxes
 
 
-def yolo_boxes_and_scores(feats, anchors, num_classes, input_shape, image_shape):
+def yolo_boxes_and_scores(feats, anchors, num_classes, input_shape, origin_image_shape):
     '''Process Conv layer output'''
     # 获取输出，即相对整图的长宽以及置信度与概率值
-    box_xy, box_wh, box_confidence, box_class_probs = yolo_head(feats,
-                                                                anchors, num_classes, input_shape)
-    boxes = yolo_correct_boxes(box_xy, box_wh, input_shape, image_shape)
+    box_xy, box_wh, box_confidence, box_class_probs = yolo_head(feats=feats,
+                                                                anchors=anchors, input_shape=input_shape)
+    boxes = yolo_correct_boxes(box_xy, box_wh, input_shape, origin_image_shape)
     boxes = K.reshape(boxes, [-1, 4])
     box_scores = box_confidence * box_class_probs
     box_scores = K.reshape(box_scores, [-1, num_classes])
@@ -256,14 +256,14 @@ def yolo_boxes_and_scores(feats, anchors, num_classes, input_shape, image_shape)
 def yolo_eval(yolo_outputs,
               anchors,
               num_classes,
-              image_shape,
+              origin_image_shape,
               max_boxes=20,
               score_threshold=.6,
               iou_threshold=.5, return_xy=True):
     """Evaluate YOLO model on given input and return filtered boxes.
     只适用于一张图片的处理，不适合批处理
     Args:
-        image_shape: 原始输入图片尺寸, 高X宽
+        origin_image_shape: 原始输入图片尺寸, 高X宽
     Returns:
         boxes,其中box格式为[y1,x1,y2,x2]
     """
@@ -275,7 +275,7 @@ def yolo_eval(yolo_outputs,
     for l in range(num_layers):
         # 此处的处理会去除batch的信息，完全展开，因此该计算图只能用于单张图片处理，不能批处理
         _boxes, _box_scores = yolo_boxes_and_scores(yolo_outputs[l],
-                                                    anchors[anchor_mask[l]], num_classes, input_shape, image_shape)
+                                                    anchors[anchor_mask[l]], num_classes, input_shape, origin_image_shape)
         boxes.append(_boxes)
         box_scores.append(_box_scores)
     boxes = K.concatenate(boxes, axis=0)
@@ -287,7 +287,6 @@ def yolo_eval(yolo_outputs,
     scores_ = []
     classes_ = []
     for c in range(num_classes):
-        # TODO: use keras backend instead of tf.
         class_boxes = tf.boolean_mask(boxes, mask[:, c])
         class_box_scores = tf.boolean_mask(box_scores[:, c], mask[:, c])
         nms_index = tf.image.non_max_suppression(

@@ -72,7 +72,7 @@ if __name__ == '__main__':
 
     image_input = Input(shape=(416, 416, 3))
     model_body = yolo_body_3(image_input, 3, 35, True)
-    model = yolo_body(Input(shape=(416,416,3)),3,35,backbone="darknet53",reshape_y=True)
+    model = yolo_body(Input(shape=(416, 416, 3)), 3, 35, backbone="cspdarknet53", reshape_y=True)
 
     print(model.summary())
     # print(model.get_layer("mish_37"))
