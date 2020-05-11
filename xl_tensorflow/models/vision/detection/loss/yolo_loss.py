@@ -3,7 +3,7 @@
 import tensorflow as tf
 from ..configs.anchors import YOLOV3_ANCHORS
 import tensorflow.keras.backend as K
-from ..body.yolo import yolo_head_sp, box_iou
+from ..body.yolo import yolo_head, box_iou
 
 
 class YoloLoss(tf.keras.losses.Loss):
@@ -60,7 +60,7 @@ class YoloLoss(tf.keras.losses.Loss):
         object_mask = y_true[..., 4:5]
         true_class_probs = y_true[..., 5:]
         input_shape = tf.shape(y_pred)[1:3]
-        grid, raw_pred, pred_xy, pred_wh = yolo_head_sp(y_pred,
+        grid, raw_pred, pred_xy, pred_wh = yolo_head(y_pred,
                                                         self.anchor, self.num_class,
                                                         input_shape, self.grid_shape,
                                                         calc_loss=True)
@@ -128,7 +128,7 @@ class YoloLoss(tf.keras.losses.Loss):
             iou_loss = tf.identity(iou_loss, self.iou_loss + "_loss")
             loss += iou_loss + confidence_loss + class_loss
             if self.print_loss:
-                tf.print(str(self.idx) + ':', iou_loss, confidence_loss, class_loss, tf.reduce_sum(ignore_mask))
+                tf.print(str(self.scale_stage) + ':', iou_loss, confidence_loss, class_loss, tf.reduce_sum(ignore_mask))
         else:
             xy_loss = object_mask * box_loss_scale * K.binary_crossentropy(raw_true_xy, raw_pred[..., 0:2],
                                                                            from_logits=True)
