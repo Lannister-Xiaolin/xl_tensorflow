@@ -20,7 +20,7 @@ from ..utils.yolo_utils import compose
 from xl_tensorflow.models.vision.classification.darknet import DarknetConv2D_BN_Leaky, \
     DarknetConv2D, darknet_body, cspdarknet_body
 from .common import node_aggregate
-from .aggregation import pan_network
+from .aggregation import pan_network, fpn_network
 from ..configs.yolo_config import get_yolo_config
 
 
@@ -53,8 +53,8 @@ def output_wrapper(func):
      reshape为(batch,anchor,anchor,3，(5+num_classes)),主要用于自定义的yololoss"""
 
     @wraps(func)
-    def wrapper(inputs, num_anchors, num_classes, reshape_y=False):
-        model = func(inputs, num_anchors, num_classes)
+    def wrapper(inputs, num_anchors, num_classes, backbone, reshape_y=False):
+        model = func(inputs, num_anchors, num_classes, backbone)
         if reshape_y:
             y1, y2, y3 = model.outputs
             # print(y1, y2, y3)
@@ -69,36 +69,26 @@ def output_wrapper(func):
 
 
 @output_wrapper
-def yolo_body(inputs, num_anchors, num_classes, backbone="cspdarknet53", agg_method="panet"):
+def yolo_body(inputs, num_anchors, num_classes, backbone="cspdarknet53"):
     """Create YOLO_V3 model CNN body in Keras."""
     if backbone == "cspdarknet53":
-        config = get_yolo_config("yolov4-608", num_anchors, num_classes)
-        ssp_out = spatial_pyramid_block(cspdarknet_body(inputs))
-        body = Model(inputs, ssp_out)
+        config = get_yolo_config("yolov4", num_anchors, num_classes)
+        outputs = spatial_pyramid_block(cspdarknet_body(inputs)) if config.spp else cspdarknet_body(inputs)
+        body = Model(inputs, outputs)
         features = [body.layers[131].output, body.layers[204].output, body.output]  # mish_37  58
     else:
+        config = get_yolo_config("yolov3", num_anchors, num_classes)
+        outputs = spatial_pyramid_block(darknet_body(inputs)) if config.spp else darknet_body(inputs)
+        body = Model(inputs, outputs)
+        features = [body.layers[92].output, body.layers[152].output, body.output]
         pass
-    # config = get_yolo_config("yolov3", num_classes, num_anchors)
-    # body = Model(inputs, darknet_body(inputs))
-    # features = [body.layers[92].output, body.layers[152].output, body.output]
-    if agg_method == "panet":
+    if config.agg_method == "panet":
         new_features = pan_network(features, config)
         y1, y2, y3 = new_features[::-1]
+    else:
+        new_features = fpn_network(features, config)
+        y1, y2, y3 = new_features[::-1]
 
-    # darknet = Model(inputs, darknet_body(inputs))
-    # x, y1 = make_last_layers(darknet.output, 512, num_anchors * (num_classes + 5))
-    #
-    # x = compose(
-    #     DarknetConv2D_BN_Leaky(256, (1, 1)),
-    #     UpSampling2D(2))(x)
-    # x = Concatenate()([x, darknet.layers[152].output])
-    # x, y2 = make_last_layers(x, 256, num_anchors * (num_classes + 5))
-    #
-    # x = compose(
-    #     DarknetConv2D_BN_Leaky(128, (1, 1)),
-    #     UpSampling2D(2))(x)
-    # x = Concatenate()([x, darknet.layers[92].output])
-    # x, y3 = make_last_layers(x, 128, num_anchors * (num_classes + 5))
     return Model(inputs, [y1, y2, y3])
 
 
@@ -324,6 +314,7 @@ def yolo_eval(yolo_outputs,
     # scores_ = K.concatenate(scores_, axis=0)
     # classes_ = K.concatenate(classes_, axis=0)
     return boxes_, scores_, classes_
+
 
 # Todo lite 的配置暂时不管
 def yolo_head_lite(feats, anchors, num_classes, input_shape, calc_loss=False):

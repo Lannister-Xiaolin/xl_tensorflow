@@ -67,11 +67,15 @@ if __name__ == '__main__':
     # model = CspDarkNet53(input_shape=(608,608,3),weights=None)
     # model.save(r"E:\Temp\test\fuck.h5")
     from tensorflow.keras.layers import Input
-    from xl_tensorflow.models.vision.detection.body.yolo_body import yolo_body
-    model = yolo_body(Input(shape=(608,608,3)),3,85,reshape_y=True)
+    from xl_tensorflow.models.vision.detection.body.yolo import yolo_body
+    from xl_tensorflow.models.yolov3.training import yolo_body as yolo_body_3
+
+    image_input = Input(shape=(416, 416, 3))
+    model_body = yolo_body_3(image_input, 3, 35, True)
+    model = yolo_body(Input(shape=(416,416,3)),3,35,backbone="darknet53",reshape_y=True)
 
     print(model.summary())
     # print(model.get_layer("mish_37"))
-    model.save(r"E:\Temp\test\fuck.h5")
+    model.save(r"E:\Temp\test\fuck3.h5")
 
 

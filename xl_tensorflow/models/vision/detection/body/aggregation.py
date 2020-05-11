@@ -60,5 +60,24 @@ def pan_network(features, configs, ascending_shape=False):
     return new_features
 
 
-def fpn_network():
-    pass
+def fpn_network(features, configs, ascending_shape=False):
+    backward_flows = []
+    features = features if ascending_shape else features[::-1]
+    for i in range(len(features)):
+        features[i] = compose(*configs.agg_inputs_ops[i])(features[i]) if configs.agg_inputs_ops[i] else features[i]
+    for i, feature in enumerate(features):
+        if i == 0:
+            node = compose(*configs.inlevel_backward_ops[i])(feature)
+            backward_flows.append(node)
+        else:
+            #  层间操作
+            prev = compose(*configs.backward_ops[i - 1])(backward_flows[-1])
+            node = node_aggregate([feature, prev], method="concat")
+            #  横向操作
+            node = compose(*configs.inlevel_backward_ops[i])(node)
+            backward_flows.append(node)
+    p1_to_p7_flows = backward_flows[::-1]
+    for i in range(len(backward_flows)):
+        p1_to_p7_flows[i] = compose(*configs.agg_out_ops[i])(p1_to_p7_flows[i])
+    new_features = p1_to_p7_flows[::-1] if ascending_shape else p1_to_p7_flows
+    return new_features
