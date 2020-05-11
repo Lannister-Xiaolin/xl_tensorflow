@@ -14,7 +14,6 @@ from ..utils.yolo_utils import compose
 from .common import node_aggregate
 
 
-
 def bifpn_network():
     pass
 
@@ -55,6 +54,8 @@ def pan_network(features, configs, ascending_shape=False):
             #  横向操作
             node = compose(*configs.inlevel_forward_ops[i])(node)
             forward_flows.append(node)
+    for i in range(len(forward_flows)):
+        forward_flows[i] = compose(*configs.agg_out_ops[i])(forward_flows[i])
     new_features = forward_flows[::-1] if ascending_shape else forward_flows
     return new_features
 
