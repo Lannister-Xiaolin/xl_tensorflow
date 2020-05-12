@@ -66,7 +66,22 @@ def output_wrapper(func):
 
 @output_wrapper
 def yolo_body(inputs, num_anchors, num_classes, architecture="yolov4"):
-    """Create YOLO_V3 model CNN body in Keras."""
+    """Create YOLO_V3 model CNN body in Keras.
+    Args:
+        architecture: one of following:
+                    yolov3   yolov4
+                    yolov4_mobilenetv2
+                    yolov4_efficientnetb0
+                    yolov4_efficientnetb1
+                    yolov4_efficientnetb2
+                    yolov4_efficientnetliteb1
+                    yolov4_efficientnetliteb2
+                    yolov4_efficientnetliteb3
+                    yolov4_efficientnetliteb4
+                    yolov3_efficientnetliteb4_spp
+                    yolov3_efficientnetliteb0_spp
+                    yolov3_mobilenetv2_spp
+    """
     if architecture == "yolov4":
         config = get_yolo_config("yolov4", num_anchors, num_classes)
         outputs = spatial_pyramid_block(cspdarknet_body(inputs)) if config.spp else cspdarknet_body(inputs)
