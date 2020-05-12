@@ -7,7 +7,7 @@ from xl_tensorflow.preprocessing.annotation import voc2txt_annotation
 
 @click.command()
 @click.option("--xml", help="xml path to read")
-@click.option("--img", help="image path to read")
+@click.option("--img", default="", help="image path to read")
 @click.option("--txt", help="txt to save ")
 @click.option("--label", help="label file to read, seperate by \n")
 def main(xml, txt, label, img):
@@ -15,3 +15,7 @@ def main(xml, txt, label, img):
     train_txt = txt
     classes = read_txt(label, return_list=True, remove_linebreak=True)
     voc2txt_annotation(xml_files, train_txt, classes, image_path=img, seperator="\t", encoding="utf-8")
+
+
+if __name__ == '__main__':
+    main()

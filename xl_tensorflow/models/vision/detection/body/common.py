@@ -4,14 +4,8 @@
 common module for custom definition of layers, models .etc
 """
 
-from ..utils.yolo_utils import compose
-from tensorflow.keras.layers import BatchNormalization, LeakyReLU, Conv2D
-from functools import wraps
-from tensorflow.keras.regularizers import l2
-
 AGGREGATE_METHOD = ("add", "concat", "avg", "max", "min", "sub")
 import tensorflow.keras.layers as layers
-from ..utils.yolo_utils import compose
 
 
 def node_aggregate(inputs, method="add", axis=-1):
@@ -41,8 +35,3 @@ def node_aggregate(inputs, method="add", axis=-1):
     else:
         x = layers.Add()(inputs)
     return x
-
-
-
-
-

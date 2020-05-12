@@ -3,6 +3,7 @@ import os
 import shutil
 import xml.etree.ElementTree as ET
 from xl_tool.xl_io import file_scanning
+from tqdm import tqdm
 
 
 def voc2txt_annotation(xml_files, train_txt, classes, image_path=None, seperator="\t", encoding="utf-8"):
@@ -24,7 +25,9 @@ def voc2txt_annotation(xml_files, train_txt, classes, image_path=None, seperator
 
     """
     train_fp = open(train_txt, "w", encoding=encoding)
-    for xml_file in xml_files:
+    print(f"总文件数量：{len(xml_files)}\n训练文件存储位置：{train_txt}\n抽取类别：{'  '.join(classes)}")
+    pbar = tqdm(xml_files)
+    for xml_file in pbar:
         in_file = open(xml_file)
         tree = ET.parse(in_file)
         root = tree.getroot()
@@ -44,6 +47,7 @@ def voc2txt_annotation(xml_files, train_txt, classes, image_path=None, seperator
                  int(float(xmlbox.find('ymax').text)))
             train_fp.write(seperator + ",".join([str(a) for a in b]) + ',' + str(cls_id))
         train_fp.write("\n")
+    pbar.set_description("转换进度：")
     train_fp.close()
 
 
