@@ -22,6 +22,7 @@ from xl_tensorflow.models.yolov3.utils import *
 from tensorflow.keras.layers import Input, Lambda
 from xl_tensorflow.models.yolov3.inference import tf_saved_model_to_lite
 
+
 def test_yolo_tflosss():
     mirrored_strategy = tf.distribute.MirroredStrategy()
     with mirrored_strategy.scope():
@@ -40,7 +41,7 @@ def test_yolo_tflosss():
         # y2 = tf.reshape(model_body.outputs[1], (-1, 26, 26, 3, 20))
         # y3 = tf.reshape(model_body.outputs[2], (-1, 52, 52, 3, 20))
         # model = Model(model_body.inputs, [y1, y2, y3])
-        model= yolo_body(image_input, 3, 15, True)
+        model = yolo_body(image_input, 3, 15, True)
         model.compile(loss=[YoloLoss(i, (416, 416), 15, giou_loss=True) for i in range(3)])
     num_classes = 15
     anchors = get_anchors(r"E:\Programming\Python\5_CV\学习案例\xl_tf2_yolov3\model_data\yolo_anchors.txt")
@@ -56,7 +57,8 @@ def test_yolo_tflosss():
 
 def tflite():
     tf_saved_model_to_lite(r"E:\Temp\test\yolo\2", r"E:\Temp\test\yolo.tflite",
-                           input_shape=[None, 416,416, 3],allow_custom_ops=True)
+                           input_shape=[None, 416, 416, 3], allow_custom_ops=True)
+
 
 if __name__ == '__main__':
     # test_yolo_tflosss()
@@ -66,28 +68,15 @@ if __name__ == '__main__':
     # from xl_tensorflow.models.vision.classification.darknet import DarkNet53,CspDarkNet53
     # model = CspDarkNet53(input_shape=(608,608,3),weights=None)
     # model.save(r"E:\Temp\test\fuck.h5")
-    from tensorflow.keras import Input,Model,layers
+    from tensorflow.keras import Input, Model, layers
     from xl_tensorflow.models.vision.detection.body.yolo import yolo_body
     from xl_tensorflow.models.yolov3.training import yolo_body as yolo_body_3
-    from xl_tensorflow.utils.deploy import serving_model_export
 
     image_input = Input(shape=(416, 416, 3))
-    model_body = yolo_body_3(image_input, 3, 35, False)
-    y1,y2,y3 = model_body.outputs
-    y1 = layers.GlobalAveragePooling2D()(y1)
-    y2 = layers.GlobalAveragePooling2D()(y2)
-    y3 = layers.GlobalAveragePooling2D()(y3)
-    outs = layers.Concatenate()([y1,y2,y3])
-    outs = layers.Dense(35)(outs)
-    model = Model(image_input,outs)
-    model.output_names[0] = "prediction"
-    serving_model_export(model, r"E:\Temp\test\yolo")
-    # y1 = layers.UpSampling2D(yq)
+    # model_body = yolo_body_3(image_input, 3, 35, True)
 
-    model = yolo_body(Input(shape=(416, 416, 3)), 3, 35, backbone="cspdarknet53", reshape_y=True)
+    model = yolo_body(Input(shape=(416, 416, 3)), 3, 35, architecture="yolov4", reshape_y=True)
 
     print(model.summary())
     # print(model.get_layer("mish_37"))
     model.save(r"E:\Temp\test\fuck3.h5")
-
-

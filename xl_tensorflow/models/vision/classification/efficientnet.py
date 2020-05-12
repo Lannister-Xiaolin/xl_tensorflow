@@ -668,7 +668,9 @@ setattr(EfficientNetLiteB4, '__doc__', EfficientNet.__doc__)
 
 
 def main():
-    model = EfficientNetB0(include_top=True, weights="imagenet",using_se_global_pooling=False)
+    image_input = layers.Input(shape=(416, 416, 3))
+    from tensorflow.keras.applications import MobileNetV2
+    model = MobileNetV2(include_top=True,input_tensor=image_input, weights=None)
     print(model.summary())
 
 

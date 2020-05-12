@@ -9,7 +9,7 @@ from xl_tool.xl_io import file_scanning, save_to_json
 import threading
 import tensorflow_addons as tfa
 import random
-from xl_tensorflow.models.vision.common import _bytes_feature, _bytes_list_feature, _float_feature, _float_list_feature, \
+from xl_tensorflow.utils.common import _bytes_feature, _bytes_list_feature, _float_feature, _float_list_feature, \
     _int64_feature, _int64_list_feature
 from .preprocessing import preprocess_for_train, preprocess_for_eval
 from .autoaug import AutoAugment, RandAugment

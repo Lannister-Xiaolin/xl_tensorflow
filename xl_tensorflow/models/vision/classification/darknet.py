@@ -7,7 +7,7 @@ from tensorflow.keras import layers, models, backend
 import os
 from keras_applications.imagenet_utils import _obtain_input_shape
 from keras_applications.imagenet_utils import preprocess_input as _preprocess_input
-from ..common import DENSE_KERNEL_INITIALIZER
+from xl_tensorflow.utils.common import DENSE_KERNEL_INITIALIZER
 from xl_tensorflow.layers.actication import Mish, get_mish
 
 BASE_WEIGTHS_PATH = (
