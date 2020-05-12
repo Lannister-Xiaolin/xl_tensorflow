@@ -10,8 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import logging
 from .tfrecord import image_from_tfrecord, AutoAugment, RandAugment
-import time
-from contextlib import contextmanager
+from xl_tensorflow.utils.common import nondistribute
 
 logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s',
                     level=logging.INFO,
@@ -35,18 +34,6 @@ optimizer_dict = {
 
 }
 
-
-class nondistribute:
-    """空策略，替代单GPU和CPU"""
-
-    @contextmanager
-    def scope(self):
-        start = time.time()
-        try:
-            yield
-        finally:
-            end = time.time()
-            print('{}: {}'.format("执行时间", end - start))
 
 
 def file_scanning(path, file_format=r".txt$", full_path=True, sub_scan=False):

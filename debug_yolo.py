@@ -66,12 +66,24 @@ if __name__ == '__main__':
     # from xl_tensorflow.models.vision.classification.darknet import DarkNet53,CspDarkNet53
     # model = CspDarkNet53(input_shape=(608,608,3),weights=None)
     # model.save(r"E:\Temp\test\fuck.h5")
-    from tensorflow.keras.layers import Input
+    from tensorflow.keras import Input,Model,layers
     from xl_tensorflow.models.vision.detection.body.yolo import yolo_body
     from xl_tensorflow.models.yolov3.training import yolo_body as yolo_body_3
+    from xl_tensorflow.utils.deploy import serving_model_export
 
     image_input = Input(shape=(416, 416, 3))
-    model_body = yolo_body_3(image_input, 3, 35, True)
+    model_body = yolo_body_3(image_input, 3, 35, False)
+    y1,y2,y3 = model_body.outputs
+    y1 = layers.GlobalAveragePooling2D()(y1)
+    y2 = layers.GlobalAveragePooling2D()(y2)
+    y3 = layers.GlobalAveragePooling2D()(y3)
+    outs = layers.Concatenate()([y1,y2,y3])
+    outs = layers.Dense(35)(outs)
+    model = Model(image_input,outs)
+    model.output_names[0] = "prediction"
+    serving_model_export(model, r"E:\Temp\test\yolo")
+    # y1 = layers.UpSampling2D(yq)
+
     model = yolo_body(Input(shape=(416, 416, 3)), 3, 35, backbone="cspdarknet53", reshape_y=True)
 
     print(model.summary())

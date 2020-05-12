@@ -5,7 +5,7 @@ import xml.etree.ElementTree as ET
 from xl_tool.xl_io import file_scanning
 
 
-def voc2txt_annotation(xml_files, train_txt, classes, image_path=None, seperator=" ", encoding="utf-8"):
+def voc2txt_annotation(xml_files, train_txt, classes, image_path=None, seperator="\t", encoding="utf-8"):
     """
     Convert voc data to train.txt file, format as follows:
     One row for one image;
