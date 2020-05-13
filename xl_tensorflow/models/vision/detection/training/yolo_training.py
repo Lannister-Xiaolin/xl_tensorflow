@@ -63,7 +63,7 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
                                  tfrecord=False, generater2tfdata=True,
                                  lrs=(1e-4, 1e-5),
                                  freeze_layers=(185, 0),
-                                 epochs=(20, 20),
+                                 epochs=(20, 30),
                                  paciences=(10, 5),
                                  reduce_lrs=(3, 3)):
     """
@@ -109,8 +109,8 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
             model.compile(Adam(lrs[i]),
                           loss=[YoloLoss(i, input_shape, num_classes, iou_loss=iou_loss) for i in
                                 range(3)])
-        callback = xl_call_backs(f"./logs/yolo_{architecture}_{suffix}",
-                                 f"./model/yolo_{architecture}_{suffix}",
+        callback = xl_call_backs(f"./logs/{architecture}_{suffix}",
+                                 f"./model/{architecture}_{suffix}",
                                  save_best_only=False, patience=paciences[i], reduce_lr=reduce_lrs[i])
 
         model.fit(train_dataset, validation_data=val_dataset,
