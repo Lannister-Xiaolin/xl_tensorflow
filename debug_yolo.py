@@ -61,7 +61,7 @@ def tflite():
 def compare():
     from tensorflow.keras.models import load_model
     from xl_tensorflow.layers.actication import Mish
-    model_darknet = load_model(r"E:\Programming\Python\TOOL\packege_xl_tf\scripts\yolov4.h5",{"Mish":Mish})
+    model_darknet = load_model(r"E:\Programming\Python\TOOL\weights\yolo\yolov4.h5",{"Mish":Mish})
     model_my = yolo_body(Input(shape=(608, 608, 3)), 3, 80, architecture="yolov4", reshape_y=False)
     print(len(model_my.layers), len(model_darknet.layers))
     print(model_my.outputs, model_darknet.outputs)
@@ -72,11 +72,14 @@ def compare():
             if model_my.layers[i].trainable_weights[0].shape == model_darknet.layers[i].trainable_weights[0].shape:
                 continue
             else:
-                print(i,"my: ",model_my.layers[i]._name,model_my.layers[i].trainable_weights[0].shape, "\tdarknet:", model_darknet.layers[i]._name,model_darknet.layers[i].trainable_weights[0].shape)
+                print(i,"my: ",model_my.layers[i]._name,model_my.layers[i].trainable_weights[0].shape, "\tdarknet:", model_darknet.layers[i]._name,model_darknet.layers[i].trainable_weights[0].shape,si)
         except IndexError:
             continue
-    model_my.load_weights(r"E:\Programming\Python\TOOL\packege_xl_tf\scripts\yolov4_weights.h5")
-    model_my.save_weights(r"E:\Programming\Python\TOOL\packege_xl_tf\scripts\yolov4_xl_weights.h5")
+    model_my.load_weights(r"E:\Programming\Python\TOOL\weights\yolo\yolov4_weights.h5")
+    model_my.save_weights(r"E:\Programming\Python\TOOL\weights\yolo\yolov4_xl_weights.h5")
+    print( yolo_body(Input(shape=(608, 608, 3)), 3, 20, architecture="yolov4", reshape_y=False).load_weights(r"E:\Programming\Python\TOOL\weights\yolo\yolov4_weights.h5",skip_mismatch=True,by_name=True))
+    print( yolo_body(Input(shape=(416, 416, 3)), 3, 20, architecture="yolov4", reshape_y=False).load_weights(r"E:\Programming\Python\TOOL\weights\yolo\yolov4_xl_weights.h5",skip_mismatch=True,by_name=True))
+
 def compare_yolov3():
     from tensorflow.keras.models import load_model
     from xl_tensorflow.layers.actication import Mish
@@ -117,6 +120,6 @@ if __name__ == '__main__':
     # # print(model.get_layer("mish_37"))
     # model.save(r"E:\Programming\Python\TOOL\packege_xl_tf\scripts\yolov4_custom2.h5")
     # compare_yolov3()
-    # compare()
-    from xl_tensorflow.models.vision.classification.darknet import CspDarkNet53
-    print(len(CspDarkNet53(include_top=False,weights=None).layers))
+    compare()
+    # from xl_tensorflow.models.vision.classification.darknet import CspDarkNet53
+    # print(len(CspDarkNet53(include_top=False,weights=None).layers))

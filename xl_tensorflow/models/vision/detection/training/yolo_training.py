@@ -35,7 +35,7 @@ def single_inference_model_serving(model_name, weights,
     """
     anchors = YOLOV4_ANCHORS if anchors == "v4" else YOLOV3_ANCHORS
     yolo_model = yolo_body(Input(shape=(*input_shape, 3)),
-                           len(anchors) // 3, num_classes, model_name)
+                           len(anchors) // 3, num_classes, model_name,reshape_y=True)
 
     if weights:
         yolo_model.load_weights(weights)

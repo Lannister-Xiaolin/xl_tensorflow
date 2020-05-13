@@ -267,6 +267,8 @@ def main(_):
 
     examples_list = xml_files
     auto_label_index = -1
+    # Todo多进程数据共享的问题
+    pool = multiprocessing.Pool(FLAGS.num_threads)
     for idx, example in enumerate(examples_list):
         if FLAGS.num_images and idx >= FLAGS.num_images:
             break
