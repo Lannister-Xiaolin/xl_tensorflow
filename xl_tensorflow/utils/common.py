@@ -84,10 +84,11 @@ def xl_call_backs(model_name, log_path=None, model_path=None, monitor="val_loss"
         log_dir = os.path.join(os.getcwd(), r"\logs\{}".format(model_name)) if not log_path else os.path.join(log_path,
                                                                                                               model_name)
     else:
-        log_dir = r"./logs/{}".format(model_name) if not model_path else os.path.join(model_path, model_name)
+        log_dir = r"./logs/{}".format(model_name) if not log_path else log_path
     model_path = "./model" if not model_path else model_path
     os.makedirs(model_path, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
+    print(os.path.abspath(model_path), os.path.abspath(log_dir))
     tensorboard = tf.keras.callbacks.TensorBoard(log_dir=log_dir, write_graph=False, histogram_freq=False,
                                                  update_freq=update_freq)
     reducelr = tf.keras.callbacks.ReduceLROnPlateau(monitor=monitor, factor=factor, patience=reduce_lr)

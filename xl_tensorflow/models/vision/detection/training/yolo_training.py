@@ -63,7 +63,7 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
                                  tfrecord=False, generater2tfdata=True,
                                  lrs=(1e-4, 1e-5),
                                  freeze_layers=(185, 0),
-                                 epochs=(20, 30),initial_epoch=0,
+                                 epochs=(20, 30), initial_epoch=0,
                                  paciences=(10, 5),
                                  reduce_lrs=(3, 3)):
     """
