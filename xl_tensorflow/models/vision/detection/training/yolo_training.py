@@ -109,7 +109,7 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
             model.compile(Adam(lrs[i]),
                           loss=[YoloLoss(i, input_shape, num_classes, iou_loss=iou_loss) for i in
                                 range(3)])
-        callback = xl_call_backs(f"./logs/{architecture}_{suffix}",
+        callback = xl_call_backs(architecture, f"./logs/{architecture}_{suffix}",
                                  f"./model/{architecture}_{suffix}",
                                  save_best_only=False, patience=paciences[i], reduce_lr=reduce_lrs[i])
 
