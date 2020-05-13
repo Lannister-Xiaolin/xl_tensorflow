@@ -23,16 +23,17 @@ def pan_network(features, configs, ascending_shape=False):
     panet
      Reference: [Path Aggregation Network](https://arxiv.org/abs/1803.01534)
     Args:
-        features:
+        features: p1——>p7 direction with ascending_shape=False
         configs:
         ascending_shape: bool, True if shape in features ordered shape in ascending(13,26,52), else False
     Returns:
 
     """
     backward_flows = []
-    features = features if ascending_shape else features[::-1]
     for i in range(len(features)):
-        features[i] = compose(*configs.agg_inputs_ops[i])(features[i])
+        features[i] = compose(*configs.agg_inputs_ops[i])(features[i]) if not ascending_shape else compose(
+            *configs.agg_inputs_ops[i])(features[len(features) - i - 1])
+    features = features if ascending_shape else features[::-1]
     for i, feature in enumerate(features):
         if i == 0:
             backward_flows.append(feature)

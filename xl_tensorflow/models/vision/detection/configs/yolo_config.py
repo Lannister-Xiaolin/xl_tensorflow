@@ -48,8 +48,8 @@ def get_model_param(model_name='yolov4', num_anchors=3, num_classes=80):
                 ],
                 # all config order as from p1——>p7 direction
                 forward_ops=[
-                    [DarknetConv2D_BN_Leaky(filters=256, kernel_size=3, strides=2), ],
-                    [DarknetConv2D_BN_Leaky(filters=512, kernel_size=3, strides=2), ]
+                    [layers.ZeroPadding2D(((1, 0), (1, 0))), DarknetConv2D_BN_Leaky(filters=256, kernel_size=3, strides=2), ],
+                    [layers.ZeroPadding2D(((1, 0), (1, 0))), DarknetConv2D_BN_Leaky(filters=512, kernel_size=3, strides=2), ]
                 ],
                 # all config order as from p7——>p1 direction
                 inlevel_backward_ops=[

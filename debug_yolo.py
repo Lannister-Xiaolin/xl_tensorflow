@@ -58,8 +58,44 @@ def test_yolo_tflosss():
 def tflite():
     tf_saved_model_to_lite(r"E:\Temp\test\yolo\2", r"E:\Temp\test\yolo.tflite",
                            input_shape=[None, 416, 416, 3], allow_custom_ops=True)
-
-
+def compare():
+    from tensorflow.keras.models import load_model
+    from xl_tensorflow.layers.actication import Mish
+    model_darknet = load_model(r"E:\Programming\Python\TOOL\packege_xl_tf\scripts\yolov4.h5",{"Mish":Mish})
+    model_my = yolo_body(Input(shape=(608, 608, 3)), 3, 80, architecture="yolov4", reshape_y=False)
+    print(len(model_my.layers), len(model_darknet.layers))
+    print(model_my.outputs, model_darknet.outputs)
+    model_my.save(r"E:\Programming\Python\TOOL\packege_xl_tf\scripts\yolov4_my.h5")
+    model_darknet.save(r"E:\Programming\Python\TOOL\packege_xl_tf\scripts\yolov4_darknet.h5")
+    for i in range(len(model_darknet.layers)):
+        try:
+            if model_my.layers[i].trainable_weights[0].shape == model_darknet.layers[i].trainable_weights[0].shape:
+                continue
+            else:
+                print(i,"my: ",model_my.layers[i]._name,model_my.layers[i].trainable_weights[0].shape, "\tdarknet:", model_darknet.layers[i]._name,model_darknet.layers[i].trainable_weights[0].shape)
+        except IndexError:
+            continue
+    model_my.load_weights(r"E:\Programming\Python\TOOL\packege_xl_tf\scripts\yolov4_weights.h5")
+    model_my.save_weights(r"E:\Programming\Python\TOOL\packege_xl_tf\scripts\yolov4_xl_weights.h5")
+def compare_yolov3():
+    from tensorflow.keras.models import load_model
+    from xl_tensorflow.layers.actication import Mish
+    model_darknet = load_model(r"E:\Programming\Python\TOOL\packege_xl_tf\scripts\yolov3.h5",{"Mish":Mish})
+    model_my = yolo_body(Input(shape=(608, 608, 3)), 3, 80, architecture="yolov3", reshape_y=False)
+    print(len(model_my.layers), len(model_darknet.layers))
+    print(model_my.outputs, model_darknet.outputs)
+    model_my.save(r"E:\Programming\Python\TOOL\packege_xl_tf\scripts\yolov4_my.h5")
+    model_darknet.save(r"E:\Programming\Python\TOOL\packege_xl_tf\scripts\yolov4_darknet.h5")
+    for i in range(len(model_darknet.layers)):
+        try:
+            if model_my.layers[i].trainable_weights[0].shape == model_darknet.layers[i].trainable_weights[0].shape:
+                continue
+            else:
+                print(i,"my: ",model_my.layers[i]._name,model_my.layers[i].trainable_weights[0].shape, "\tdarknet:", model_darknet.layers[i]._name,model_darknet.layers[i].trainable_weights[0].shape)
+        except IndexError:
+            continue
+    model_my.load_weights(r"E:\Programming\Python\TOOL\packege_xl_tf\scripts\yolov3_weights.h5")
+    model_my.save_weights(r"E:\Programming\Python\TOOL\packege_xl_tf\scripts\yolov3_xl_weights.h5")
 if __name__ == '__main__':
     # test_yolo_tflosss()
     # tflite()
@@ -72,11 +108,13 @@ if __name__ == '__main__':
     from xl_tensorflow.models.vision.detection.body.yolo import yolo_body
     from xl_tensorflow.models.yolov3.training import yolo_body as yolo_body_3
 
-    image_input = Input(shape=(416, 416, 3))
+    # image_input = Input(shape=(608, 608, 3))
     # model_body = yolo_body_3(image_input, 3, 35, True)
 
-    model = yolo_body(Input(shape=(416, 416, 3)), 3, 35, architecture="yolov4", reshape_y=True)
-
-    print(model.summary())
-    # print(model.get_layer("mish_37"))
-    model.save(r"E:\Temp\test\fuck3.h5")
+    # model = yolo_body(Input(shape=(608, 608, 3)), 3, 80, architecture="yolov4", reshape_y=False)
+    # model.load_weights(r"E:\Programming\Python\TOOL\packege_xl_tf\scripts\yolov4_weights.h5")
+    # print(model.summary())
+    # # print(model.get_layer("mish_37"))
+    # model.save(r"E:\Programming\Python\TOOL\packege_xl_tf\scripts\yolov4_custom2.h5")
+    compare_yolov3()
+    compare()
