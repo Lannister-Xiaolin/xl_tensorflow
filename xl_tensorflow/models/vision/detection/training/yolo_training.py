@@ -35,7 +35,7 @@ def single_inference_model_serving(model_name, weights,
     """
     anchors = YOLOV4_ANCHORS if anchors == "v4" else YOLOV3_ANCHORS
     yolo_model = yolo_body(Input(shape=(*input_shape, 3)),
-                           len(anchors) // 3, num_classes, model_name,reshape_y=True)
+                           len(anchors) // 3, num_classes, model_name, reshape_y=True)
 
     if weights:
         yolo_model.load_weights(weights)
@@ -92,7 +92,17 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
         image_input = Input(shape=(*input_shape, 3))
         model = yolo_body(image_input, 3, num_classes, architecture=architecture, reshape_y=True)
         if pre_weights:
-            model.load_weights(pre_weights, by_name=skip_mismatch, skip_mismatch=skip_mismatch)
+            try:
+                model.load_weights(pre_weights)
+            except:
+                print("逐层加载预训练权重")
+                model2 = yolo_body(image_input, 3, 80, architecture=architecture, reshape_y=True)
+                model2.load_weights(pre_weights)
+                for i in range(len(model2.layers)):
+                    try:
+                        model.layers[i].set_weights(model2.layers[i].get_weights())
+                    except Exception as e:
+                        print(e)
 
     # 创建训练数据
     train_dataset, val_dataset, num_train, num_val = create_datagen(train_annotation_path, val_annotation_path,
@@ -110,7 +120,7 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
                           loss=[YoloLoss(i, input_shape, num_classes, iou_loss=iou_loss) for i in
                                 range(3)])
         callback = xl_call_backs(architecture, log_path=f"./logs/{architecture}_{suffix}",
-                                model_path=f"./model/{architecture}_{suffix}",
+                                 model_path=f"./model/{architecture}_{suffix}",
                                  save_best_only=False, patience=paciences[i], reduce_lr=reduce_lrs[i])
 
         model.fit(train_dataset, validation_data=val_dataset,
