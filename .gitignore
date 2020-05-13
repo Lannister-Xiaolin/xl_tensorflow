@@ -5,3 +5,5 @@
 build
 dist
 xl_tensorflow.egg-info
+/training_log
+/xl_tensorflow/training_log
