@@ -59,11 +59,11 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
                                  classes_path, batch_size=8, iou_loss="",
                                  input_shape=(416, 416), architecture="yolov3",
                                  suffix="voc", pre_weights=None, anchors="v3",
-                                 giou_loss=False, mul_gpu=False, skip_mismatch=False,
+                                 use_multiprocessing=True, workers=4, skip_mismatch=False,
                                  tfrecord=False, generater2tfdata=True,
-                                 lrs=(1e-3, 1e-4),
+                                 lrs=(1e-4, 1e-5),
                                  freeze_layers=(185, 0),
-                                 epochs=(50, 50),
+                                 epochs=(20, 20),
                                  paciences=(10, 5),
                                  reduce_lrs=(3, 3)):
     """
@@ -72,7 +72,7 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
         number_classes:
         input_shape:
         body:
-
+        freeze_layers: 185-yolov3  250-yolov4
     Returns:
 
     """
@@ -86,11 +86,11 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
                 tf.config.experimental.set_memory_growth(gpu, True)
         except RuntimeError as e:
             print(e)
-    mirrored_strategy = tf.distribute.MirroredStrategy() if len(gpus) > 1 else nondistribute
+    mirrored_strategy = tf.distribute.MirroredStrategy() if len(gpus) > 1 else nondistribute()
     anchors = YOLOV3_ANCHORS if anchors == "v3" else YOLOV4_ANCHORS
     with mirrored_strategy.scope():
         image_input = Input(shape=(*input_shape, 3))
-        model = yolo_body(image_input, 3, num_classes, architecture=architecture)
+        model = yolo_body(image_input, 3, num_classes, architecture=architecture, reshape_y=True)
         if pre_weights:
             model.load_weights(pre_weights, by_name=skip_mismatch, skip_mismatch=skip_mismatch)
 
@@ -100,9 +100,15 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
                                                                     anchors, num_classes)
     for i in range(len(lrs)):
         with mirrored_strategy.scope():
+            if freeze_layers[i] > 0:
+                for j in range(freeze_layers[i]):
+                    model.layers[j].trainable = False
+            else:
+                for j in range(len(model.layers)):
+                    model.layers[j].trainable = True
             model.compile(Adam(lrs[i]),
-                          loss={"Stage_{}".format(i): YoloLoss(i, input_shape, num_classes, iou_loss=iou_loss) for i in
-                                range(3)})
+                          loss=[YoloLoss(i, input_shape, num_classes, iou_loss=iou_loss) for i in
+                                range(3)])
         callback = xl_call_backs(f"./logs/yolo_{architecture}_{suffix}",
                                  f"./model/yolo_{architecture}_{suffix}",
                                  save_best_only=False, patience=paciences[i], reduce_lr=reduce_lrs[i])
@@ -112,5 +118,5 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
                   steps_per_epoch=max(1, num_train // batch_size),
                   validation_steps=max(1, num_val // batch_size),
                   initial_epoch=0 if i == 0 else epochs[i - 1],
-                  callbacks=callback)
+                  callbacks=callback, use_multiprocessing=use_multiprocessing, workers=workers)
     return model

@@ -152,7 +152,7 @@ def finetune_model(name="", prefix="", class_num=6, train_path="./dataset/specif
             print(e)
             # indexs = []
     logging.info('Number of gpu devices: %d' % len(gpus))
-    strategy = tf.distribute.MirroredStrategy() if len(gpus) > 1 else nondistribute
+    strategy = tf.distribute.MirroredStrategy() if len(gpus) > 1 else nondistribute()
     if not train_from_scratch:
         logging.info("预训练")
         with strategy.scope():

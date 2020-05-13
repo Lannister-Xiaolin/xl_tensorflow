@@ -6,8 +6,11 @@ import time
 import tensorflow as tf
 import sys
 import os
+
 MEAN_RGB = (0.485 * 255, 0.456 * 255, 0.406 * 255)
 STDDEV_RGB = (0.229 * 255, 0.224 * 255, 0.225 * 255)
+
+
 def compose(*funcs):
     """Compose arbitrarily many functions, evaluated left to right.
     Reference: https://mathieularose.com/function-composition-in-python/
@@ -17,6 +20,7 @@ def compose(*funcs):
         return reduce(lambda f, g: lambda *a, **kw: g(f(*a, **kw)), funcs)
     else:
         raise ValueError('Composition of empty sequence not supported.')
+
 
 class nondistribute:
     """空策略，替代单GPU和CPU"""
@@ -29,8 +33,6 @@ class nondistribute:
         finally:
             end = time.time()
             print('{}: {}'.format("执行时间", end - start))
-
-
 
 
 def _bytes_feature(value):

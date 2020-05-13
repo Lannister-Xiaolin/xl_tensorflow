@@ -116,5 +116,7 @@ if __name__ == '__main__':
     # print(model.summary())
     # # print(model.get_layer("mish_37"))
     # model.save(r"E:\Programming\Python\TOOL\packege_xl_tf\scripts\yolov4_custom2.h5")
-    compare_yolov3()
-    compare()
+    # compare_yolov3()
+    # compare()
+    from xl_tensorflow.models.vision.classification.darknet import CspDarkNet53
+    print(len(CspDarkNet53(include_top=False,weights=None).layers))
