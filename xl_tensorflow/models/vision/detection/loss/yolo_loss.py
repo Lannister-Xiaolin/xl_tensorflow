@@ -1,7 +1,7 @@
 #!usr/bin/env python3
 # -*- coding: UTF-8 -*-
 import tensorflow as tf
-from ..configs.anchors import YOLOV3_ANCHORS
+from xl_tensorflow.models.vision.detection.dataloader.common.anchors_yolo import YOLOV3_ANCHORS
 import tensorflow.keras.backend as K
 from ..body.yolo import yolo_head, box_iou
 

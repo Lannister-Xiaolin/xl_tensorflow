@@ -1,4 +1,4 @@
-# Copyright 2020 Google Research. All Rights Reserved.
+# Copyright 2019 The TensorFlow Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,44 +12,48 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 """Tensorflow Example proto decoder for object detection.
 
 A decoder to decode string tensors containing serialized tensorflow.Example
 protos for object detection.
 """
-
-import tensorflow.compat.v1 as tf
-
-
-def _get_source_id_from_encoded_image(parsed_tensors):
-  return tf.strings.as_string(
-      tf.strings.to_hash_bucket_fast(parsed_tensors['image/encoded'],
-                                     2**63 - 1))
+import tensorflow as tf
 
 
 class TfExampleDecoder(object):
   """Tensorflow Example proto decoder."""
 
-  def __init__(self, include_mask=False, regenerate_source_id=False):
+  def __init__(self, include_mask=False):
     self._include_mask = include_mask
-    self._regenerate_source_id = regenerate_source_id
     self._keys_to_features = {
-        'image/encoded': tf.FixedLenFeature((), tf.string),
-        'image/source_id': tf.FixedLenFeature((), tf.string, ''),
-        'image/height': tf.FixedLenFeature((), tf.int64, -1),
-        'image/width': tf.FixedLenFeature((), tf.int64, -1),
-        'image/object/bbox/xmin': tf.VarLenFeature(tf.float32),
-        'image/object/bbox/xmax': tf.VarLenFeature(tf.float32),
-        'image/object/bbox/ymin': tf.VarLenFeature(tf.float32),
-        'image/object/bbox/ymax': tf.VarLenFeature(tf.float32),
-        'image/object/class/label': tf.VarLenFeature(tf.int64),
-        'image/object/area': tf.VarLenFeature(tf.float32),
-        'image/object/is_crowd': tf.VarLenFeature(tf.int64),
+        'image/encoded':
+            tf.io.FixedLenFeature((), tf.string),
+        'image/source_id':
+            tf.io.FixedLenFeature((), tf.string),
+        'image/height':
+            tf.io.FixedLenFeature((), tf.int64),
+        'image/width':
+            tf.io.FixedLenFeature((), tf.int64),
+        'image/object/bbox/xmin':
+            tf.io.VarLenFeature(tf.float32),
+        'image/object/bbox/xmax':
+            tf.io.VarLenFeature(tf.float32),
+        'image/object/bbox/ymin':
+            tf.io.VarLenFeature(tf.float32),
+        'image/object/bbox/ymax':
+            tf.io.VarLenFeature(tf.float32),
+        'image/object/class/label':
+            tf.io.VarLenFeature(tf.int64),
+        'image/object/area':
+            tf.io.VarLenFeature(tf.float32),
+        'image/object/is_crowd':
+            tf.io.VarLenFeature(tf.int64),
     }
     if include_mask:
       self._keys_to_features.update({
           'image/object/mask':
-              tf.VarLenFeature(tf.string),
+              tf.io.VarLenFeature(tf.string),
       })
 
   def _decode_image(self, parsed_tensors):
@@ -79,9 +83,9 @@ class TfExampleDecoder(object):
     width = parsed_tensors['image/width']
     masks = parsed_tensors['image/object/mask']
     return tf.cond(
-        tf.greater(tf.shape(masks)[0], 0),
-        lambda: tf.map_fn(_decode_png_mask, masks, dtype=tf.float32),
-        lambda: tf.zeros([0, height, width], dtype=tf.float32))
+        pred=tf.greater(tf.size(input=masks), 0),
+        true_fn=lambda: tf.map_fn(_decode_png_mask, masks, dtype=tf.float32),
+        false_fn=lambda: tf.zeros([0, height, width], dtype=tf.float32))
 
   def _decode_areas(self, parsed_tensors):
     xmin = parsed_tensors['image/object/bbox/xmin']
@@ -114,48 +118,29 @@ class TfExampleDecoder(object):
         - groundtruth_instance_masks_png: a string tensor of shape [None].
     """
     parsed_tensors = tf.io.parse_single_example(
-        serialized_example, self._keys_to_features)
+        serialized=serialized_example, features=self._keys_to_features)
     for k in parsed_tensors:
       if isinstance(parsed_tensors[k], tf.SparseTensor):
         if parsed_tensors[k].dtype == tf.string:
-          parsed_tensors[k] = tf.sparse_tensor_to_dense(
+          parsed_tensors[k] = tf.sparse.to_dense(
               parsed_tensors[k], default_value='')
         else:
-          parsed_tensors[k] = tf.sparse_tensor_to_dense(
+          parsed_tensors[k] = tf.sparse.to_dense(
               parsed_tensors[k], default_value=0)
 
     image = self._decode_image(parsed_tensors)
     boxes = self._decode_boxes(parsed_tensors)
     areas = self._decode_areas(parsed_tensors)
-
-    decode_image_shape = tf.logical_or(
-        tf.equal(parsed_tensors['image/height'], -1),
-        tf.equal(parsed_tensors['image/width'], -1))
-    image_shape = tf.cast(tf.shape(image), dtype=tf.int64)
-
-    parsed_tensors['image/height'] = tf.where(decode_image_shape,
-                                              image_shape[0],
-                                              parsed_tensors['image/height'])
-    parsed_tensors['image/width'] = tf.where(decode_image_shape, image_shape[1],
-                                             parsed_tensors['image/width'])
-
     is_crowds = tf.cond(
         tf.greater(tf.shape(parsed_tensors['image/object/is_crowd'])[0], 0),
         lambda: tf.cast(parsed_tensors['image/object/is_crowd'], dtype=tf.bool),
         lambda: tf.zeros_like(parsed_tensors['image/object/class/label'], dtype=tf.bool))  # pylint: disable=line-too-long
-    if self._regenerate_source_id:
-      source_id = _get_source_id_from_encoded_image(parsed_tensors)
-    else:
-      source_id = tf.cond(
-          tf.greater(tf.strings.length(parsed_tensors['image/source_id']),
-                     0), lambda: parsed_tensors['image/source_id'],
-          lambda: _get_source_id_from_encoded_image(parsed_tensors))
     if self._include_mask:
       masks = self._decode_masks(parsed_tensors)
 
     decoded_tensors = {
         'image': image,
-        'source_id': source_id,
+        'source_id': parsed_tensors['image/source_id'],
         'height': parsed_tensors['image/height'],
         'width': parsed_tensors['image/width'],
         'groundtruth_classes': parsed_tensors['image/object/class/label'],

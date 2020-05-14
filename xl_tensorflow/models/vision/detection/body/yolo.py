@@ -1,6 +1,5 @@
 #!usr/bin/env python3
 # -*- coding: UTF-8 -*-
-from ..configs.anchors import YOLOV3_ANCHORS
 
 # !usr/bin/env python3
 # -*- coding: UTF-8 -*-
@@ -11,7 +10,7 @@ from tensorflow.keras import Model, layers
 from ..utils.yolo_utils import compose
 from tensorflow.keras.applications import MobileNetV2
 from xl_tensorflow.models.vision.classification.darknet import DarknetConv2D_BN_Leaky, \
-    DarknetConv2D, darknet_body, cspdarknet_body
+    darknet_body, cspdarknet_body
 from xl_tensorflow.models.vision.classification.efficientnet import EfficientNetB0, EfficientNetB1, EfficientNetB2, \
     EfficientNetLiteB1, \
     EfficientNetLiteB2, EfficientNetLiteB3, EfficientNetLiteB4

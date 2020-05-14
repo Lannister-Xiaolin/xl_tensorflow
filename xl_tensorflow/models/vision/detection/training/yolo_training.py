@@ -2,7 +2,7 @@
 # -*- coding: UTF-8 -*-
 from tensorflow.keras import Input, Model
 from ..body.yolo import yolo_body, yolo_eval
-from ..configs.anchors import YOLOV4_ANCHORS, YOLOV3_ANCHORS
+from xl_tensorflow.models.vision.detection.dataloader.common.anchors_yolo import YOLOV4_ANCHORS, YOLOV3_ANCHORS
 from ..loss.yolo_loss import YoloLoss
 from ..dataloader.yolo_loader import get_classes, create_datagen
 import tensorflow as tf
@@ -109,6 +109,7 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
                                                                     batch_size, input_shape,
                                                                     anchors, num_classes)
     for i in range(len(lrs)):
+        if epochs[i] <= initial_epoch: continue
         with mirrored_strategy.scope():
             if freeze_layers[i] > 0:
                 for j in range(freeze_layers[i]):
@@ -120,6 +121,7 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
                           loss=[YoloLoss(i, input_shape, num_classes, iou_loss=iou_loss, trunc_inf=trunc_inf,
                                          name=f"state_{i}") for i in
                                 range(3)])
+
         callback = xl_call_backs(architecture, log_path=f"./logs/{architecture}_{suffix}",
                                  model_path=f"./model/{architecture}_{suffix}",
                                  save_best_only=False, patience=paciences[i], reduce_lr=reduce_lrs[i])
@@ -128,6 +130,7 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
                   epochs=epochs[i],
                   steps_per_epoch=max(1, num_train // batch_size),
                   validation_steps=max(1, num_val // batch_size),
-                  initial_epoch=initial_epoch if i == 0 else epochs[i - 1],
+                  initial_epoch=initial_epoch,
                   callbacks=callback, use_multiprocessing=use_multiprocessing, workers=workers)
+        initial_epoch = epochs[i]
     return model
