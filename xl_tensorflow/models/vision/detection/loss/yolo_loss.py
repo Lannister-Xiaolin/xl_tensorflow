@@ -20,7 +20,8 @@ class YoloLoss(tf.keras.losses.Loss):
                  iou_loss="",
                  anchors=None,
                  ignore_thresh=.4,
-                 print_loss=False):
+                 print_loss=False,
+                 trunc_inf=True, name='yolo_loss'):
         """
         计算每个stage的损失
         Args:
@@ -28,7 +29,7 @@ class YoloLoss(tf.keras.losses.Loss):
             anchors: anchors for yolo
             ignore_thresh: float,0-1, the iou threshold whether to ignore object confidence loss
         """
-        super(YoloLoss, self).__init__(reduction=tf.losses.Reduction.NONE, name='yolo_loss')
+        super(YoloLoss, self).__init__(reduction=tf.losses.Reduction.NONE, name=name)
         anchor_masks = [[6, 7, 8], [3, 4, 5], [0, 1, 2]] if (anchors and (len(anchors) // 3) == 3) or (
             not anchors) else [[3, 4, 5], [1, 2, 3]]
         self.scale_stage = scale_stage
@@ -40,6 +41,7 @@ class YoloLoss(tf.keras.losses.Loss):
         self.iou_loss = iou_loss
         self.print_loss = print_loss
         self.grid_shape = ((input_shape[0] // 32) * (scale_stage + 1), (input_shape[1] // 32) * (scale_stage + 1))
+        self.trunc_inf = trunc_inf
 
     def call(self, y_true, y_pred):
         """
@@ -122,21 +124,24 @@ class YoloLoss(tf.keras.losses.Loss):
         class_loss = tf.identity(class_loss, "class_loss")
         confidence_loss = tf.identity(confidence_loss, "confidence_loss")
         if self.iou_loss in ("giou", "ciou", "diou", "iou"):
-            iou = box_iou(pred_box, y_pred, method=self.iou_loss, as_loss=True)
-            iou_loss = object_mask * (1 - tf.expand_dims(iou, -1))
+            iou = box_iou(pred_box, y_pred, method=self.iou_loss, as_loss=True, trunc_inf=self.trunc_inf)
+            iou_loss = object_mask * box_loss_scale * (1 - tf.expand_dims(iou, -1))
             iou_loss = tf.reduce_sum(iou_loss) / batch_tensor
             iou_loss = tf.identity(iou_loss, self.iou_loss + "_loss")
             loss += iou_loss + confidence_loss + class_loss
             if self.print_loss:
-                tf.print(str(self.scale_stage) + ':', iou_loss, confidence_loss, class_loss, tf.reduce_sum(ignore_mask))
+                tf.print("\n" + str(
+                    self.scale_stage) + f':\tiou:{iou_loss}\tconfidence:{confidence_loss}\tclass:{class_loss}')
         else:
             xy_loss = object_mask * box_loss_scale * K.binary_crossentropy(raw_true_xy, raw_pred[..., 0:2],
                                                                            from_logits=True)
             wh_loss = object_mask * box_loss_scale * 0.5 * K.square(raw_true_wh - raw_pred[..., 2:4])
             xy_loss = tf.reduce_sum(xy_loss) / batch_tensor
             wh_loss = tf.reduce_sum(wh_loss) / batch_tensor
-            loss += xy_loss + wh_loss + confidence_loss + class_loss
+            mse_loss = xy_loss + wh_loss
+            loss += mse_loss + confidence_loss + class_loss
             if self.print_loss:
-                loss = tf.print(loss, [loss, xy_loss, wh_loss, confidence_loss, class_loss, K.sum(ignore_mask)],
-                                message='loss: ')
+                tf.print("\n" + str(
+                    self.scale_stage) + f':\tmse:{mse_loss}\tconfidence:{confidence_loss}\tclass:{class_loss}')
+
         return loss

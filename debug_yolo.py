@@ -65,8 +65,8 @@ def compare():
     model_my = yolo_body(Input(shape=(608, 608, 3)), 3, 80, architecture="yolov4", reshape_y=False)
     print(len(model_my.layers), len(model_darknet.layers))
     print(model_my.outputs, model_darknet.outputs)
-    model_my.save(r"E:\Programming\Python\TOOL\packege_xl_tf\scripts\yolov4_my.h5")
-    model_darknet.save(r"E:\Programming\Python\TOOL\packege_xl_tf\scripts\yolov4_darknet.h5")
+    model_my.save(r"E:\Programming\Python\TOOL\weights\yolo\yolov4_my.h5")
+    model_darknet.save(r"E:\Programming\Python\TOOL\weights\yolo\yolov4_darknet.h5")
     for i in range(len(model_darknet.layers)):
         try:
             if model_my.layers[i].trainable_weights[0].shape == model_darknet.layers[i].trainable_weights[0].shape:
@@ -77,10 +77,10 @@ def compare():
             continue
     model_my.load_weights(r"E:\Programming\Python\TOOL\weights\yolo\yolov4_weights.h5")
     print(model_my.summary())
-    model_2 = Model(model_my.inputs,[model_my.get_layer("leaky_re_lu_29").output,model_my.get_layer("leaky_re_lu_28").output,model_my.get_layer("leaky_re_lu_27").output ] )
+    # model_2 = Model(model_my.inputs,[model_my.get_layer("leaky_re_lu_29").output,model_my.get_layer("leaky_re_lu_28").output,model_my.get_layer("leaky_re_lu_27").output ] )
     model_my.save_weights(r"E:\Programming\Python\TOOL\weights\yolo\yolov4_xl_weights.h5")
-    print( yolo_body(Input(shape=(608, 608, 3)), 3, 20, architecture="yolov4", reshape_y=False).load_weights(r"E:\Programming\Python\TOOL\weights\yolo\yolov4_weights.h5",skip_mismatch=True,by_name=True))
-    print( yolo_body(Input(shape=(416, 416, 3)), 3, 20, architecture="yolov4", reshape_y=False).load_weights(r"E:\Programming\Python\TOOL\weights\yolo\yolov4_xl_weights.h5",skip_mismatch=True,by_name=True))
+    # print( yolo_body(Input(shape=(608, 608, 3)), 3, 20, architecture="yolov4", reshape_y=False).load_weights(r"E:\Programming\Python\TOOL\weights\yolo\yolov4_weights.h5",skip_mismatch=True,by_name=True))
+    # print( yolo_body(Input(shape=(416, 416, 3)), 3, 20, architecture="yolov4", reshape_y=False).load_weights(r"E:\Programming\Python\TOOL\weights\yolo\yolov4_xl_weights.h5",skip_mismatch=True,by_name=True))
 
 def compare_yolov3():
     from tensorflow.keras.models import load_model
