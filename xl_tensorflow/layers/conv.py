@@ -1,7 +1,10 @@
 #!usr/bin/env python3
 # -*- coding: UTF-8 -*-
-from tensorflow.keras import layers,backend
+from tensorflow.keras import layers, backend
+import tensorflow as tf
 
+
+@tf.keras.utils.register_keras_serializable(package='Text')
 class GlobalAveragePooling2DKeepDim(layers.GlobalAveragePooling2D):
     """Global average pooling operation for spatial data, this class keep dim for output
 
@@ -41,6 +44,7 @@ class GlobalAveragePooling2DKeepDim(layers.GlobalAveragePooling2D):
         return config
 
 
+@tf.keras.utils.register_keras_serializable(package='Text')
 class SEConvEfnet2D(layers.Layer):
     """
     This  Squeeze and Excitation layer for efficientnet
