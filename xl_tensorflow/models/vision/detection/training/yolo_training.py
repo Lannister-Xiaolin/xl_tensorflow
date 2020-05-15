@@ -58,8 +58,8 @@ def single_inference_model_serving(model_name, weights,
 
 
 def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
-                                 classes_path, batch_size=8, iou_loss="",
-                                 input_shape=(416, 416), architecture="yolov3",
+                                 classes_path="", batch_size=8, iou_loss="",
+                                 input_shape=(416, 416), num_classes=None, architecture="yolov3",
                                  suffix="voc", pre_weights=None, anchors="v3",
                                  use_multiprocessing=True, workers=4, skip_mismatch=False,
                                  tfrecord=False, generater2tfdata=True,
@@ -79,8 +79,11 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
     Returns:
 
     """
-    class_names = get_classes(classes_path) if not tfrecord else list(read_json(classes_path).keys())
-    num_classes = len(class_names)
+    if not tfrecord:
+        class_names = get_classes(classes_path)
+        num_classes = len(class_names)
+    else:
+        num_classes = int(num_classes)
     gpus = tf.config.experimental.list_physical_devices('GPU')
     if gpus:
         try:
