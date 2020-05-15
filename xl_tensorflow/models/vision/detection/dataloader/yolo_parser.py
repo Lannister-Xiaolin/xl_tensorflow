@@ -164,7 +164,7 @@ def anchor_grid_align_py(true_boxes, input_shape, anchors, num_classes):
     # Find best anchor for each true box
 
     best_anchor = np.argmax(iou, axis=-1)
-    print(iou.shape, best_anchor)
+    # print(iou.shape, best_anchor)
     for t, n in enumerate(best_anchor):
         for l in range(num_layers):
             if n in anchor_mask[l]:
@@ -391,7 +391,7 @@ class Parser(object):
         classes = tf.reshape(tf.cast(classes, dtype=tf.float32), [-1, 1])
         true_boxes = tf.concat([boxes, classes], -1)
 
-        print(true_boxes)
+        # print(true_boxes)
         y_preds = tf.py_function(func=anchor_grid_align_py,
                                  inp=[true_boxes, [*self._output_size], self._anchor, self._num_classes],
                                  Tout=tf.float32)
