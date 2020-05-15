@@ -34,22 +34,50 @@ from absl import logging
 from lxml import etree
 import PIL.Image
 import tensorflow.compat.v1 as tf
-import multiprocessing
 
 from xl_tensorflow.datasets.tfrecord import tfrecord_util
 
-flags.DEFINE_string('data_dir', '', 'Root directory to  VOC format dataset include image and xml files.')
+flags.DEFINE_string('data_dir', '', 'Root directory to raw PASCAL VOC dataset.')
+flags.DEFINE_string('set', 'train', 'Convert training set, validation set or '
+                                    'merged set.')
+flags.DEFINE_string('annotations_dir', 'Annotations',
+                    '(Relative) path to annotations directory.')
+flags.DEFINE_string('year', 'VOC2007', 'Desired challenge year.')
 flags.DEFINE_string('output_path', '', 'Path to output TFRecord and json.')
 flags.DEFINE_string('label_map_json_path', None,
                     'Path to label map json file with a dictionary.')
 flags.DEFINE_boolean('ignore_difficult_instances', False, 'Whether to ignore '
                                                           'difficult instances')
-flags.DEFINE_integer('num_shards', 8, 'Number of shards for output file.')
+flags.DEFINE_integer('num_shards', 10, 'Number of shards for output file.')
 flags.DEFINE_integer('num_images', None, 'Max number of imags to process.')
-flags.DEFINE_integer('image_path', None, 'image path if image file and xml file saved in different dir')
-flags.DEFINE_string('prefix', "voc", 'prefix for output name of tfrecord')
-flags.DEFINE_integer('num_threads', None, 'Number of threads to run.')
 FLAGS = flags.FLAGS
+
+SETS = ['train', 'val', 'trainval', 'test']
+YEARS = ['VOC2007', 'VOC2012', 'merged']
+
+pascal_label_map_dict = {
+    'background': 0,
+    'aeroplane': 1,
+    'bicycle': 2,
+    'bird': 3,
+    'boat': 4,
+    'bottle': 5,
+    'bus': 6,
+    'car': 7,
+    'cat': 8,
+    'chair': 9,
+    'cow': 10,
+    'diningtable': 11,
+    'dog': 12,
+    'horse': 13,
+    'motorbike': 14,
+    'person': 15,
+    'pottedplant': 16,
+    'sheep': 17,
+    'sofa': 18,
+    'train': 19,
+    'tvmonitor': 20,
+}
 
 GLOBAL_IMG_ID = 0  # global image id.
 GLOBAL_ANN_ID = 0  # global annotation id.
@@ -77,11 +105,10 @@ def get_ann_id():
 
 
 def dict_to_tf_example(data,
-                       image_file,
+                       dataset_directory,
                        label_map_dict,
-                       auto_label_map=False,
-                       auto_label_index=-1,
                        ignore_difficult_instances=False,
+                       image_subdirectory='JPEGImages',
                        ann_json_dict=None):
     """Convert XML derived dict to tf.Example proto.
 
@@ -105,8 +132,8 @@ def dict_to_tf_example(data,
     Raises:
       ValueError: if the image pointed to by data['filename'] is not a valid JPEG
     """
-    # img_path = os.path.join(data['folder'], image_subdirectory, data['filename'])
-    full_path = image_file
+    img_path = os.path.join(data['folder'], image_subdirectory, data['filename'])
+    full_path = os.path.join(dataset_directory, img_path)
     with tf.gfile.GFile(full_path, 'rb') as fid:
         encoded_jpg = fid.read()
     encoded_jpg_io = io.BytesIO(encoded_jpg)
@@ -149,16 +176,7 @@ def dict_to_tf_example(data,
             xmax.append(float(obj['bndbox']['xmax']) / width)
             ymax.append(float(obj['bndbox']['ymax']) / height)
             classes_text.append(obj['name'].encode('utf8'))
-            if not auto_label_map:
-                classes.append(label_map_dict[obj['name']])
-            else:
-                try:
-                    classes.append(label_map_dict[obj['name']])
-                except KeyError:
-                    auto_label_index = auto_label_index + 1
-                    classes.append(auto_label_index)
-                    label_map_dict[obj['name']] = auto_label_index
-
+            classes.append(label_map_dict[obj['name']])
             truncated.append(int(obj['truncated']))
             poses.append(obj['pose'].encode('utf8'))
 
@@ -217,44 +235,34 @@ def dict_to_tf_example(data,
                 'image/object/view':
                     tfrecord_util.bytes_list_feature(poses),
             }))
-    return example, auto_label_index
+    return example
 
 
 def main(_):
-    import time
-    st = time.time()
+    if FLAGS.set not in SETS:
+        raise ValueError('set must be in : {}'.format(SETS))
+    if FLAGS.year not in YEARS:
+        raise ValueError('year must be in : {}'.format(YEARS))
     if not FLAGS.output_path:
         raise ValueError('output_path cannot be empty.')
 
     data_dir = FLAGS.data_dir
-    image_path = FLAGS.image_path
+    years = ['VOC2007', 'VOC2012']
+    if FLAGS.year != 'merged':
+        years = [FLAGS.year]
+
     logging.info('writing to output path: %s', FLAGS.output_path)
-    print(FLAGS.output_path + '-%05d-of-%05d.tfrecord' %
-          (1, FLAGS.num_shards))
     writers = [
-        tf.python_io.TFRecordWriter(os.path.join(FLAGS.output_path, FLAGS.prefix + '-%05d-of-%05d.tfrecord' %
-                                                 (i, FLAGS.num_shards)))
+        tf.python_io.TFRecordWriter(FLAGS.output_path + '-%05d-of-%05d.tfrecord' %
+                                    (i, FLAGS.num_shards))
         for i in range(FLAGS.num_shards)
     ]
 
-    from xl_tool.xl_io import file_scanning
-    from random import shuffle
-    xml_files = file_scanning(data_dir, "xml", sub_scan=True)
-    shuffle(xml_files)
-    print("total xml file: ", len(xml_files))
-    image_files = list(map(lambda i: i.replace("xml", "jpg") if not image_path \
-        else os.path.join(image_path, os.path.basename(i).replace("xml", "jpg")), xml_files))
-    xml_files, image_files = zip(
-        *[(xml_files[i], image_files[i]) for i in range(len(image_files)) if os.path.exists(image_files[i])])
-    xml_files, image_files = list(xml_files), list(image_files)
-    print("valid xml file: ", len(xml_files))
     if FLAGS.label_map_json_path:
         with tf.io.gfile.GFile(FLAGS.label_map_json_path, 'rb') as f:
             label_map_dict = json.load(f)
-        auto_label_map = False
     else:
-        label_map_dict = {}
-        auto_label_map = True
+        label_map_dict = pascal_label_map_dict
 
     ann_json_dict = {
         'images': [],
@@ -262,43 +270,43 @@ def main(_):
         'annotations': [],
         'categories': []
     }
+    for year in years:
+        for class_name, class_id in label_map_dict.items():
+            cls = {'supercategory': 'none', 'id': class_id, 'name': class_name}
+            ann_json_dict['categories'].append(cls)
 
-    for class_name, class_id in label_map_dict.items():
-        cls = {'supercategory': 'none', 'id': class_id, 'name': class_name}
-        ann_json_dict['categories'].append(cls)
+        logging.info('Reading from PASCAL %s dataset.', year)
+        examples_path = os.path.join(data_dir, year, 'ImageSets', 'Main',
+                                     'aeroplane_' + FLAGS.set + '.txt')
+        annotations_dir = os.path.join(data_dir, year, FLAGS.annotations_dir)
+        examples_list = tfrecord_util.read_examples_list(examples_path)
+        for idx, example in enumerate(examples_list):
+            if FLAGS.num_images and idx >= FLAGS.num_images:
+                break
+            if idx % 100 == 0:
+                logging.info('On image %d of %d', idx, len(examples_list))
+            path = os.path.join(annotations_dir, example + '.xml')
+            with tf.gfile.GFile(path, 'r') as fid:
+                xml_str = fid.read()
+            xml = etree.fromstring(xml_str)
+            data = tfrecord_util.recursive_parse_xml_to_dict(xml)['annotation']
 
-    examples_list = xml_files
-    auto_label_index = -1
-    # Todo多进程数据共享的问题
-    pool = multiprocessing.Pool(FLAGS.num_threads)
-    for idx, example in enumerate(examples_list):
-        if FLAGS.num_images and idx >= FLAGS.num_images:
-            break
-        if idx % 100 == 0:
-            logging.info('On image %d of %d', idx, len(examples_list))
-        path = xml_files[idx]
-        with tf.gfile.GFile(path, 'r') as fid:
-            xml_str = fid.read()
-        xml = etree.fromstring(xml_str)
-        data = tfrecord_util.recursive_parse_xml_to_dict(xml)['annotation']
-
-        tf_example, auto_label_index = dict_to_tf_example(
-            data, image_files[idx],
-            label_map_dict,
-            auto_label_map=auto_label_map,
-            auto_label_index=auto_label_index,
-            ignore_difficult_instances=FLAGS.ignore_difficult_instances,
-            ann_json_dict=ann_json_dict)
-        writers[idx % FLAGS.num_shards].write(tf_example.SerializeToString())
+            tf_example = dict_to_tf_example(
+                data,
+                FLAGS.data_dir,
+                label_map_dict,
+                FLAGS.ignore_difficult_instances,
+                ann_json_dict=ann_json_dict)
+            writers[idx % FLAGS.num_shards].write(tf_example.SerializeToString())
 
     for writer in writers:
         writer.close()
 
-    json_file_path = os.path.join(FLAGS.output_path, 'label2index.json')
-    if auto_label_map:
-        with tf.io.gfile.GFile(json_file_path, 'w') as f:
-            json.dump(label_map_dict, f)
-    print("-----------Convert time cost(second):", time.time() - st)
+    json_file_path = os.path.join(
+        os.path.dirname(FLAGS.output_path),
+        'json_' + os.path.basename(FLAGS.output_path) + '.json')
+    with tf.io.gfile.GFile(json_file_path, 'w') as f:
+        json.dump(ann_json_dict, f)
 
 
 if __name__ == '__main__':

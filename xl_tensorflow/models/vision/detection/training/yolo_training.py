@@ -8,6 +8,8 @@ from ..dataloader.yolo_loader import get_classes, create_datagen
 import tensorflow as tf
 from xl_tensorflow.utils.common import nondistribute, xl_call_backs
 from tensorflow.keras.optimizers import Adam
+from xl_tensorflow.models.vision.detection.dataloader import YoloInputFn
+from xl_tool.xl_io import read_json
 
 
 # TODO base64输入，预处理，resize和padding处理， lite版本
@@ -76,7 +78,7 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
     Returns:
 
     """
-    class_names = get_classes(classes_path)
+    class_names = get_classes(classes_path) if not tfrecord else list(read_json(classes_path).keys())
     num_classes = len(class_names)
     gpus = tf.config.experimental.list_physical_devices('GPU')
     if gpus:
@@ -105,9 +107,16 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
                         print(e)
 
     # 创建训练数据
-    train_dataset, val_dataset, num_train, num_val = create_datagen(train_annotation_path, val_annotation_path,
-                                                                    batch_size, input_shape,
-                                                                    anchors, num_classes)
+    if not tfrecord:
+        train_dataset, val_dataset, num_train, num_val = create_datagen(train_annotation_path, val_annotation_path,
+                                                                        batch_size, input_shape,
+                                                                        anchors, num_classes)
+    else:
+        train_dataset = YoloInputFn(input_shape, train_annotation_path,
+                                    num_classes, aug_scale_max=1.2, aug_scale_min=0.8)(batch_size=batch_size)
+        val_dataset = YoloInputFn(input_shape, val_annotation_path,
+                                  num_classes, aug_scale_max=1.0, aug_scale_min=1.0, use_autoaugment=False)(
+            batch_size=batch_size)
     for i in range(len(lrs)):
         if epochs[i] <= initial_epoch: continue
         with mirrored_strategy.scope():
@@ -125,12 +134,17 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
         callback = xl_call_backs(architecture, log_path=f"./logs/{architecture}_{suffix}",
                                  model_path=f"./model/{architecture}_{suffix}",
                                  save_best_only=False, patience=paciences[i], reduce_lr=reduce_lrs[i])
-
-        model.fit(train_dataset, validation_data=val_dataset,
-                  epochs=epochs[i],
-                  steps_per_epoch=max(1, num_train // batch_size),
-                  validation_steps=max(1, num_val // batch_size),
-                  initial_epoch=initial_epoch,
-                  callbacks=callback, use_multiprocessing=use_multiprocessing, workers=workers)
+        if not tfrecord:
+            model.fit(train_dataset, validation_data=val_dataset,
+                      epochs=epochs[i],
+                      steps_per_epoch=max(1, num_train // batch_size),
+                      validation_steps=max(1, num_val // batch_size),
+                      initial_epoch=initial_epoch,
+                      callbacks=callback, use_multiprocessing=use_multiprocessing, workers=workers)
+        else:
+            model.fit(train_dataset, validation_data=val_dataset,
+                      epochs=epochs[i],
+                      initial_epoch=initial_epoch,
+                      callbacks=callback)
         initial_epoch = epochs[i]
     return model
