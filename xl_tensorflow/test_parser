@@ -22,9 +22,11 @@ def map_fn_test():
     for i in range(1000):
         a = next(fukc)
         result = paser(a)
+        print(result[1][2].shape)
 def input_reader_test():
     inputfn = YoloInputFn((416,416), r"E:\Temp\test\tfrecord\*.tfrecord",aug_scale_max=1.5)
     dataset = inputfn(4)
     print(next(dataset.as_numpy_iterator()))
 input_reader_test()
 # print(result)
+map_fn_test()

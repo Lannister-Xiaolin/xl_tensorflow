@@ -176,6 +176,7 @@ def anchor_grid_align_py(true_boxes, input_shape, anchors, num_classes):
                 y_true[l][j, i, k, 0:4] = true_boxes[t, 0:4]
                 y_true[l][j, i, k, 4] = 1
                 y_true[l][j, i, k, 5 + c] = 1
+    y_true = tuple(y_true)
     return y_true
 
 
@@ -392,16 +393,19 @@ class Parser(object):
         true_boxes = tf.concat([boxes, classes], -1)
 
         # print(true_boxes)
-        y_preds = tf.py_function(func=anchor_grid_align_py,
+        y1,y2,y3 = tf.py_function(func=anchor_grid_align_py,
                                  inp=[true_boxes, [*self._output_size], self._anchor, self._num_classes],
-                                 Tout=[tf.float32,tf.float32,tf.float32])
+                                 Tout=(tf.float32,tf.float32,tf.float32))
+        y1.set_shape([None, None, 3, self._num_classes + 5])
+        y2.set_shape([None, None, 3, self._num_classes + 5])
+        y3.set_shape([None, None, 3, self._num_classes + 5])
         # If bfloat16 is used, casts input image to tf.bfloat16.
         if self._use_bfloat16:
             image = tf.cast(image, dtype=tf.bfloat16)
 
         # Packs labels for model_fn outputs.
 
-        return image, y_preds
+        return image, (y1,y2,y3)
 
     # def _parse_eval_data(self, data):
     #     """Parses data for training and evaluation."""
