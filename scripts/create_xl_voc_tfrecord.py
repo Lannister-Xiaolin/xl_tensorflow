@@ -150,7 +150,10 @@ def dict_to_tf_example(data,
             ymax.append(float(obj['bndbox']['ymax']) / height)
             classes_text.append(obj['name'].encode('utf8'))
             if not auto_label_map:
-                classes.append(label_map_dict[obj['name']])
+                try:
+                    classes.append(label_map_dict[obj['name']])
+                except KeyError:
+                    continue
             else:
                 try:
                     classes.append(label_map_dict[obj['name']])
