@@ -205,7 +205,7 @@ def yolo_body(inputs, num_anchors, num_classes, architecture="yolov4"):
     return Model(inputs, [y1, y2, y3])
 
 
-def box_iou(b1, b2, method="iou", as_loss=False,trunc_inf=False):
+def box_iou(b1, b2, method="iou", as_loss=False, trunc_inf=False):
     '''Return iou tensor, 即所有预测box与真实box的iou值
     Parameters
     ----------
@@ -227,7 +227,7 @@ def box_iou(b1, b2, method="iou", as_loss=False,trunc_inf=False):
     b1_mins = b1_xy - b1_wh_half
     b1_maxes = b1_xy + b1_wh_half
     if trunc_inf:
-        b1_mins = tf.clip_by_value(b1_mins,0, 1e8)
+        b1_mins = tf.clip_by_value(b1_mins, 0, 1e8)
         b1_maxes = tf.clip_by_value(b1_maxes, 0, 1e8)
     # Expand dim to apply broadcasting.
     if not as_loss:
@@ -356,6 +356,16 @@ def yolo_correct_boxes(box_xy, box_wh, input_shape, image_shape):
 
     # Scale boxes back to original image shape.
     boxes *= K.concatenate([image_shape, image_shape])
+
+    y1 = boxes[..., 0:1]
+    x1 = boxes[..., 1:2]
+    x2 = boxes[..., 2:3]
+    y2 = boxes[..., 3:]
+    y1 = tf.clip_by_value(y1, 0, image_shape[0])
+    y2 = tf.clip_by_value(y2, 0, image_shape[0])
+    x1 = tf.clip_by_value(x1, 0, image_shape[1])
+    x2 = tf.clip_by_value(x2, 0, image_shape[1])
+    boxes = K.concatenate([y1, x1, y2, x2], -1)
     return boxes
 
 
