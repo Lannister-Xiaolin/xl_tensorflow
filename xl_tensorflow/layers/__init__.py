@@ -2,7 +2,6 @@
 # -*- coding: UTF-8 -*-
 """常用自定义的网络层"""
 
-from .layer import Swish,get_swish,HSwish,get_relu6
-from .layer import SEConvEfnet2D
-from .layer import GlobalAveragePooling2DKeepDim, \
-    CONV_KERNEL_INITIALIZER, DENSE_KERNEL_INITIALIZER
+from .actication import Swish, HSwish, get_swish, get_relu6
+from .conv import SEConvEfnet2D, GlobalAveragePooling2DKeepDim
+from .initializers import CONV_KERNEL_INITIALIZER, DENSE_KERNEL_INITIALIZER

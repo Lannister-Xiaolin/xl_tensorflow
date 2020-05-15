@@ -143,7 +143,7 @@ def anchor_grid_align_py(true_boxes, input_shape, anchors, num_classes):
     anchors = np.expand_dims(anchors, 0)
     anchor_maxes = anchors / 2.
     anchor_mins = -anchor_maxes
-    valid_mask = boxes_wh[..., 0] > 0
+    valid_mask = boxes_wh[..., 0] > 1e-5
 
     wh = boxes_wh[valid_mask]
     if len(wh) == 0: return y_true
@@ -154,7 +154,7 @@ def anchor_grid_align_py(true_boxes, input_shape, anchors, num_classes):
     # min和max这两个对于单个box来说是正负两个数
     intersect_mins = np.maximum(box_mins, anchor_mins)
     intersect_maxes = np.minimum(box_maxes, anchor_maxes)  # 选择box与anchor中较小的值
-    print(intersect_mins.shape, np.sum(intersect_maxes == (-intersect_mins)))
+    # print(intersect_mins.shape, np.sum(intersect_maxes == (-intersect_mins)))
     intersect_wh = np.maximum(intersect_maxes - intersect_mins, 0.)
     # 计算box与每个anchor的交叉区域，已确认对于单个box无误
     intersect_area = intersect_wh[..., 0] * intersect_wh[..., 1]
@@ -162,9 +162,9 @@ def anchor_grid_align_py(true_boxes, input_shape, anchors, num_classes):
     anchor_area = anchors[..., 0] * anchors[..., 1]
     iou = intersect_area / (box_area + anchor_area - intersect_area)
     # Find best anchor for each true box
+
     best_anchor = np.argmax(iou, axis=-1)
-    if len(best_anchor) > 1:
-        print("fucky")
+    print(iou.shape, best_anchor)
     for t, n in enumerate(best_anchor):
         for l in range(num_layers):
             if n in anchor_mask[l]:
@@ -184,9 +184,7 @@ class Parser(object):
 
     def __init__(self,
                  output_size,
-
-                 num_scales,
-                 num_classes=(608, 608),
+                 num_classes=20,
                  min_level=1,
                  max_level=7,
                  anchor=YOLOV3_ANCHORS,
@@ -199,8 +197,8 @@ class Parser(object):
                  autoaugment_policy_name='v0',
                  skip_crowd_during_training=True,
                  max_num_instances=100,
-                 use_bfloat16=True,
-                 mode=None):
+                 use_bfloat16=False,
+                 mode=TRAIN):
         """Initializes parameters for parsing annotations in the dataset.
 
         Args:
@@ -253,12 +251,12 @@ class Parser(object):
         self._output_size = output_size
         self._min_level = min_level
         self._max_level = max_level
-        self._num_scales = num_scales
+        # self._num_scales = num_scales
         # self._aspect_ratios = aspect_ratios
         self._anchor = anchor
         self._match_threshold = match_threshold
         self._unmatched_threshold = unmatched_threshold
-
+        self._num_classes = num_classes
         # Data augmentation.
         self._aug_rand_hflip = aug_rand_hflip
         self._aug_scale_min = aug_scale_min
@@ -361,7 +359,8 @@ class Parser(object):
         # 3 - 图片归一化
         # todo      确认是否改成255
         # Normalizes image with mean and std pixel values.
-        image = input_utils.normalize_image(image)
+        image = input_utils.normalize_image(image, offset=(0.0, 0.0, 0.0),
+                                            scale=(1., 1., 1.))
 
         # Flips image randomly during training.
         if self._aug_rand_hflip:
@@ -389,8 +388,12 @@ class Parser(object):
         boxes = tf.gather(boxes, indices)
         classes = tf.gather(classes, indices)
         # todo 只需此处对anchor进行分配即可
+        classes = tf.reshape(tf.cast(classes, dtype=tf.float32), [-1, 1])
         true_boxes = tf.concat([boxes, classes], -1)
-        y_preds = tf.py_function(func=anchor_grid_align_py, inp=[true_boxes, [*self._output_size], self._anchor, 20],
+
+        print(true_boxes)
+        y_preds = tf.py_function(func=anchor_grid_align_py,
+                                 inp=[true_boxes, [*self._output_size], self._anchor, self._num_classes],
                                  Tout=tf.float32)
         # If bfloat16 is used, casts input image to tf.bfloat16.
         if self._use_bfloat16:

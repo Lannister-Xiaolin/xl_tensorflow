@@ -149,3 +149,14 @@ def identity(features):
     """
     features = tf.convert_to_tensor(features)
     return tf.identity(features)
+
+
+@tf.keras.utils.register_keras_serializable(package='Text')
+def get_relu6():
+    def swish(x):
+        """Swish activation function: x * sigmoid(x).
+        Reference: [Searching for Activation Functions](https://arxiv.org/abs/1710.05941)
+        """
+        return tf.nn.relu6(x)
+
+    return swish

@@ -25,6 +25,8 @@ from typing import Text, Optional
 from xl_tensorflow.utils import params_dict
 from . import factory
 from xl_tensorflow.utils.common import TRAIN, PREDICT, PREDICT_WITH_GT, EVAL
+from . import yolo_parser
+from .common.anchors_yolo import *
 
 
 class InputFn(object):
@@ -85,6 +87,85 @@ class InputFn(object):
 
         if self._input_sharding and ctx and ctx.num_input_pipelines > 1:
             dataset = dataset.shard(ctx.num_input_pipelines, ctx.input_pipeline_id)
+        dataset = dataset.cache()
+
+        if self._is_training:
+            dataset = dataset.repeat()
+
+        dataset = dataset.interleave(
+            map_func=self._dataset_fn, cycle_length=32,
+            num_parallel_calls=tf.data.experimental.AUTOTUNE)
+
+        if self._is_training:
+            # Large shuffle size is critical for 2vm input pipeline. Can use small
+            # value (e.g. 64) for 1vm.
+            dataset = dataset.shuffle(1000)
+        if self._num_examples > 0:
+            dataset = dataset.take(self._num_examples)
+
+        # Parses the fetched records to input tensors for model function.
+        dataset = dataset.map(
+            self._parser_fn, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        dataset = dataset.batch(batch_size, drop_remainder=True)
+        dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
+        return dataset
+
+
+class YoloInputFn(object):
+    """Input function that creates dataset from files."""
+
+    def __init__(self,
+                 output_size,
+                 file_pattern: Text,
+                 num_classes=20,
+                 aug_scale_min=1.0,
+                 aug_scale_max=1.0,
+                 autoaugment_policy_name='v0',
+                 anchor=YOLOV3_ANCHORS,
+                 use_autoaugment=True,
+                 mode: Text = TRAIN,
+                 batch_size: int = 4,
+                 num_examples: Optional[int] = -1):
+        """Initialize.
+
+        Args:
+          file_pattern: the file pattern for the data example (TFRecords).
+          params: the parameter object for constructing example parser and model.
+          mode: ModeKeys.TRAIN or ModeKeys.Eval
+          batch_size: the data batch size.
+          num_examples: If positive, only takes this number of examples and raise
+            tf.errors.OutOfRangeError after that. If non-positive, it will be
+            ignored.
+        """
+        assert file_pattern is not None
+        assert mode is not None
+        assert batch_size is not None
+        self._file_pattern = file_pattern
+        self._mode = mode
+        self._is_training = (mode == TRAIN)
+        self._batch_size = batch_size
+        self._num_examples = num_examples
+        self._parser_fn = yolo_parser.Parser(output_size, num_classes, anchor=anchor, aug_scale_max=aug_scale_max,
+                                             aug_scale_min=aug_scale_min, use_autoaugment=use_autoaugment,
+                                             autoaugment_policy_name=autoaugment_policy_name)
+        self._dataset_fn = tf.data.TFRecordDataset
+
+    def __call__(self, ctx=None, batch_size: int = None):
+        """Provides tf.data.Dataset object.
+
+        Args:
+          ctx: context object.
+          batch_size: expected batch size input data.
+
+        Returns:
+          tf.data.Dataset object.
+        """
+        if not batch_size:
+            batch_size = self._batch_size
+        assert batch_size is not None
+        dataset = tf.data.Dataset.list_files(
+            self._file_pattern, shuffle=self._is_training)
+
         dataset = dataset.cache()
 
         if self._is_training:
