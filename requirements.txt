@@ -1,1 +1,3 @@
-tensorflow-addons
+tensorflow-addons==0.9.1
+tensorflow_probability==0.9.0
+dataclasses
