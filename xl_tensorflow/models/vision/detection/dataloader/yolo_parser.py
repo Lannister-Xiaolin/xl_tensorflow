@@ -394,7 +394,7 @@ class Parser(object):
         # print(true_boxes)
         y_preds = tf.py_function(func=anchor_grid_align_py,
                                  inp=[true_boxes, [*self._output_size], self._anchor, self._num_classes],
-                                 Tout=tf.float32)
+                                 Tout=[tf.float32,tf.float32,tf.float32])
         # If bfloat16 is used, casts input image to tf.bfloat16.
         if self._use_bfloat16:
             image = tf.cast(image, dtype=tf.bfloat16)
