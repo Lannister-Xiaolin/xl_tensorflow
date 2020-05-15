@@ -4,12 +4,16 @@ import tensorflow as tf
 import sys
 import numpy as np
 import logging
+
 logging.info("help me")
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+
+
 def map_fn_test():
     dataset = tf.data.Dataset.list_files(
-            r"E:\Temp\test\tfrecord\*.tfrecord", shuffle=False)
+        r"E:\Temp\test\tfrecord\*.tfrecord", shuffle=False)
+
     def _prefetch_dataset(filename):
         dataset = tf.data.TFRecordDataset(filename).prefetch(1)
         return dataset
@@ -17,16 +21,20 @@ def map_fn_test():
     dataset = dataset.apply(
         tf.data.experimental.parallel_interleave(
             _prefetch_dataset, cycle_length=32, sloppy=True))
-    paser = Parser((416,416), 20,use_bfloat16=False)
+    paser = Parser((416, 416), 20, use_bfloat16=False)
     fukc = dataset.as_numpy_iterator()
     for i in range(1000):
         a = next(fukc)
         result = paser(a)
         print(result[1][2].shape)
+
+
 def input_reader_test():
-    inputfn = YoloInputFn((416,416), r"E:\Temp\test\tfrecord\*.tfrecord",aug_scale_max=1.5)
+    inputfn = YoloInputFn((416, 416), r"E:\Temp\test\tfrecord\*.tfrecord", aug_scale_max=1.5)
     dataset = inputfn(4)
-    print(next(dataset.as_numpy_iterator()))
+    print(len(list(dataset.as_numpy_iterator())))
+
+
 input_reader_test()
 # print(result)
-map_fn_test()
+# map_fn_test()

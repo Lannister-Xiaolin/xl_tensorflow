@@ -169,7 +169,7 @@ class YoloInputFn(object):
         dataset = dataset.cache()
 
         if self._is_training:
-            dataset = dataset.repeat()
+            dataset = dataset.repeat(1)
 
         dataset = dataset.interleave(
             map_func=self._dataset_fn, cycle_length=8,
