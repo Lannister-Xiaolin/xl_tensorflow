@@ -21,12 +21,14 @@ def map_fn_test():
     dataset = dataset.apply(
         tf.data.experimental.parallel_interleave(
             _prefetch_dataset, cycle_length=32, sloppy=True))
-    paser = Parser((416, 416), 20, use_bfloat16=False)
+    paser = Parser((416, 416), 20, use_bfloat16=False,use_autoaugment=True)
     fukc = dataset.as_numpy_iterator()
     for i in range(1000):
         a = next(fukc)
         result = paser(a)
-        print(result[1][2].shape)
+        import time
+        time.sleep(3)
+        # print(result[1][2].shape)
 
 
 def input_reader_test():
@@ -35,6 +37,6 @@ def input_reader_test():
     print(len(list(dataset.as_numpy_iterator())))
 
 
-input_reader_test()
+# input_reader_test()
 # print(result)
-# map_fn_test()
+map_fn_test()

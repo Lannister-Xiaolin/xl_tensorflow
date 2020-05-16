@@ -1652,7 +1652,8 @@ def distort_image_with_autoaugment(image,
                                    use_augmix=False,
                                    mixture_width=3,
                                    mixture_depth=-1,
-                                   alpha=1):
+                                   alpha=1,
+                                   ratio=1.0):
     """Applies the AutoAugment policy to `image` and `bboxes`.
 
     Args:
@@ -1684,12 +1685,12 @@ def distort_image_with_autoaugment(image,
     policy = available_policies[augmentation_name]()
     # Hparams that will be used for AutoAugment.
     augmentation_hparams = Config(dict(
-        cutout_max_pad_fraction=0.75,
+        cutout_max_pad_fraction=0.75 * ratio,
         cutout_bbox_replace_with_mean=False,
-        cutout_const=100,
-        translate_const=250,
-        cutout_bbox_const=50,
-        translate_bbox_const=120))
+        cutout_const=int(100 * ratio),
+        translate_const=int(250 * ratio),
+        cutout_bbox_const=int(50 * ratio),
+        translate_bbox_const=int(120 * ratio)))
 
     # with tf.device('/cpu:0'):
     return build_and_apply_nas_policy(policy, image, bboxes,

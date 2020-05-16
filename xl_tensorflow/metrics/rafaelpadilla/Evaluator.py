@@ -482,12 +482,13 @@ def map_raf_from_lists(detections, ground_truths, iou_threshold=0.5, box_format=
             allBoundingBoxes.addBoundingBox(bb)
 
     evaluator = Evaluator()
-    metricsPerClasses = evaluator.GetPascalVOCMetrics(allBoundingBoxes,
+    metrics_per_classes = evaluator.GetPascalVOCMetrics(allBoundingBoxes,
                                                       IOUThreshold=iou_threshold,
                                                       method=method)
     acc_AP = 0
     validClasses = 0
-    for metricsPerClass in metricsPerClasses:
+    map_classes_str = ""
+    for metricsPerClass in metrics_per_classes:
         cl = metricsPerClass['class']
         ap = metricsPerClass['AP']
         precision = metricsPerClass['precision']
@@ -501,12 +502,45 @@ def map_raf_from_lists(detections, ground_truths, iou_threshold=0.5, box_format=
             prec = ['%.2f' % p for p in precision]
             rec = ['%.2f' % r for r in recall]
             ap_str = "{0:.2f}%".format(ap * 100)
-            print('AP: %s (%s)' % (ap_str, cl))
-    mAP = acc_AP / validClasses
+            map_classes_str = map_classes_str + '\nAP: %s (%s)' % (ap_str, cl)
+            # print('AP: %s (%s)' % (ap_str, cl))
+    map50 = acc_AP / validClasses
     print(validClasses)
-    mAP_str = "{0:.2f}%".format(mAP * 100)
-    print('mAP: %s' % mAP_str)
-    return mAP, metricsPerClasses
+    map_str = "map@.5: {0:.2f}%".format(map50 * 100) + map_classes_str
+    print(map_str)
+    return map50, metrics_per_classes, map_str
+
+
+def mao_raf_from_txtfile(gt_path, dt_path, filter="txt$"):
+    from xl_tool.xl_io import file_scanning, read_txt
+    gt_files = file_scanning(gt_path, filter)
+    dt_files = file_scanning(dt_path, filter)
+    dt = []
+    gt = []
+    for file in gt_files:
+        try:
+            temp = []
+            temp.append(os.path.basename(file).split(".")[0])
+            texts = read_txt(file, return_list=True)
+            boxes = [[(float(j) if j[0] in "0123456789" else j) for j in i.split()] for i in texts if i.strip()]
+            temp.append(boxes)
+            gt.append(temp)
+        except Exception as e:
+            print(e, file)
+            break
+    for file in dt_files:
+        try:
+            temp = []
+            temp.append(os.path.basename(file).split(".")[0])
+            texts = read_txt(file, return_list=True)
+            boxes = [[(float(j) if j[0] in "0123456789" else j) for j in i.split()] for i in texts if i.strip()]
+            temp.append(boxes)
+            dt.append(temp)
+        except Exception as e:
+            print(e, file)
+            break
+    map50, metrics_per_classes, map_str = map_raf_from_lists(dt, gt, 0.5, box_format="xyxy")
+    return map50, metrics_per_classes, map_str
 
 
 def voc2ratxt(xml_file, box_format="xywh"):

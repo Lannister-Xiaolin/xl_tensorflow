@@ -346,6 +346,8 @@ def yolo_correct_boxes(box_xy, box_wh, input_shape, image_shape):
 
     box_mins = box_yx - (box_hw / 2.)
     box_maxes = box_yx + (box_hw / 2.)
+    box_mins = tf.clip_by_value(box_mins, 0., 1.)
+    box_maxes = tf.clip_by_value(box_maxes, 0., 1.)
     # 注此处y和x对换
     boxes = K.concatenate([
         box_mins[..., 0:1],  # y_min
@@ -357,15 +359,6 @@ def yolo_correct_boxes(box_xy, box_wh, input_shape, image_shape):
     # Scale boxes back to original image shape.
     boxes *= K.concatenate([image_shape, image_shape])
 
-    y1 = boxes[..., 0:1]
-    x1 = boxes[..., 1:2]
-    x2 = boxes[..., 2:3]
-    y2 = boxes[..., 3:]
-    y1 = tf.clip_by_value(y1, 0, image_shape[0][0])
-    y2 = tf.clip_by_value(y2, 0, image_shape[0][0])
-    x1 = tf.clip_by_value(x1, 0, image_shape[0][1])
-    x2 = tf.clip_by_value(x2, 0, image_shape[0][1])
-    boxes = K.concatenate([y1, x1, y2, x2], -1)
     return boxes
 
 

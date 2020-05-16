@@ -196,6 +196,7 @@ class Parser(object):
                  aug_scale_max=1.0,
                  use_autoaugment=False,
                  autoaugment_policy_name='v0',
+                 autoaugment_ratio =0.6,
                  skip_crowd_during_training=True,
                  max_num_instances=100,
                  use_bfloat16=False,
@@ -262,7 +263,7 @@ class Parser(object):
         self._aug_rand_hflip = aug_rand_hflip
         self._aug_scale_min = aug_scale_min
         self._aug_scale_max = aug_scale_max
-
+        self._autoaugment_ratio = autoaugment_ratio
         # Data Augmentation with AutoAugment.
         self._use_autoaugment = use_autoaugment
         self._autoaugment_policy_name = autoaugment_policy_name
@@ -355,10 +356,10 @@ class Parser(object):
         if self._use_autoaugment and self._is_training:
             from .augment import autoaugment  # pylint: disable=g-import-not-at-top
             image, boxes = autoaugment.distort_image_with_autoaugment(
-                image, boxes, self._autoaugment_policy_name, False)
+                image, boxes, self._autoaugment_policy_name, False,ratio=self._autoaugment_ratio)
+
 
         # 3 - 图片归一化
-        # todo      确认是否改成255
         # Normalizes image with mean and std pixel values.
         image = input_utils.normalize_image(image, offset=(0.0, 0.0, 0.0),
                                             scale=(1., 1., 1.))
@@ -382,20 +383,14 @@ class Parser(object):
         offset = image_info[3, :]
         boxes = input_utils.resize_and_crop_boxes(
             boxes, image_scale, image_info[1, :], offset)
-        # boxes = boxes / tf.concat([image_info[1, :],image_info[1, :]],-1)
-        # 待校验比例变化是否正确
-        # Filters out ground truth boxes that are all zeros.
         indices = box_utils.get_non_empty_box_indices(boxes)
         boxes = tf.gather(boxes, indices)
         classes = tf.gather(classes, indices)
-        # todo 只需此处对anchor进行分配即可
         classes = tf.reshape(tf.cast(classes, dtype=tf.float32), [-1, 1])
         true_boxes = tf.concat([boxes, classes], -1)
-
-        # print(true_boxes)
-        y1,y2,y3 = tf.py_function(func=anchor_grid_align_py,
-                                 inp=[true_boxes, [*self._output_size], self._anchor, self._num_classes],
-                                 Tout=(tf.float32,tf.float32,tf.float32))
+        y1, y2, y3 = tf.py_function(func=anchor_grid_align_py,
+                                    inp=[true_boxes, [*self._output_size], self._anchor, self._num_classes],
+                                    Tout=(tf.float32, tf.float32, tf.float32))
         y1.set_shape([None, None, 3, self._num_classes + 5])
         y2.set_shape([None, None, 3, self._num_classes + 5])
         y3.set_shape([None, None, 3, self._num_classes + 5])
@@ -404,8 +399,7 @@ class Parser(object):
             image = tf.cast(image, dtype=tf.bfloat16)
 
         # Packs labels for model_fn outputs.
-
-        return image, (y1,y2,y3)
+        return image, (y1, y2, y3)
 
     # def _parse_eval_data(self, data):
     #     """Parses data for training and evaluation."""
