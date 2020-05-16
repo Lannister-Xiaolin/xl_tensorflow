@@ -111,17 +111,19 @@ if __name__ == '__main__':
     # model.save(r"E:\Temp\test\fuck.h5")
     from tensorflow.keras import Input, Model, layers
     from xl_tensorflow.models.vision.detection.body.yolo import yolo_body
-    from xl_tensorflow.models.yolov3.training import yolo_body as yolo_body_3
+    # from xl_tensorflow.models.yolov3.training import yolo_body as yolo_body_3
 
     # image_input = Input(shape=(608, 608, 3))
     # model_body = yolo_body_3(image_input, 3, 35, True)
 
-    # model = yolo_body(Input(shape=(608, 608, 3)), 3, 80, architecture="yolov4", reshape_y=False)
+    model = yolo_body(Input(shape=(608, 608, 3)), 3, 80, architecture="yolov4", reshape_y=False)
+    model = yolo_body(Input(shape=(608, 608, 3)), 3, 80, architecture="yolov4_mobilenetv2", reshape_y=False)
+    model = yolo_body(Input(shape=(608, 608, 3)), 3, 80, architecture="yolov4_efficientnetb0", reshape_y=False)
     # model.load_weights(r"E:\Programming\Python\TOOL\packege_xl_tf\scripts\yolov4_weights.h5")
-    # print(model.summary())
+    print(model.summary())
     # # print(model.get_layer("mish_37"))
     # model.save(r"E:\Programming\Python\TOOL\packege_xl_tf\scripts\yolov4_custom2.h5")
     # compare_yolov3()
-    compare()
+    # compare()
     # from xl_tensorflow.models.vision.classification.darknet import CspDarkNet53
     # print(len(CspDarkNet53(include_top=False,weights=None).layers))
