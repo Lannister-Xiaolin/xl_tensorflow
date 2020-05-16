@@ -361,10 +361,10 @@ def yolo_correct_boxes(box_xy, box_wh, input_shape, image_shape):
     x1 = boxes[..., 1:2]
     x2 = boxes[..., 2:3]
     y2 = boxes[..., 3:]
-    y1 = tf.clip_by_value(y1, 0, image_shape[0])
-    y2 = tf.clip_by_value(y2, 0, image_shape[0])
-    x1 = tf.clip_by_value(x1, 0, image_shape[1])
-    x2 = tf.clip_by_value(x2, 0, image_shape[1])
+    y1 = tf.clip_by_value(y1, 0, image_shape[0][0])
+    y2 = tf.clip_by_value(y2, 0, image_shape[0][0])
+    x1 = tf.clip_by_value(x1, 0, image_shape[0][1])
+    x2 = tf.clip_by_value(x2, 0, image_shape[0][1])
     boxes = K.concatenate([y1, x1, y2, x2], -1)
     return boxes
 
