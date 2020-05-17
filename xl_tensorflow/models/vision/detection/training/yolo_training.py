@@ -18,7 +18,6 @@ from xl_tool.xl_io import read_json
 # def yolo_inferece():
 
 
-
 def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
                                  classes_path="", batch_size=8, iou_loss="",
                                  input_shape=(416, 416), num_classes=None, architecture="yolov3",
@@ -37,7 +36,7 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
         input_shape:
         body:
         freeze_layers: 185-yolov3  250-yolov4
-        ignore_thresh: 0.4 yolov3 0.223 yolov4
+        ignore_thresh: 0.4 yolov3 0.223 yolov4 efficientnetliteb0 200
     Returns:
 
     """

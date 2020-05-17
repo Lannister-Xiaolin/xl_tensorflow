@@ -71,7 +71,7 @@ def yolo_inferece(image_files, output_dir, model_name, weights,
                   origin_image_shape=(416, 416),
                   input_shape=(416, 416),
                   anchors="v3",
-                  score_threshold=.1,
+                  score_threshold=.2,
                   iou_threshold=.5,
                   max_detections=20,
                   dynamic_shape=False, return_xy=True,
@@ -91,14 +91,14 @@ def yolo_inferece(image_files, output_dir, model_name, weights,
                                    dynamic_shape=dynamic_shape, return_xy=return_xy)
 
     index2label = {v: k for k, v in read_json(label2index_file).items()}
-    class_names = index2label
+    class_names = list(index2label.values())
     gt_path = ""
     dt_path = ""
     os.makedirs(output_dir, exist_ok=True)
     if map_evaluate:
         print("解析标注文件.....")
-        gt_path = os.path.join("./evaluate", "gt_path")
-        dt_path = os.path.join("./evaluate", "dt_path")
+        gt_path = os.path.join(map_save, "gt_path")
+        dt_path = os.path.join(map_save, "dt_path")
         try:
             shutil.rmtree(gt_path)
             shutil.rmtree(dt_path)

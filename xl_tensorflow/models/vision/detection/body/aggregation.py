@@ -53,7 +53,6 @@ def pan_network(features, configs, ascending_shape=False):
 
             prev = compose(*configs.forward_ops[i - 1])(forward_flows[-1])
             node = node_aggregate([feature, prev], method="concat")
-        
             #  横向操作
             node = compose(*configs.inlevel_forward_ops[i])(node)
             forward_flows.append(node)

@@ -483,8 +483,8 @@ def map_raf_from_lists(detections, ground_truths, iou_threshold=0.5, box_format=
 
     evaluator = Evaluator()
     metrics_per_classes = evaluator.GetPascalVOCMetrics(allBoundingBoxes,
-                                                      IOUThreshold=iou_threshold,
-                                                      method=method)
+                                                        IOUThreshold=iou_threshold,
+                                                        method=method)
     acc_AP = 0
     validClasses = 0
     map_classes_str = ""
@@ -523,6 +523,8 @@ def mao_raf_from_txtfile(gt_path, dt_path, filter="txt$"):
             temp.append(os.path.basename(file).split(".")[0])
             texts = read_txt(file, return_list=True)
             boxes = [[(float(j) if j[0] in "0123456789" else j) for j in i.split()] for i in texts if i.strip()]
+            if not boxes:
+                continue
             temp.append(boxes)
             gt.append(temp)
         except Exception as e:
@@ -534,6 +536,8 @@ def mao_raf_from_txtfile(gt_path, dt_path, filter="txt$"):
             temp.append(os.path.basename(file).split(".")[0])
             texts = read_txt(file, return_list=True)
             boxes = [[(float(j) if j[0] in "0123456789" else j) for j in i.split()] for i in texts if i.strip()]
+            if not boxes:
+                continue
             temp.append(boxes)
             dt.append(temp)
         except Exception as e:

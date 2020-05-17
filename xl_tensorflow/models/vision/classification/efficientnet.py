@@ -668,10 +668,10 @@ setattr(EfficientNetLiteB4, '__doc__', EfficientNet.__doc__)
 
 
 def main():
-    image_input = layers.Input(shape=(416, 416, 3))
+    image_input = layers.Input(shape=(608, 608, 3))
     from tensorflow.keras.applications import MobileNetV2
-    model = MobileNetV2(include_top=True,input_tensor=image_input, weights=None)
-    print(model.summary())
+    model = EfficientNetB0(include_top=False,input_tensor=image_input, weights=None)
+    print((model.summary()))
 
 
 if __name__ == '__main__':
