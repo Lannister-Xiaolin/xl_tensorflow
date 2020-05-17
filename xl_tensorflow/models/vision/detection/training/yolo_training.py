@@ -64,7 +64,10 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
             except:
                 print("逐层加载预训练权重")
                 model2 = yolo_body(image_input, 3, 80, architecture=architecture, reshape_y=True)
-                model2.load_weights(pre_weights)
+                try:
+                    model2.load_weights(pre_weights)
+                except ValueError:
+                    model2.load_weights(pre_weights, by_name=True)
                 for i in range(len(model2.layers)):
                     try:
                         model.layers[i].set_weights(model2.layers[i].get_weights())
