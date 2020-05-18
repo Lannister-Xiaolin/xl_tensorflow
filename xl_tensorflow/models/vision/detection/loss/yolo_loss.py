@@ -131,7 +131,8 @@ class YoloLoss(tf.keras.losses.Loss):
             loss += iou_loss + confidence_loss + class_loss
             if self.print_loss:
                 tf.print("\n" + str(
-                    self.scale_stage) + f':\tiou:{iou_loss}\tconfidence:{confidence_loss}\tclass:{class_loss}')
+                    self.scale_stage) + ":\tiou:", iou_loss, "\tconfidence:", confidence_loss,
+                         "\tclass:", class_loss)
         else:
             xy_loss = object_mask * box_loss_scale * K.binary_crossentropy(raw_true_xy, raw_pred[..., 0:2],
                                                                            from_logits=True)
@@ -142,6 +143,7 @@ class YoloLoss(tf.keras.losses.Loss):
             loss += mse_loss + confidence_loss + class_loss
             if self.print_loss:
                 tf.print("\n" + str(
-                    self.scale_stage) + f':\tmse:{mse_loss}\tconfidence:{confidence_loss}\tclass:{class_loss}')
+                    self.scale_stage) + ":\tmse:", mse_loss, "\tconfidence:", confidence_loss,
+                         "\tclass:", class_loss)
 
         return loss
