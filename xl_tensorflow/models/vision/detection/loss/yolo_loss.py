@@ -126,8 +126,8 @@ class YoloLoss(tf.keras.losses.Loss):
         if self.iou_loss in ("giou", "ciou", "diou", "iou"):
             iou = box_iou(pred_box, y_pred, method=self.iou_loss, as_loss=True, trunc_inf=self.trunc_inf)
             iou_loss = object_mask * (1 - tf.expand_dims(iou, -1))
-            # todo 
-            iou_loss = (tf.reduce_sum(iou_loss) / batch_tensor)*2
+            # todo
+            iou_loss = (tf.reduce_sum(iou_loss) / batch_tensor) * 1.0
             iou_loss = tf.identity(iou_loss, self.iou_loss + "_loss")
             loss += iou_loss + confidence_loss + class_loss
             if self.print_loss:
