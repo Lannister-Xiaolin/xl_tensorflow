@@ -209,7 +209,7 @@ def yolo_body(inputs, num_anchors, num_classes, architecture="yolov4"):
     elif architecture == "yolov3_efficientnetb1_spp":
         config = get_yolo_config("yolov3", num_anchors, num_classes)
         config.spp = True
-        backbone = EfficientNetB1(include_top=False, weights=None, input_tensor=inputs)
+        backbone = EfficientNetLiteB1(include_top=False, weights=None, input_tensor=inputs)
         outputs = spatial_pyramid_block(
             backbone.get_layer("top_activation").output) if config.spp else backbone.get_layer("top_activation").output
         body = Model(inputs, outputs)
