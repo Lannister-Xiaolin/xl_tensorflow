@@ -318,7 +318,7 @@ def box_iou(b1, b2, method="iou", as_loss=False, trunc_inf=False):
         elif method == "diou":
             diou_term = tf.math.divide_no_nan(tf.reduce_sum(tf.math.pow((b1_xy - b2_xy), 2), axis=-1),
                                               (enclose_width * enclose_width + enclose_height * enclose_height))
-            diou = tf.math.pow(iou - diou_term, 0.6)
+            diou = iou -  tf.math.pow(diou_term, 0.6)
             return diou
             pass
         elif method == "ciou":
