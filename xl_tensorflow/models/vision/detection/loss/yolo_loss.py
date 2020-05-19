@@ -21,7 +21,7 @@ class YoloLoss(tf.keras.losses.Loss):
                  anchors=None,
                  ignore_thresh=.4,
                  print_loss=False,
-                 trunc_inf=True, name='yolo_loss'):
+                 trunc_inf=False, name='yolo_loss'):
         """
         计算每个stage的损失
         Args:
