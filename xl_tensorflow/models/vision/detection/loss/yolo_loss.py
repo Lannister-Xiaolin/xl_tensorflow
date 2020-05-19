@@ -67,10 +67,9 @@ class YoloLoss(tf.keras.losses.Loss):
         object_mask = y_true[..., 4:5]
         object_count = tf.reduce_sum(object_mask) + 1.0
         true_class_probs = y_true[..., 5:]
-        input_shape = tf.shape(y_pred)[1:3]
         grid, raw_pred, pred_xy, pred_wh = yolo_head(y_pred,
                                                      self.anchor,
-                                                     input_shape,
+                                                     self.input_shape,
                                                      calc_loss=True)
 
         pred_box = K.concatenate([pred_xy, pred_wh])

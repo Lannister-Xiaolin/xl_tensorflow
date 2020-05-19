@@ -285,12 +285,16 @@ def box_iou(b1, b2, method="iou", as_loss=False, trunc_inf=False):
     b2_wh_half = b2_wh / 2.
     b2_mins = b2_xy - b2_wh_half
     b2_maxes = b2_xy + b2_wh_half
+
     b2_mins = tf.clip_by_value(b2_mins, 0, 1)
     b2_maxes = tf.clip_by_value(b2_maxes, 0, 1)
+
     b1_wh = tf.maximum(0.0, b1_maxes - b1_mins)
     b2_wh = tf.maximum(0.0, b2_maxes - b2_mins)
+
     intersect_mins = K.maximum(b1_mins, b2_mins)
     intersect_maxes = K.minimum(b1_maxes, b2_maxes)
+
     intersect_wh = K.maximum(intersect_maxes - intersect_mins, 0.)
     intersect_area = intersect_wh[..., 0] * intersect_wh[..., 1]
     b1_area = b1_wh[..., 0] * b1_wh[..., 1]
