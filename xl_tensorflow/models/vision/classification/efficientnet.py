@@ -315,7 +315,7 @@ def EfficientNet(width_coefficient,
             img_input = input_tensor
 
     bn_axis = 3 if backend.image_data_format() == 'channels_last' else 1
-    activation = get_swish() if not force_relu else get_relu6()
+    activation = get_swish() if not force_relu else (force_relu if force_relu!= True else get_relu6())
 
     # Build stem
     x = img_input
@@ -366,7 +366,7 @@ def EfficientNet(width_coefficient,
                 x = mb_conv_block(x, block_args,
                                   activation=activation,
                                   drop_rate=drop_rate,
-                                  prefix=block_prefix,using_se_global_pooling=using_se_global_pooling)
+                                  prefix=block_prefix, using_se_global_pooling=using_se_global_pooling)
                 block_num += 1
 
     # Build top
@@ -670,7 +670,7 @@ setattr(EfficientNetLiteB4, '__doc__', EfficientNet.__doc__)
 def main():
     image_input = layers.Input(shape=(608, 608, 3))
     from tensorflow.keras.applications import MobileNetV2
-    model = EfficientNetB0(include_top=False,input_tensor=image_input, weights=None)
+    model = EfficientNetB0(include_top=False, input_tensor=image_input, weights=None)
     print((model.summary()))
 
 

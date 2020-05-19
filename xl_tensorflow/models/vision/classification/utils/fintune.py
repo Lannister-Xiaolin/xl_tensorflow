@@ -35,7 +35,6 @@ optimizer_dict = {
 }
 
 
-
 def file_scanning(path, file_format=r".txt$", full_path=True, sub_scan=False):
     """
         scanning directory and return file paths with specified format
@@ -104,7 +103,7 @@ def finetune_model(name="", prefix="", class_num=6, train_path="./dataset/specif
                    val_path="./dataset/specified_scenario/val", tf_record=False, tf_record_label2id=None,
                    weights="imagenet", train_from_scratch=False, patience=6, initial_epoch=0, dropout=False,
                    test=True, classes=None, epochs=(5, 30, 60, 120), lrs=(0.00001, 0.003, 0.0003, 0.00003),
-                   optimizer="adam", reducelr=3,
+                   optimizer="adam", reducelr=3, tf_model=None,
                    batch_size=16, target_size=(224, 224), train_buffer_size=5000, val_buffer_size=5000, prefetch=False):
     """预训训练最后一层与全部训练对比"""
     if tf_record:
@@ -158,7 +157,8 @@ def finetune_model(name="", prefix="", class_num=6, train_path="./dataset/specif
         with strategy.scope():
             model = ImageFineModel.create_fine_model(name, class_num, weights=weights, prefix=prefix,
                                                      suffix=f"_{class_num}", dropout=dropout,
-                                                     non_flatten_trainable=True, input_shape=(*target_size, 3))
+                                                     non_flatten_trainable=True,
+                                                     input_shape=(*target_size, 3)) if (tf_model is None) else tf_model
             call_back = my_call_backs(model.name, patience=patience, reducelr=reducelr)
         if test:
             model.fit(train_gen, validation_data=val_gen, epochs=2, callbacks=call_back, steps_per_epoch=2,
