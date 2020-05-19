@@ -93,24 +93,6 @@ class YoloLoss(tf.keras.losses.Loss):
 
         ignore_mask = tf.map_fn(iou_best, (pred_box, y_true, object_mask_bool), tf.float32)
         ignore_mask = K.expand_dims(ignore_mask, -1)
-        # ---------------------------旧版写法
-        # ignore_mask = tf.TensorArray(K.dtype(y_true), size=1, dynamic_size=True)
-        # def loop_body(b, ignore_mask):
-        #     # 每张图片的真实box,应为二维tensor
-        #     true_box = tf.boolean_mask(y_true[b, ..., 0:4], object_mask_bool[b, ..., 0])
-        #     # pred_box batch,26,26,3,4，iou shape like  (26,26,3,real_box_num)
-        #     iou = box_iou(pred_box[b], true_box)
-        #     # 26,26,3，所有grid的预测值与真实box最好的iou值
-        #     best_iou = K.max(iou, axis=-1)
-        #     # 小于阙值的为真，即确定当前值是否参与计算
-        #     ignore_mask = ignore_mask.write(b, K.cast(best_iou < self.ignore_thresh, K.dtype(true_box)))
-        #     return b + 1, ignore_mask
-        #
-        # # ignoremask  即所有与真实框iou小于指定值的位置为1，其他位置为0，即看作负样本
-        # _, ignore_mask = tf.while_loop(lambda b, *args: b < batch, loop_body, [0, ignore_mask])
-        # ignore_mask = ignore_mask.stack()
-        # ignore_mask = K.expand_dims(ignore_mask, -1)
-        # ---------------------------旧版写法
         """
         损失函数组成：
             1、中心定位误差，采用交叉熵，只计算有真实目标位置的损失
