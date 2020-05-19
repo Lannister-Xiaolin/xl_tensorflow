@@ -101,7 +101,7 @@ def xl_call_backs(model_name, log_path=None, model_path=None, monitor="val_loss"
                                                   mode='auto',
                                                   baseline=None)
     model_check_point = tf.keras.callbacks.ModelCheckpoint(os.path.join(model_path,
-                                                                        "{epoch:03d}_val_{loss:.3f}_train_{loss:.3f}"
+                                                                        "{epoch:03d}_val_{val_loss:.3f}_train_{loss:.3f}"
                                                                         + f"_{model_name}_weights.h5" if not save_best_only else os.path.join(
                                                                             model_path, f"{model_name}_weights.h5")),
                                                            verbose=1,

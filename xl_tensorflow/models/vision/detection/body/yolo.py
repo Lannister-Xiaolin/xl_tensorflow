@@ -313,13 +313,13 @@ def box_iou(b1, b2, method="iou", as_loss=False, trunc_inf=False):
             return giou
         elif method == "diou":
             diou_term = tf.math.divide_no_nan(tf.reduce_sum(tf.math.pow((b1_xy - b2_xy), 2), axis=-1),
-                                              tf.math.pow((enclose_width * enclose_height), 2))
-            diou = iou - diou_term
+                                              (enclose_width * enclose_width + enclose_height * enclose_height))
+            diou = tf.math.pow(iou - diou_term, 0.6)
             return diou
             pass
         elif method == "ciou":
             d = tf.math.divide_no_nan(tf.reduce_sum(tf.math.pow((b1_xy - b2_xy), 2), axis=-1),
-                                      tf.math.pow((enclose_width * enclose_height), 2))
+                                      (enclose_width * enclose_width + enclose_height * enclose_height))
             ar_gt = tf.atan(tf.math.divide_no_nan(b2_wh[..., 0], b2_wh[..., 1]))
             ar_pred = tf.atan(tf.math.divide_no_nan(b1_wh[..., 0], b1_wh[..., 1]))
             ar_loss = 0.4052847 * tf.pow(ar_gt - ar_pred, 2)
