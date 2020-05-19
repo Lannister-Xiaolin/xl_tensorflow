@@ -28,7 +28,9 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
                                  freeze_layers=(185, 185, 0),
                                  epochs=(2, 30, 50), initial_epoch=0,
                                  paciences=(10, 10, 5),
-                                 reduce_lrs=(3, 3, 3), trunc_inf=True, ignore_thresh=0.4,print_loss=True):
+                                 reduce_lrs=(3, 3, 3), trunc_inf=True,
+                                 ignore_thresh=0.4, print_loss=True,
+                                 iou_scale=1.0):
     """
     Todo 加速训练
     Args:
@@ -97,7 +99,8 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
                     model.layers[j].trainable = True
             model.compile(Adam(lrs[i]),
                           loss=[YoloLoss(i, input_shape, num_classes, iou_loss=iou_loss, trunc_inf=trunc_inf,
-                                         name=f"state_{i}", ignore_thresh=ignore_thresh,print_loss=print_loss) for i in
+                                         name=f"state_{i}", ignore_thresh=ignore_thresh,
+                                         print_loss=print_loss, iou_scale=iou_scale) for i in
                                 range(3)])
 
         callback = xl_call_backs(architecture, log_path=f"./logs/{architecture}_{suffix}",
