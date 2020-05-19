@@ -22,7 +22,9 @@ class YoloLoss(tf.keras.losses.Loss):
                  ignore_thresh=.4,
                  print_loss=False,
                  trunc_inf=False,
-                 iou_scale=1.0, name='yolo_loss'):
+                 iou_scale=4.0,
+                 avg_loss_object=False,
+                 name='yolo_loss'):
         """
         计算每个stage的损失
         Args:
@@ -41,6 +43,7 @@ class YoloLoss(tf.keras.losses.Loss):
         self.num_class = num_class
         self.iou_loss = iou_loss
         self.iou_scale = iou_scale
+        self.avg_loss_object = avg_loss_object
         self.print_loss = print_loss
         self.grid_shape = ((input_shape[0] // 32) * (scale_stage + 1), (input_shape[1] // 32) * (scale_stage + 1))
         self.trunc_inf = trunc_inf
@@ -57,11 +60,12 @@ class YoloLoss(tf.keras.losses.Loss):
 
         """
         loss = 0
-        batch = tf.shape(y_pred)[0]
+
         batch_tensor = tf.cast(tf.shape(y_pred)[0], K.dtype(y_true[0]))
         grid_shape = K.cast(K.shape(y_pred)[1:3], K.dtype(y_true))
         # 真实值掩码，无目标的对应位置为0 ,shape like gridx,gridy,3,1
         object_mask = y_true[..., 4:5]
+        object_count = tf.reduce_sum(object_mask) + 1.0
         true_class_probs = y_true[..., 5:]
         input_shape = tf.shape(y_pred)[1:3]
         grid, raw_pred, pred_xy, pred_wh = yolo_head(y_pred,
@@ -123,13 +127,18 @@ class YoloLoss(tf.keras.losses.Loss):
         class_loss = object_mask * K.binary_crossentropy(true_class_probs, raw_pred[..., 5:], from_logits=True)
         confidence_loss = tf.reduce_sum(confidence_loss) / batch_tensor
         class_loss = tf.reduce_sum(class_loss) / batch_tensor
+        if self.avg_loss_object:
+            class_loss = class_loss / object_count
+            confidence_loss = confidence_loss / object_count
         class_loss = tf.identity(class_loss, "class_loss")
         confidence_loss = tf.identity(confidence_loss, "confidence_loss")
         if self.iou_loss in ("giou", "ciou", "diou", "iou"):
             iou = box_iou(pred_box, y_true, method=self.iou_loss, as_loss=True, trunc_inf=self.trunc_inf)
             iou_loss = object_mask * (1 - tf.expand_dims(iou, -1))
-            # todo
+            # todo  是否除以均值
             iou_loss = (tf.reduce_sum(iou_loss) / batch_tensor) * self.iou_scale
+            if self.avg_loss_object:
+                iou_loss = iou_loss / object_count
             iou_loss = tf.identity(iou_loss, self.iou_loss + "_loss")
             loss += iou_loss + confidence_loss + class_loss
             if self.print_loss:
@@ -143,6 +152,8 @@ class YoloLoss(tf.keras.losses.Loss):
             xy_loss = tf.reduce_sum(xy_loss) / batch_tensor
             wh_loss = tf.reduce_sum(wh_loss) / batch_tensor
             mse_loss = xy_loss + wh_loss
+            if self.avg_loss_object:
+                mse_loss = mse_loss / object_count
             loss += mse_loss + confidence_loss + class_loss
             if self.print_loss:
                 tf.print("\n" + str(
