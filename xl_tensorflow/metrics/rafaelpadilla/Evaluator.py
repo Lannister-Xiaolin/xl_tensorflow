@@ -511,7 +511,7 @@ def map_raf_from_lists(detections, ground_truths, iou_threshold=0.5, box_format=
     return map50, metrics_per_classes, map_str
 
 
-def mao_raf_from_txtfile(gt_path, dt_path, filter="txt$"):
+def mao_raf_from_txtfile(gt_path, dt_path, filter="txt$", score_shold=0.1):
     from xl_tool.xl_io import file_scanning, read_txt
     gt_files = file_scanning(gt_path, filter)
     dt_files = file_scanning(dt_path, filter)
@@ -536,6 +536,7 @@ def mao_raf_from_txtfile(gt_path, dt_path, filter="txt$"):
             temp.append(os.path.basename(file).split(".")[0])
             texts = read_txt(file, return_list=True)
             boxes = [[(float(j) if j[0] in "0123456789" else j) for j in i.split()] for i in texts if i.strip()]
+            boxes = [box for box in boxes if box[1] >= score_shold]
             if not boxes:
                 continue
             temp.append(boxes)
