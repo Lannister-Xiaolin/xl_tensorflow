@@ -158,12 +158,17 @@ def finetune_model(name="", prefix="", class_num=6, train_path="./dataset/specif
                                                  suffix=f"_{class_num}", dropout=dropout,
                                                  non_flatten_trainable=True,
                                                  input_shape=(*target_size, 3)) if (tf_model is None) else tf_model
+        if tf_model is not None:
+            model._name = prefix + name + f"_{class_num}"
         call_back = my_call_backs(model.name, patience=patience, reducelr=reducelr)
         if weights and weights != "imagenet":
             model.load_weights(weights)
     if not train_from_scratch:
         logging.info("预训练")
         if test:
+            with strategy.scope():
+                model.compile(optimizer_dict[optimizer](lrs[0]), loss="categorical_crossentropy",
+                              metrics=list(["accuracy", ]))
             model.fit(train_gen, validation_data=val_gen, epochs=2, callbacks=call_back, steps_per_epoch=2,
                       validation_steps=2, use_multiprocessing=True, workers=5)
         else:
