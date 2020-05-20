@@ -152,14 +152,17 @@ def finetune_model(name="", prefix="", class_num=6, train_path="./dataset/specif
             # indexs = []
     logging.info('Number of gpu devices: %d' % len(gpus))
     strategy = tf.distribute.MirroredStrategy() if len(gpus) > 1 else nondistribute()
+    with strategy.scope():
+        model = ImageFineModel.create_fine_model(name, class_num, weights=weights if weights == "imagenet" else None,
+                                                 prefix=prefix,
+                                                 suffix=f"_{class_num}", dropout=dropout,
+                                                 non_flatten_trainable=True,
+                                                 input_shape=(*target_size, 3)) if (tf_model is None) else tf_model
+        call_back = my_call_backs(model.name, patience=patience, reducelr=reducelr)
+        if weights and weights != "imagenet":
+            model.load_weights(weights)
     if not train_from_scratch:
         logging.info("预训练")
-        with strategy.scope():
-            model = ImageFineModel.create_fine_model(name, class_num, weights=weights, prefix=prefix,
-                                                     suffix=f"_{class_num}", dropout=dropout,
-                                                     non_flatten_trainable=True,
-                                                     input_shape=(*target_size, 3)) if (tf_model is None) else tf_model
-            call_back = my_call_backs(model.name, patience=patience, reducelr=reducelr)
         if test:
             model.fit(train_gen, validation_data=val_gen, epochs=2, callbacks=call_back, steps_per_epoch=2,
                       validation_steps=2, use_multiprocessing=True, workers=5)
@@ -177,13 +180,6 @@ def finetune_model(name="", prefix="", class_num=6, train_path="./dataset/specif
     else:
         logging.info("从头开始训练模型！！！")
         # strategy = tf.distribute.MirroredStrategy()
-        with strategy.scope():
-            model = ImageFineModel.create_fine_model(name, class_num,
-                                                     weights=weights if weights == "imagenet" else None, prefix=prefix,
-                                                     suffix=f"_{class_num}", dropout=dropout,
-                                                     non_flatten_trainable=True, input_shape=(*target_size, 3))
-        if weights and weights != "imagenet":
-            model.load_weights(weights)
         call_back = my_call_backs(model.name, patience=patience, reducelr=reducelr)
         if test:
             model.fit_generator(train_gen, validation_data=val_gen, epochs=2, callbacks=call_back, steps_per_epoch=2,
