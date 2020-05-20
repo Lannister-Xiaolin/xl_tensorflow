@@ -316,7 +316,7 @@ def EfficientNet(width_coefficient,
 
     bn_axis = 3 if backend.image_data_format() == 'channels_last' else 1
     activation = get_swish() if not force_relu else (force_relu if force_relu!= True else get_relu6())
-
+    print("使用激活函数---->", activation)
     # Build stem
     x = img_input
     x = layers.Conv2D(round_filters(32, width_coefficient, depth_divisor, fix_head_stem), 3,
