@@ -1,5 +1,7 @@
 #!usr/bin/env python3
 # -*- coding: UTF-8 -*-
+import pathlib
+
 from tensorflow.keras import Input, Model
 from ..body.yolo import yolo_body, yolo_eval
 from xl_tensorflow.models.vision.detection.dataloader.common.anchors_yolo import YOLOV4_ANCHORS, YOLOV3_ANCHORS
@@ -58,12 +60,44 @@ def single_inference_model(model_name, weights,
                                               score_threshold,
                                               iou_threshold, return_xy=return_xy)
         model = Model(inputs=yolo_model.inputs, outputs=(boxes_, scores_, classes_))
+
     return model
 
 
-# todo
-def b64_yolo_serving_export():
-    pass
+def tflite_export_yolo(model_name, num_classes, save_lite_file, weights="", input_shape=(416, 416), anchors="v3",
+                       return_xy=True):
+    """
+    模型输入为固定尺寸，因此输出需要根据与固定尺寸的比例进行缩放和偏置（如过是右侧填充则不需要，居中两侧填充为）
+    输出按照xyxy格式
+    Args:
+        model_name:
+        num_classes:
+        save_lite_file:
+        weights:
+        input_shape:
+        anchors:
+        return_xy:
+
+    Returns:
+
+    """
+    anchors = YOLOV4_ANCHORS if anchors == "v4" else YOLOV3_ANCHORS
+    from tensorflow.keras import layers
+    inputs = layers.Input(shape=(416, 416, 3))
+    x = tf.multiply(inputs, 1 / 255.0)
+    yolo_model = yolo_body(Input(shape=(*input_shape, 3)),
+                           len(anchors) // 3, num_classes, model_name, reshape_y=False)
+    if weights:
+        yolo_model.load_weights(weights)
+    boxes_, scores_ = yolo_eval(yolo_model(x),
+                                anchors, num_classes, input_shape, 20,
+                                0.2,
+                                0.5, return_xy=return_xy, lite_return=True)
+    model = Model(inputs=inputs, outputs=[boxes_, scores_])
+    # converter = tf.lite.TFLiteConverter.from_keras_model(model)
+    # converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS]
+    # pathlib.Path(save_lite_file).write_bytes(converter.convert())
+    return model
 
 
 def yolo_inferece(image_files, output_dir, model_name, weights,

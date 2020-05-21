@@ -318,7 +318,7 @@ def box_iou(b1, b2, method="iou", as_loss=False, trunc_inf=False):
         elif method == "diou":
             diou_term = tf.math.divide_no_nan(tf.reduce_sum(tf.math.pow((b1_xy - b2_xy), 2), axis=-1),
                                               (enclose_width * enclose_width + enclose_height * enclose_height))
-            diou = iou -  tf.math.pow(diou_term, 0.6)
+            diou = iou - tf.math.pow(diou_term, 0.6)
             return diou
             pass
         elif method == "ciou":
@@ -363,12 +363,12 @@ def yolo_head(feats, anchors, input_shape, calc_loss=False):
     # # shape like batch,26,26,3,85
     # Adjust preditions to each spatial grid point and anchor size.
     # coordinates normalized to 0,1,relative to grid , batch,26,26,3,2
-    box_xy = (K.sigmoid(feats[..., :2]) + grid) / K.cast(grid_shape[::-1], K.dtype(feats))
+    box_xy = (K.sigmoid(feats[:, :, :, :, :2]) + grid) / K.cast(grid_shape[::-1], K.dtype(feats))
     # box_xy = ((K.sigmoid(feats[..., :2]) * scale - (scale-1)/2) + grid) / K.cast(grid_shape[::-1], K.dtype(feats))
     # size relative to input shape(ie:416)
-    box_wh = K.exp(feats[..., 2:4]) * anchors_tensor / K.cast(input_shape[::-1], K.dtype(feats))
-    box_confidence = K.sigmoid(feats[..., 4:5])
-    box_class_probs = K.sigmoid(feats[..., 5:])
+    box_wh = K.exp(feats[:, :, :, :, 2:4]) * anchors_tensor / K.cast(input_shape[::-1], K.dtype(feats))
+    box_confidence = K.sigmoid(feats[:, :, :, :, 4:5])
+    box_class_probs = K.sigmoid(feats[:, :, :, :, 5:])
     if calc_loss == True:
         # grid, shape like 26，26，1，2
         # feats, shape like batch,26,26,3,85
@@ -386,8 +386,8 @@ def yolo_correct_boxes(box_xy, box_wh, input_shape, image_shape):
         image_shape  图片原始尺寸，用于还原重建坐标，Height * Width
 
     '''
-    box_yx = box_xy[..., ::-1]
-    box_hw = box_wh[..., ::-1]
+    box_yx = box_xy[:, :, :, :, ::-1]
+    box_hw = box_wh[:, :, :, :, ::-1]
     input_shape = K.cast(input_shape, K.dtype(box_yx))
     image_shape = K.cast(image_shape, K.dtype(box_yx))
     new_shape = K.round(image_shape * K.min(input_shape / image_shape))
@@ -402,10 +402,10 @@ def yolo_correct_boxes(box_xy, box_wh, input_shape, image_shape):
     box_maxes = tf.clip_by_value(box_maxes, 0., 1.)
     # 注此处y和x对换
     boxes = K.concatenate([
-        box_mins[..., 0:1],  # y_min
-        box_mins[..., 1:2],  # x_min
-        box_maxes[..., 0:1],  # y_max
-        box_maxes[..., 1:2]  # x_max
+        box_mins[:, :, :, :, 0:1],  # y_min
+        box_mins[:, :, :, :, 1:2],  # x_min
+        box_maxes[:, :, :, :, 0:1],  # y_max
+        box_maxes[:, :, :, :, 1:2]  # x_max
     ])
 
     # Scale boxes back to original image shape.
@@ -432,7 +432,7 @@ def yolo_eval(yolo_outputs,
               origin_image_shape,
               max_boxes=20,
               score_threshold=.6,
-              iou_threshold=.5, return_xy=True):
+              iou_threshold=.5, return_xy=True, lite_return=False):
     """Evaluate YOLO model on given input and return filtered boxes.
     只适用于一张图片的处理，不适合批处理
     Args:
@@ -447,13 +447,35 @@ def yolo_eval(yolo_outputs,
     box_scores = []
     for l in range(num_layers):
         # 此处的处理会去除batch的信息，完全展开，因此该计算图只能用于单张图片处理，不能批处理
-        _boxes, _box_scores = yolo_boxes_and_scores(yolo_outputs[l],
-                                                    anchors[anchor_mask[l]], num_classes, input_shape,
-                                                    origin_image_shape)
+        if lite_return:
+            _boxes, _box_scores = yolo_boxes_and_scores_lite(yolo_outputs[l],
+                                                             anchors[anchor_mask[l]], num_classes, input_shape,
+                                                             origin_image_shape)
+        else:
+            _boxes, _box_scores = yolo_boxes_and_scores(yolo_outputs[l],
+                                                        anchors[anchor_mask[l]], num_classes, input_shape,
+                                                        origin_image_shape)
         boxes.append(_boxes)
         box_scores.append(_box_scores)
     boxes = K.concatenate(boxes, axis=0)
     box_scores = K.concatenate(box_scores, axis=0)
+    if lite_return:
+        boxes_ = boxes
+        # scores_ = K.max(box_scores, axis=-1)
+        # classes_ = K.argmax(box_scores, axis=1)
+        boxes_ = K.expand_dims(boxes_, axis=0)
+        scores_ = K.transpose(box_scores)
+        scores_ = K.expand_dims(scores_, axis=0)
+        # classes_ = K.expand_dims(classes_, axis=0)
+        # classes_ =  tf.cast(classes_, tf.int32)
+        if return_xy:
+            boxes_ = K.concatenate([
+                boxes_[:, :, 1:2],  # y_min
+                boxes_[:, :, 0:1],  # x_min
+                boxes_[:, :, 3:],  # y_max
+                boxes_[:, :, 2:3]  # x_max
+            ])
+        return boxes_, scores_
 
     mask = box_scores >= score_threshold
     max_boxes_tensor = K.constant(max_boxes, dtype='int32')
@@ -463,7 +485,7 @@ def yolo_eval(yolo_outputs,
     for c in range(num_classes):
         class_boxes = tf.boolean_mask(boxes, mask[:, c])
         class_box_scores = tf.boolean_mask(box_scores[:, c], mask[:, c])
-        nms_index = tf.image.non_max_suppression(
+        nms_index, _ = tf.image.non_max_suppression_with_scores(
             class_boxes, class_box_scores, max_boxes_tensor, iou_threshold=iou_threshold)
         class_boxes = K.gather(class_boxes, nms_index)
         class_box_scores = K.gather(class_box_scores, nms_index)
@@ -490,7 +512,7 @@ def yolo_eval(yolo_outputs,
 
 
 # Todo lite 的配置暂时不管
-def yolo_head_lite(feats, anchors, num_classes, input_shape, calc_loss=False):
+def yolo_head_lite(feats, anchors, num_classes, input_shape):
     """计算grid和预测box的坐标和长宽
         Args:
             feats, 即yolobody的输出，未经过未经过sigmoid函数处理,输出为batch 26,26,255
@@ -505,9 +527,7 @@ def yolo_head_lite(feats, anchors, num_classes, input_shape, calc_loss=False):
             box_class_probs
     """
     num_anchors = len(anchors)
-    # Reshape to batch, height, width, num_anchors, box_params.
     anchors_tensor = K.reshape(K.constant(anchors), [1, 1, num_anchors, 2])
-
     grid_shape = K.shape(feats)[1:3]  # height, width
     grid_y = K.tile(K.reshape(K.arange(0, stop=grid_shape[0]), [-1, 1, 1, 1]),
                     [1, grid_shape[1], 1, 1])
@@ -518,17 +538,10 @@ def yolo_head_lite(feats, anchors, num_classes, input_shape, calc_loss=False):
     # shape like batch,26,26,3,85
     feats = K.reshape(
         feats, [grid_shape[0], grid_shape[1], num_anchors, num_classes + 5])
-
-    # Adjust preditions to each spatial grid point and anchor size.
-    # batch,26,26,3,2 相对整图的位置，即0，1范围
     box_xy = (K.sigmoid(feats[:, :, :, :2]) + grid) / K.cast(grid_shape[::-1], K.dtype(feats))
-    # 相对于416的大小
     box_wh = K.exp(feats[:, :, :, 2:4]) * anchors_tensor / K.cast(input_shape[::-1], K.dtype(feats))
     box_confidence = K.sigmoid(feats[:, :, :, 4:5])
     box_class_probs = K.sigmoid(feats[:, :, :, 5:])
-
-    if calc_loss == True:
-        return grid, feats, box_xy, box_wh
     return box_xy, box_wh, box_confidence, box_class_probs
 
 
@@ -554,6 +567,8 @@ def yolo_correct_boxes_lite(box_xy, box_wh, input_shape, image_shape):
 
     box_mins = box_yx - (box_hw / 2.)
     box_maxes = box_yx + (box_hw / 2.)
+    box_mins = tf.clip_by_value(box_mins, 0., 1.)
+    box_maxes = tf.clip_by_value(box_maxes, 0., 1.)
     # 注此处y和x对换
     boxes = K.concatenate([
         box_mins[:, :, :, 0:1],  # y_min
@@ -564,6 +579,7 @@ def yolo_correct_boxes_lite(box_xy, box_wh, input_shape, image_shape):
 
     # Scale boxes back to original image shape.
     boxes *= K.concatenate([image_shape, image_shape])
+
     return boxes
 
 

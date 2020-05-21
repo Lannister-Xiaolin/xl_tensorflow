@@ -112,9 +112,10 @@ def finetune_model(name="", prefix="", class_num=6, train_path="./dataset/specif
                                         target_size=target_size,
                                         augmenter=AutoAugment(translate_const=target_size[0] * 0.1),
                                         is_training=True,
-                                        buffer_size=train_buffer_size)
+                                        buffer_size=train_buffer_size).apply(tf.data.experimental.ignore_errors())
         val_gen = image_from_tfrecord(val_path, class_num, batch_size, is_training=False,
-                                      target_size=target_size, buffer_size=val_buffer_size)
+                                      target_size=target_size, buffer_size=val_buffer_size).apply(
+            tf.data.experimental.ignore_errors())
         if prefetch:
             train_gen = train_gen.prefetch(
                 tf.data.experimental.AUTOTUNE)
