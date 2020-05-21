@@ -13,7 +13,7 @@ from tensorflow.keras.callbacks import EarlyStopping, TensorBoard, ReduceLROnPla
 from xl_tensorflow.models.vision.classification.efficientnet import EfficientNetB0, EfficientNetB1, \
     EfficientNetB2, EfficientNetB3, EfficientNetB4, \
     EfficientNetB5, EfficientNetB6, EfficientNetB7, EfficientNetLiteB1, EfficientNetLiteB2, EfficientNetLiteB3, \
-    EfficientNetLiteB4
+    EfficientNetLiteB4,EfficientNetLiteB0
 from xl_tensorflow.models.vision.classification.mobilenet_v3 import MobileNetV3Small, MobileNetV3Large
 
 eff_input_dict = {'efficientnetb0': 224, 'efficientnetb1': 240,
@@ -65,6 +65,7 @@ class ImageFineModel:
         'efficientnetb1': EfficientNetB1,
         'efficientnetb2': EfficientNetB2,
         'efficientnetb3': EfficientNetB3,
+        'efficientnetliteb0': EfficientNetLiteB0,
         'efficientnetliteb1': EfficientNetLiteB1,
         'efficientnetliteb2': EfficientNetLiteB2,
         'efficientnetliteb3': EfficientNetLiteB3,
@@ -90,7 +91,8 @@ class ImageFineModel:
     @classmethod
     def create_fine_model(cls, pre_model_name, cat_num, suffix="", prefix="my_", weights="imagenet",
                           non_flatten_trainable=False, loss="categorical_crossentropy", using_se_global_pooling=False,
-                          metrics=("accuracy",), learning_rate=0.0005, input_shape=None, dropout=None):
+                          metrics=("accuracy",), learning_rate=0.0005, input_shape=None, dropout=None,
+                          force_relu=False):
         if pre_model_name in ["mobilenetv3large", "mobilenetv3small"]:
             model = cls.model_dict[pre_model_name](include_top=True, weights=None, classes=cat_num,
                                                    input_shape=input_shape) if input_shape else cls.model_dict[
@@ -101,7 +103,7 @@ class ImageFineModel:
             model.compile(Adam(0.001), loss=loss, metrics=list(metrics))
         else:
             if pre_model_name in ["efficientnetb{}".format(i) for i in range(8)]:
-                pre_model = cls.model_dict[pre_model_name](include_top=False, weights=weights,
+                pre_model = cls.model_dict[pre_model_name](include_top=False, weights=weights, force_relu=force_relu,
                                                            using_se_global_pooling=using_se_global_pooling,
                                                            input_shape=(eff_input_dict[pre_model_name],
                                                                         eff_input_dict[pre_model_name], 3))

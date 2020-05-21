@@ -21,7 +21,8 @@ plt.rcParams['axes.unicode_minus'] = False  # 步骤二（解决坐标轴负数�
 eff_input_dict = {'efficientnetb0': 224, 'efficientnetb1': 240,
                   'efficientnetb2': 260,
                   'efficientnetb3': 300,
-                  'efficientnetb4': 380}
+                  'efficientnetb4': 380,'efficientnetliteb0': 224, 'efficientnetliteb1': 240,
+                  'efficientnetliteb2': 260,'efficientnetliteb3': 280,'efficientnetliteb4': 300}
 
 optimizer_dict = {
     "RMSprop".lower(): RMSprop,
@@ -104,7 +105,8 @@ def finetune_model(name="", prefix="", class_num=6, train_path="./dataset/specif
                    weights="imagenet", train_from_scratch=False, patience=6, initial_epoch=0, dropout=False,
                    test=True, classes=None, epochs=(5, 30, 60, 120), lrs=(0.00001, 0.003, 0.0003, 0.00003),
                    optimizer="adam", reducelr=3, tf_model=None,
-                   batch_size=16, target_size=(224, 224), train_buffer_size=5000, val_buffer_size=5000, prefetch=False):
+                   batch_size=16, target_size=(224, 224), train_buffer_size=5000, val_buffer_size=5000,
+                   prefetch=False, force_relu=False):
     """预训训练最后一层与全部训练对比"""
     if tf_record:
 
@@ -112,10 +114,10 @@ def finetune_model(name="", prefix="", class_num=6, train_path="./dataset/specif
                                         target_size=target_size,
                                         augmenter=AutoAugment(translate_const=target_size[0] * 0.1),
                                         is_training=True,
-                                        buffer_size=train_buffer_size).apply(tf.data.experimental.ignore_errors())
+                                        buffer_size=train_buffer_size)#apply(tf.data.experimental.ignore_errors())
         val_gen = image_from_tfrecord(val_path, class_num, batch_size, is_training=False,
-                                      target_size=target_size, buffer_size=val_buffer_size).apply(
-            tf.data.experimental.ignore_errors())
+                                      target_size=target_size, buffer_size=val_buffer_size)#.apply(
+            #tf.data.experimental.ignore_errors())
         if prefetch:
             train_gen = train_gen.prefetch(
                 tf.data.experimental.AUTOTUNE)
@@ -158,7 +160,8 @@ def finetune_model(name="", prefix="", class_num=6, train_path="./dataset/specif
                                                  prefix=prefix,
                                                  suffix=f"_{class_num}", dropout=dropout,
                                                  non_flatten_trainable=True,
-                                                 input_shape=(*target_size, 3)) if (tf_model is None) else tf_model
+                                                 input_shape=(*target_size, 3), force_relu=force_relu) if (
+                tf_model is None) else tf_model
         if tf_model is not None:
             model._name = prefix + name + f"_{class_num}"
         call_back = my_call_backs(model.name, patience=patience, reducelr=reducelr)

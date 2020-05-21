@@ -65,7 +65,8 @@ def single_inference_model(model_name, weights,
 
 
 def tflite_export_yolo(model_name, num_classes, save_lite_file, weights="", input_shape=(416, 416), anchors="v3",
-                       return_xy=True):
+                       return_xy=True, score_threshold=.2,
+                       iou_threshold=.5, ):
     """
     模型输入为固定尺寸，因此输出需要根据与固定尺寸的比例进行缩放和偏置（如过是右侧填充则不需要，居中两侧填充为）
     输出按照xyxy格式
@@ -91,14 +92,22 @@ def tflite_export_yolo(model_name, num_classes, save_lite_file, weights="", inpu
         yolo_model.load_weights(weights)
     boxes_, scores_ = yolo_eval(yolo_model(x),
                                 anchors, num_classes, input_shape, 20,
-                                0.2,
-                                0.5, return_xy=return_xy, lite_return=True)
+                                score_threshold,
+                                iou_threshold, return_xy=return_xy, lite_return=True)
     model = Model(inputs=inputs, outputs=[boxes_, scores_])
-    # converter = tf.lite.TFLiteConverter.from_keras_model(model)
-    # converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS]
-    # pathlib.Path(save_lite_file).write_bytes(converter.convert())
+    converter = tf.lite.TFLiteConverter.from_keras_model(model)
+    converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS]
+    pathlib.Path(save_lite_file).write_bytes(converter.convert())
     return model
 
+# todo 待新增，暂无需求
+def seving_export_yolo():
+    """
+    接收base64 / resize后的数组（无需预处理模型）
+    Returns:
+
+    """
+    pass
 
 def yolo_inferece(image_files, output_dir, model_name, weights,
                   num_classes,
