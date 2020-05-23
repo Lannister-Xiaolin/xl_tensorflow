@@ -99,9 +99,13 @@ def b64_image_model_wrapper(model, target_size, method=tf.image.ResizeMethod.BIL
         img = tf.image.resize(img, new_shape, method=method)
         return img
 
+    def batch_decode_on_cpu(image_files):
+        with tf.device("/cpu:0"):
+            ouput_tensor = tf.map_fn(lambda im: preprocess_and_decode(im[0]), image_files, dtype="float32")
+        return ouput_tensor
+
     input64 = tf.keras.layers.Input(shape=(1,), dtype="string", name=input_name)
-    ouput_tensor = tf.keras.layers.Lambda(
-        lambda img: tf.map_fn(lambda im: preprocess_and_decode(im[0]), img, dtype="float32"))(input64)
+    ouput_tensor = tf.keras.layers.Lambda(lambda x: batch_decode_on_cpu(x))(input64)
     x = (ouput_tensor - mean) / std
     x = model(x)
     new_model = tf.keras.Model(input64, x)
