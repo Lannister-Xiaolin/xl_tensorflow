@@ -112,7 +112,7 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
                 for j in range(freeze_layers[i]):
                     model.layers[j].trainable = False
             else:
-                print("make all layers trainable")
+                print("___________make all layers trainable________________")
                 for j in range(len(model.layers)):
                     model.layers[j].trainable = True
             model.compile(Adam(lrs[i]),
