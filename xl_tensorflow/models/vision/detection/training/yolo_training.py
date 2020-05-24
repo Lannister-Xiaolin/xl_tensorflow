@@ -12,18 +12,16 @@ from xl_tensorflow.models.vision.detection.dataloader import YoloInputFn
 from xl_tool.xl_io import read_json
 
 
-# TODO base64输入，预处理，resize和padding处理， lite版本
-
-
 # def yolo_inferece():
 
 
 def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
                                  classes_path="", batch_size=8, iou_loss="",
-                                 input_shape=(416, 416), num_classes=None, architecture="yolov3",
+                                 input_shape=(416, 416), num_classes=None,
+                                 architecture="yolov3",
                                  suffix="voc", pre_weights=None, anchors="v3",
-                                 use_multiprocessing=True, workers=4, skip_mismatch=False,
-                                 tfrecord=False, generater2tfdata=True,
+                                 use_multiprocessing=False, workers=1,
+                                 tfrecord=True,
                                  lrs=(1e-5, 1e-3, 1e-4),
                                  freeze_layers=(185, 185, 0),
                                  epochs=(2, 30, 50), initial_epoch=0,
@@ -32,13 +30,33 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
                                  ignore_thresh=0.4, print_loss=True,
                                  iou_scale=1.0):
     """
-    Todo 加速训练
+
     Args:
-        number_classes:
+        train_annotation_path: file pattern for tf record or train.txt
+        val_annotation_path:
+        classes_path:
+        batch_size:
+        iou_loss:
         input_shape:
-        body:
-        freeze_layers: 185-yolov3  250-yolov4
-        ignore_thresh: 0.4 yolov3 0.223 yolov4 efficientnetliteb0 200
+        num_classes:
+        architecture:
+        suffix:
+        pre_weights:
+        anchors:
+        use_multiprocessing:
+        workers:
+        tfrecord:
+        lrs:
+        freeze_layers:
+        epochs:
+        initial_epoch:
+        paciences:
+        reduce_lrs:
+        trunc_inf:
+        ignore_thresh:
+        print_loss:
+        iou_scale:
+
     Returns:
 
     """

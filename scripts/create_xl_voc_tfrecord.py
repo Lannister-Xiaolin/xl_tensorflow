@@ -15,8 +15,8 @@
 r"""Convert PASCAL dataset to TFRecord.
 
 Example usage:
-    python create_pascal_tfrecord.py  --data_dir=/tmp/VOCdevkit  \
-        --year=VOC2012  --output_path=/tmp/pascal
+   python ./xl-tensorflow/scripts/create_xl_voc_tfrecord.py  --data_dir=./train --output_path=./tfrecord/train
+     --label_map_json_path=food.json  --num_shards=8
 """
 from __future__ import absolute_import
 from __future__ import division
@@ -35,7 +35,7 @@ from lxml import etree
 import PIL.Image
 import tensorflow.compat.v1 as tf
 import multiprocessing
-
+import threading
 from xl_tensorflow.datasets.tfrecord import tfrecord_util
 
 flags.DEFINE_string('data_dir', '', 'Root directory to  VOC format dataset include image and xml files.')
@@ -48,7 +48,7 @@ flags.DEFINE_integer('num_shards', 8, 'Number of shards for output file.')
 flags.DEFINE_integer('num_images', None, 'Max number of imags to process.')
 flags.DEFINE_integer('image_path', None, 'image path if image file and xml file saved in different dir')
 flags.DEFINE_string('prefix', "voc", 'prefix for output name of tfrecord')
-flags.DEFINE_integer('num_threads', None, 'Number of threads to run.')
+flags.DEFINE_integer('num_threads', None, 'Number of threads to run must be equal to num_shards if set')
 FLAGS = flags.FLAGS
 
 GLOBAL_IMG_ID = 0  # global image id.
@@ -117,6 +117,8 @@ def dict_to_tf_example(data,
 
     width = int(data['size']['width'])
     height = int(data['size']['height'])
+    assert image.size[0] == width
+    assert image.size[1] == height
     image_id = get_image_id(data['filename'])
     if ann_json_dict:
         image = {
@@ -152,6 +154,7 @@ def dict_to_tf_example(data,
             if not auto_label_map:
                 try:
                     classes.append(label_map_dict[obj['name']])
+                    logging.warning(f"unknown classses: {obj['name']}")
                 except KeyError:
                     continue
             else:
@@ -223,6 +226,40 @@ def dict_to_tf_example(data,
     return example, auto_label_index
 
 
+def batch_processing(record_index, xml_files, image_files, label_map_dict, auto_label_map, ann_json_dict,
+                     auto_label_index, total_number):
+    writer = tf.python_io.TFRecordWriter(os.path.join(FLAGS.output_path, FLAGS.prefix + '-%05d-of-%05d.tfrecord' %
+                                                      (record_index, FLAGS.num_shards)))
+    for idx in range(len(xml_files)):
+        if FLAGS.num_images and idx >= FLAGS.num_images:
+            break
+        if idx % 100 == 0:
+            logging.info('On image %d of %d in %d total images, shard_index: %d', idx, len(xml_files), total_number,
+                         record_index)
+        path = xml_files[idx]
+        with tf.gfile.GFile(path, 'r') as fid:
+            xml_str = fid.read()
+        try:
+            xml = etree.fromstring(xml_str)
+        except ValueError:
+            xml = etree.fromstring(xml_str.encode("utf-8"))
+        data = tfrecord_util.recursive_parse_xml_to_dict(xml)['annotation']
+        try:
+            tf_example, auto_label_index = dict_to_tf_example(
+                data, image_files[idx],
+                label_map_dict,
+                auto_label_map=auto_label_map,
+                auto_label_index=auto_label_index,
+                ignore_difficult_instances=FLAGS.ignore_difficult_instances,
+                ann_json_dict=ann_json_dict)
+        except (ZeroDivisionError, AssertionError):
+            logging.warning("ZeroDivisionError" + path)
+            continue
+        writer.write(tf_example.SerializeToString())
+
+    writer.close()
+
+
 def main(_):
     import time
     st = time.time()
@@ -234,11 +271,6 @@ def main(_):
     logging.info('writing to output path: %s', FLAGS.output_path)
     print(FLAGS.output_path + '-%05d-of-%05d.tfrecord' %
           (1, FLAGS.num_shards))
-    writers = [
-        tf.python_io.TFRecordWriter(os.path.join(FLAGS.output_path, FLAGS.prefix + '-%05d-of-%05d.tfrecord' %
-                                                 (i, FLAGS.num_shards)))
-        for i in range(FLAGS.num_shards)
-    ]
 
     from xl_tool.xl_io import file_scanning
     from random import shuffle
@@ -270,37 +302,71 @@ def main(_):
         cls = {'supercategory': 'none', 'id': class_id, 'name': class_name}
         ann_json_dict['categories'].append(cls)
 
-    examples_list = xml_files
     auto_label_index = -1
-    # Todo多进程数据共享的问题
-    pool = multiprocessing.Pool(FLAGS.num_threads)
-    for idx, example in enumerate(examples_list):
-        if FLAGS.num_images and idx >= FLAGS.num_images:
-            break
-        if idx % 100 == 0:
-            logging.info('On image %d of %d', idx, len(examples_list))
-        path = xml_files[idx]
-        with tf.gfile.GFile(path, 'r') as fid:
-            xml_str = fid.read()
-        xml = etree.fromstring(xml_str)
-        data = tfrecord_util.recursive_parse_xml_to_dict(xml)['annotation']
+    # 只有线程数能被shard整除时和指定类别字典时才允许多线程并发，
+    if FLAGS.num_threads and FLAGS.num_threads > 1 and FLAGS.label_map_json_path and (
+            FLAGS.num_shards == FLAGS.num_threads):
+        from copy import deepcopy
+        intervals = len(xml_files) // FLAGS.num_threads
+        files_indexes_all = [(i * intervals, (i + 1) * intervals) if i < (FLAGS.num_threads - 1) else (
+            i * intervals, max((i + 1) * intervals, len(xml_files))) for i in range(FLAGS.num_threads)]
+        print(files_indexes_all)
+        total_number = len(image_files)
+        threads = [None] * FLAGS.num_threads
+        for i in range(FLAGS.num_threads):
+            threads[i] = threading.Thread(target=batch_processing,
+                                          args=(i,
+                                                deepcopy(xml_files[files_indexes_all[i][0]:files_indexes_all[i][1]]),
+                                                deepcopy(image_files[files_indexes_all[i][0]:files_indexes_all[i][1]]),
+                                                deepcopy(label_map_dict), auto_label_map, deepcopy(ann_json_dict),
+                                                auto_label_index, total_number
+                                                ))
 
-        tf_example, auto_label_index = dict_to_tf_example(
-            data, image_files[idx],
-            label_map_dict,
-            auto_label_map=auto_label_map,
-            auto_label_index=auto_label_index,
-            ignore_difficult_instances=FLAGS.ignore_difficult_instances,
-            ann_json_dict=ann_json_dict)
-        writers[idx % FLAGS.num_shards].write(tf_example.SerializeToString())
+        for thread in threads:
+            thread.start()
+        for thread in threads: thread.join()
+    else:
+        writers = [
+            tf.python_io.TFRecordWriter(os.path.join(FLAGS.output_path, FLAGS.prefix + '-%05d-of-%05d.tfrecord' %
+                                                     (i, FLAGS.num_shards)))
+            for i in range(FLAGS.num_shards)
+        ]
 
-    for writer in writers:
-        writer.close()
+        # Todo多进程数据共享的问题
+        pool = multiprocessing.Pool(FLAGS.num_threads)
+        for idx in range(len(xml_files)):
+            if FLAGS.num_images and idx >= FLAGS.num_images:
+                break
+            if idx % 100 == 0:
+                logging.info('On image %d of %d', idx, len(xml_files))
+            path = xml_files[idx]
+            with tf.gfile.GFile(path, 'r') as fid:
+                xml_str = fid.read()
+            try:
+                xml = etree.fromstring(xml_str)
+            except ValueError:
+                xml = etree.fromstring(xml_str.encode("utf-8"))
+            data = tfrecord_util.recursive_parse_xml_to_dict(xml)['annotation']
+            try:
+                tf_example, auto_label_index = dict_to_tf_example(
+                    data, image_files[idx],
+                    label_map_dict,
+                    auto_label_map=auto_label_map,
+                    auto_label_index=auto_label_index,
+                    ignore_difficult_instances=FLAGS.ignore_difficult_instances,
+                    ann_json_dict=ann_json_dict)
+            except (ZeroDivisionError, AssertionError):
+                logging.warning("ZeroDivisionError: " + path)
+                continue
+            writers[idx % FLAGS.num_shards].write(tf_example.SerializeToString())
 
-    json_file_path = os.path.join(FLAGS.output_path, 'label2index.json')
-    if auto_label_map:
-        with tf.io.gfile.GFile(json_file_path, 'w') as f:
-            json.dump(label_map_dict, f)
+        for writer in writers:
+            writer.close()
+
+        json_file_path = os.path.join(FLAGS.output_path, 'label2index.json')
+        if auto_label_map:
+            with tf.io.gfile.GFile(json_file_path, 'w') as f:
+                json.dump(label_map_dict, f)
     print("-----------Convert time cost(second):", time.time() - st)
 
 
