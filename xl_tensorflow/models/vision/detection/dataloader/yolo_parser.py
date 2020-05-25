@@ -23,10 +23,10 @@ Focal Loss for Dense Object Detection. arXiv:1708.02002
 
 import tensorflow as tf
 import numpy as np
-from xl_tensorflow.utils.common import TRAIN, PREDICT_WITH_GT, EVAL, PREDICT
-from .common.anchors_yolo import YOLOV3_ANCHORS, YOLOV4_ANCHORS
-from .common import tf_example_decoder
-from .common import input_utils, box_utils
+from xl_tensorflow.models.vision.detection.dataloader.utils.mode_keys import TRAIN, PREDICT_WITH_GT, EVAL, PREDICT
+from .utils.anchors_yolo import YOLOV3_ANCHORS, YOLOV4_ANCHORS
+from .utils import tf_example_decoder
+from .utils import input_utils, box_utils
 
 
 def process_source_id(source_id):
@@ -196,7 +196,7 @@ class Parser(object):
                  aug_scale_max=1.0,
                  use_autoaugment=False,
                  autoaugment_policy_name='v0',
-                 autoaugment_ratio =0.8,
+                 autoaugment_ratio=0.8,
                  skip_crowd_during_training=True,
                  max_num_instances=100,
                  use_bfloat16=False,
@@ -356,8 +356,7 @@ class Parser(object):
         if self._use_autoaugment and self._is_training:
             from .augment import autoaugment  # pylint: disable=g-import-not-at-top
             image, boxes = autoaugment.distort_image_with_autoaugment(
-                image, boxes, self._autoaugment_policy_name, False,ratio=self._autoaugment_ratio)
-
+                image, boxes, self._autoaugment_policy_name, False, ratio=self._autoaugment_ratio)
 
         # 3 - 图片归一化
         # Normalizes image with mean and std pixel values.

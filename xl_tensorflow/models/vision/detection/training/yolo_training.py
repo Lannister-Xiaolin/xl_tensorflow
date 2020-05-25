@@ -2,7 +2,7 @@
 # -*- coding: UTF-8 -*-
 from tensorflow.keras import Input, Model
 from ..body.yolo import yolo_body, yolo_eval
-from xl_tensorflow.models.vision.detection.dataloader.common.anchors_yolo import YOLOV4_ANCHORS, YOLOV3_ANCHORS
+from xl_tensorflow.models.vision.detection.dataloader.utils.anchors_yolo import YOLOV4_ANCHORS, YOLOV3_ANCHORS
 from ..loss.yolo_loss import YoloLoss
 from ..dataloader.yolo_loader import get_classes, create_datagen
 import tensorflow as tf

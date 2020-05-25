@@ -4,7 +4,7 @@ import pathlib
 
 from tensorflow.keras import Input, Model
 from ..body.yolo import yolo_body, yolo_eval
-from xl_tensorflow.models.vision.detection.dataloader.common.anchors_yolo import YOLOV4_ANCHORS, YOLOV3_ANCHORS
+from xl_tensorflow.models.vision.detection.dataloader.utils.anchors_yolo import YOLOV4_ANCHORS, YOLOV3_ANCHORS
 from ..dataloader.yolo_loader import letterbox_image
 from ..loss.yolo_loss import YoloLoss
 from ..dataloader.yolo_loader import get_classes, create_datagen
@@ -66,7 +66,7 @@ def single_inference_model(model_name, weights,
 
 def tflite_export_yolo(model_name, num_classes, save_lite_file, weights="", input_shape=(416, 416), anchors="v3",
                        return_xy=True, score_threshold=.2,
-                       iou_threshold=.5, ):
+                       iou_threshold=.5, quant="", int_quantize_sample=(100, 416, 416, 3)):
     """
     模型输入为固定尺寸，因此输出需要根据与固定尺寸的比例进行缩放和偏置（如过是右侧填充则不需要，居中两侧填充为）
     输出按照xyxy格式
@@ -78,7 +78,10 @@ def tflite_export_yolo(model_name, num_classes, save_lite_file, weights="", inpu
         input_shape:
         anchors:
         return_xy:
-
+        score_threshold:
+        iou_threshold
+        quant ：是否使用int8量化
+        int_quantize_sample:量化评估数据
     Returns:
 
     """
@@ -96,9 +99,28 @@ def tflite_export_yolo(model_name, num_classes, save_lite_file, weights="", inpu
                                 iou_threshold, return_xy=return_xy, lite_return=True)
     model = Model(inputs=inputs, outputs=[boxes_, scores_])
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
-    converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS]
+    # todo 量化暂时不支持LEAKY_RELU
+    if quant=="int8":
+        converter.optimizations = [tf.lite.Optimize.OPTIMIZE_FOR_SIZE]
+        images = np.random.random(int_quantize_sample).astype("float32")
+        mnist_ds = tf.data.Dataset.from_tensor_slices((images)).batch(1)
+
+        def representative_data_gen():
+            for input_value in mnist_ds.take(100):
+                yield [input_value]
+
+        converter.representative_dataset = representative_data_gen
+        converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
+        converter.inference_input_type = tf.uint8
+        converter.inference_output_type = tf.uint8
+    elif quant=="float16":
+        converter.optimizations = [tf.lite.Optimize.DEFAULT]
+        converter.target_spec.supported_types = [tf.float16]
+    else:
+        converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS]
     pathlib.Path(save_lite_file).write_bytes(converter.convert())
     return model
+
 
 # todo 待新增，暂无需求
 def seving_export_yolo():
@@ -108,6 +130,7 @@ def seving_export_yolo():
 
     """
     pass
+
 
 def yolo_inferece(image_files, output_dir, model_name, weights,
                   num_classes,

@@ -14,7 +14,8 @@ from ..utils.yolo_utils import compose
 from .common import node_aggregate
 
 
-def bifpn_network():
+def bifpn_network(features,  ascending_shape=False):
+    pass
     pass
 
 

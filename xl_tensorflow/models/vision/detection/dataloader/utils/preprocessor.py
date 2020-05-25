@@ -44,7 +44,7 @@ import tensorflow as tf
 import numpy as np
 
 from . import box_list
-
+from . import box_list_ops
 
 def _flip_boxes_left_right(boxes):
   """Left-right flip the boxes.

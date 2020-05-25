@@ -10,11 +10,6 @@ import os
 MEAN_RGB = (0.485 * 255, 0.456 * 255, 0.406 * 255)
 STDDEV_RGB = (0.229 * 255, 0.224 * 255, 0.225 * 255)
 
-TRAIN = 'train'
-EVAL = 'eval'
-PREDICT = 'predict'
-PREDICT_WITH_GT = 'predict_with_gt'
-
 
 def compose(*funcs):
     """Compose arbitrarily many functions, evaluated left to right.

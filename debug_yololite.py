@@ -4,7 +4,7 @@ from xl_tensorflow.models.vision.detection.inference.yolo_inference import tflit
 
 root = r"E:\Temp\test\yolo"
 model = tflite_export_yolo("yolov3_efficientnetliteb1",20,
-                           r"E:\Temp\test\yolo\yolov3.tflite",
+                           r"E:\Temp\test\yolo\yolov3_int.tflite",quant="float16",
                            weights=root + r"/050_val_22.626_train_18.307_yolov3_efficientnetliteb1_weights.h5")
 
 import numpy as np

@@ -24,10 +24,9 @@ import tensorflow as tf
 from typing import Text, Optional
 from xl_tensorflow.utils import params_dict
 from . import factory
-from xl_tensorflow.utils.common import TRAIN, PREDICT, PREDICT_WITH_GT, EVAL
 from . import yolo_parser
-from .common.anchors_yolo import *
-
+from .utils.anchors_yolo import *
+from .utils import mode_keys as ModeKeys
 
 class InputFn(object):
     """Input function that creates dataset from files."""
@@ -54,7 +53,7 @@ class InputFn(object):
         assert batch_size is not None
         self._file_pattern = file_pattern
         self._mode = mode
-        self._is_training = (mode == TRAIN)
+        self._is_training = (mode == ModeKeys.TRAIN)
         self._batch_size = batch_size
         self._num_examples = num_examples
         self._parser_fn = factory.parser_generator(params, mode)
@@ -123,7 +122,7 @@ class YoloInputFn(object):
                  autoaugment_policy_name='v0',
                  anchor=YOLOV3_ANCHORS,
                  use_autoaugment=True,
-                 mode: Text = TRAIN,
+                 mode: Text = ModeKeys.TRAIN,
                  batch_size: int = 4,
                  num_examples: Optional[int] = -1):
         """Initialize.
@@ -142,7 +141,7 @@ class YoloInputFn(object):
         assert batch_size is not None
         self._file_pattern = file_pattern
         self._mode = mode
-        self._is_training = (mode == TRAIN)
+        self._is_training = (mode == ModeKeys.TRAIN)
         self._batch_size = batch_size
         self._num_examples = num_examples
         self._parser_fn = yolo_parser.Parser(output_size, num_classes, anchor=anchor, aug_scale_max=aug_scale_max,
