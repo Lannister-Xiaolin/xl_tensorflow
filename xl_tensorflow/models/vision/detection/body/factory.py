@@ -12,25 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Factory to provide model configs."""
-
-from . import maskrcnn_config
-from . import retinanet_config
-from xl_tensorflow.utils import params_dict
+"""Factory to build detection model."""
 
 
-def config_generator(model):
+from . import maskrcnn_model
+from . import retinanet_model
+
+
+def model_generator(params):
   """Model function generator."""
-  if model == 'retinanet':
-    default_config = retinanet_config.RETINANET_CFG
-    restrictions = retinanet_config.RETINANET_RESTRICTIONS
-  elif model == 'mask_rcnn':
-    default_config = maskrcnn_config.MASKRCNN_CFG
-    restrictions = maskrcnn_config.MASKRCNN_RESTRICTIONS
-  elif "efficientdet" in model:
-    # todo 完善配置文件
-    pass
+  if params.type == 'retinanet':
+    model_fn = retinanet_model.RetinanetModel(params)
+  elif params.type == 'mask_rcnn':
+    model_fn = maskrcnn_model.MaskrcnnModel(params)
   else:
-    raise ValueError('Model %s is not supported.' % model)
+    raise ValueError('Model %s is not supported.'% params.type)
 
-  return params_dict.ParamsDict(default_config, restrictions)
+  return model_fn

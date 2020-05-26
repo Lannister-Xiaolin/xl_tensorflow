@@ -16,3 +16,6 @@ params_dict移到xl_tensorflow.utils里面
  
  ### 损失函数
  focal loss 保持一致
+ 原版损失函数使用的是自定义训练过程，因此不适用于fit
+ ### 模型问题
+ bfloat64貌似不支持，训练推理时暂时禁用

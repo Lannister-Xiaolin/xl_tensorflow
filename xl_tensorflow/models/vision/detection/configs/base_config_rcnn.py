@@ -14,7 +14,6 @@
 # ==============================================================================
 """Base config template."""
 
-
 BACKBONES = [
     'resnet',
 ]
@@ -122,6 +121,15 @@ BASE_CFG = {
         'fpn_feat_dims': 256,
         'use_separable_conv': False,
         'use_batch_norm': True,
+        'fpn_cell_repeats': 3,  # efd
+        "apply_bn_for_resampling": True,
+        "conv_after_downsample": False,
+        "conv_bn_act_pattern": False,
+        "use_native_resize_op": False,
+        "pooling_type": None,
+        "fpn_config": None,
+        "fpn_weight_method": None,
+        "fpn_name":None
     },
     'postprocess': {
         'use_batched_nms': False,
@@ -131,5 +139,8 @@ BASE_CFG = {
         'pre_nms_num_boxes': 5000,
     },
     'enable_summary': False,
+    'data_format': 'channels_last',
+    "is_training_bn": True,
+    "act_type":"swish"
 }
 # pylint: enable=line-too-long

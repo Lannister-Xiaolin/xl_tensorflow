@@ -117,8 +117,8 @@ def dict_to_tf_example(data,
 
     width = int(data['size']['width'])
     height = int(data['size']['height'])
-    assert image.size[0] == width
-    assert image.size[1] == height
+    assert image.size[0] == width, f"实际图片尺寸{image.size[0]},{image.size[1]}与标注{width},{height}不一致"
+    assert image.size[1] == height, f"实际图片尺寸{image.size[0]},{image.size[1]}与标注{width},{height}不一致"
     image_id = get_image_id(data['filename'])
     if ann_json_dict:
         image = {
@@ -154,8 +154,8 @@ def dict_to_tf_example(data,
             if not auto_label_map:
                 try:
                     classes.append(label_map_dict[obj['name']])
-                    logging.warning(f"unknown classses: {obj['name']}")
                 except KeyError:
+                    logging.warning(f"unknown classses: {obj['name']}")
                     continue
             else:
                 try:
@@ -268,6 +268,7 @@ def main(_):
 
     data_dir = FLAGS.data_dir
     image_path = FLAGS.image_path
+    os.makedirs(FLAGS.output_path, exist_ok=True)
     logging.info('writing to output path: %s', FLAGS.output_path)
     print(FLAGS.output_path + '-%05d-of-%05d.tfrecord' %
           (1, FLAGS.num_shards))
@@ -285,8 +286,10 @@ def main(_):
     print("valid xml file: ", len(xml_files))
     if FLAGS.label_map_json_path:
         with tf.io.gfile.GFile(FLAGS.label_map_json_path, 'rb') as f:
+
             label_map_dict = json.load(f)
         auto_label_map = False
+        print(label_map_dict)
     else:
         label_map_dict = {}
         auto_label_map = True
@@ -306,6 +309,7 @@ def main(_):
     # 只有线程数能被shard整除时和指定类别字典时才允许多线程并发，
     if FLAGS.num_threads and FLAGS.num_threads > 1 and FLAGS.label_map_json_path and (
             FLAGS.num_shards == FLAGS.num_threads):
+        logging.info("多线程处理")
         from copy import deepcopy
         intervals = len(xml_files) // FLAGS.num_threads
         files_indexes_all = [(i * intervals, (i + 1) * intervals) if i < (FLAGS.num_threads - 1) else (
@@ -326,6 +330,7 @@ def main(_):
             thread.start()
         for thread in threads: thread.join()
     else:
+        logging.info("单线程处理")
         writers = [
             tf.python_io.TFRecordWriter(os.path.join(FLAGS.output_path, FLAGS.prefix + '-%05d-of-%05d.tfrecord' %
                                                      (i, FLAGS.num_shards)))
@@ -355,8 +360,11 @@ def main(_):
                     auto_label_index=auto_label_index,
                     ignore_difficult_instances=FLAGS.ignore_difficult_instances,
                     ann_json_dict=ann_json_dict)
-            except (ZeroDivisionError, AssertionError):
+            except ZeroDivisionError:
                 logging.warning("ZeroDivisionError: " + path)
+                continue
+            except AssertionError as e:
+                logging.warning("AssertionError: " + path + str(e))
                 continue
             writers[idx % FLAGS.num_shards].write(tf_example.SerializeToString())
 
