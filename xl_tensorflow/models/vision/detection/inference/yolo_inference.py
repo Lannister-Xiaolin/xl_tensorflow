@@ -100,7 +100,7 @@ def tflite_export_yolo(model_name, num_classes, save_lite_file, weights="", inpu
     model = Model(inputs=inputs, outputs=[boxes_, scores_])
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
     # todo 量化暂时不支持LEAKY_RELU
-    if quant=="int8":
+    if quant == "int8":
         converter.optimizations = [tf.lite.Optimize.OPTIMIZE_FOR_SIZE]
         images = np.random.random(int_quantize_sample).astype("float32")
         mnist_ds = tf.data.Dataset.from_tensor_slices((images)).batch(1)
@@ -113,7 +113,7 @@ def tflite_export_yolo(model_name, num_classes, save_lite_file, weights="", inpu
         converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
         converter.inference_input_type = tf.uint8
         converter.inference_output_type = tf.uint8
-    elif quant=="float16":
+    elif quant == "float16":
         converter.optimizations = [tf.lite.Optimize.DEFAULT]
         converter.target_spec.supported_types = [tf.float16]
     else:
@@ -143,7 +143,8 @@ def yolo_inferece(image_files, output_dir, model_name, weights,
                   dynamic_shape=False, return_xy=True,
                   map_evaluate=False,
                   xml_files="", map_save="./map_evaluate", visual_one=False,
-                  label2index_file=""
+                  label2index_file="",
+                  save_result=True,
                   ):
     print("加载模型中.....")
     model = single_inference_model(model_name=model_name, weights=weights,
@@ -201,13 +202,14 @@ def yolo_inferece(image_files, output_dir, model_name, weights,
                         f"{index2label[classes_[i]]} {scores_[i]:.2f} {int(boxes_[i][0])} {int(boxes_[i][1])} {int(boxes_[i][2])} {int(boxes_[i][3])}")
                 with open(f"{dt_path}/{image_id}.txt", "w") as f:
                     f.write("\n".join(dt_boxes))
-            image = draw_boxes_pil(image, boxes_.tolist(), scores_.tolist(), classes_.tolist(), index2label)
-            Image.fromarray(image).save(f"{output_dir}/{basename}")
+            if save_result:
+                image = draw_boxes_pil(image, boxes_.tolist(), scores_.tolist(), classes_.tolist(), index2label)
+                Image.fromarray(image).save(f"{output_dir}/{basename}")
             print(("\n".join(
                 [(str((boxes_[i].tolist())) + "\t" + index2label[(np.array(classes_)[i])] + "\t" + str(
                     np.array(scores_)[i])) for i in
                  range(len(boxes_))])))
-            if visual_one:
+            if visual_one and save_result:
                 from IPython import display
                 display.display(display.Image(f"{output_dir}/{basename}"))
         else:
