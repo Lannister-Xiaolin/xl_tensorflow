@@ -341,7 +341,6 @@ def yolo_head(feats, anchors, input_shape, calc_loss=False):
         Args:
             feats, 即yolobody的输出，未经过未经过sigmoid函数处理,输出为batch 26,26,3,85
             anchors: anchor box
-            num_classes: number class
             input_shape: input shape of yolobody, like 416,320
             calc_loss: where to caculate loss, used for training
         Returns:
@@ -511,15 +510,90 @@ def yolo_eval(yolo_outputs,
     return boxes_, scores_, classes_
 
 
-# Todo lite 的配置暂时不管
+def yolo_eval_batch(yolo_outputs,
+                    anchors,
+                    num_classes,
+                    origin_image_shapes,
+                    max_boxes=20,
+                    score_threshold=.6,
+                    iou_threshold=.5):
+    """
+    批量推理
+    Args:
+        yolo_outputs: yolo body输出
+        anchors: anchor
+        num_classes: 类别数量
+        origin_image_shapes: 原始图片尺寸 形状(batch, 2)，即所有图片的高*宽
+        max_boxes: max boxes for each image
+        score_threshold: score_threshold to filter
+        iou_threshold: iou for nms
+
+    Returns:
+        boxes, scores, classes, valid_detections(define valid boxes number for each image)
+    """
+    num_layers = len(yolo_outputs)
+    anchor_mask = [[6, 7, 8], [3, 4, 5], [0, 1, 2]] if num_layers == 3 else [[3, 4, 5], [1, 2, 3]]  # default setting
+    input_shape = K.shape(yolo_outputs[0])[1:3] * 32
+    boxes_all = []
+    box_scores_all = []
+    batch = K.shape(yolo_outputs[0])[0]
+    input_shape = K.cast(input_shape, K.dtype(yolo_outputs[0]))
+    input_shape = K.expand_dims(input_shape, 0)
+    image_shape = K.cast(origin_image_shapes, K.dtype(yolo_outputs[0]))
+
+    input_shape = K.expand_dims(input_shape, 1)
+    image_shape = K.expand_dims(image_shape, 1)
+    new_shape = K.round(image_shape * K.min(input_shape / image_shape, axis=-1, keepdims=True))
+    for l in range(num_layers):
+        box_xy, box_wh, box_confidence, box_class_probs = yolo_head(feats=yolo_outputs[l],
+                                                                    anchors=anchors[anchor_mask[l]],
+                                                                    input_shape=input_shape[0][0])
+        box_scores = box_confidence * box_class_probs
+        box_xy = K.reshape(box_xy, (batch, -1, 2))
+        box_wh = K.reshape(box_wh, (batch, -1, 2))
+        box_scores = K.reshape(box_scores, (batch, -1, num_classes))
+        box_yx = box_xy[..., ::-1]
+        box_hw = box_wh[..., ::-1]
+        offset = (input_shape - new_shape) / 2. / input_shape  # 相对整图的偏移量
+        scale = input_shape / new_shape
+        box_yx = (box_yx - offset) * scale
+        box_hw *= scale
+        box_mins = box_yx - (box_hw / 2.)
+        box_maxes = box_yx + (box_hw / 2.)
+        box_mins = tf.clip_by_value(box_mins, 0., 1.)
+        box_maxes = tf.clip_by_value(box_maxes, 0., 1.)
+        # 注此处y和x对换
+        boxes = K.concatenate([
+            box_mins[..., 1:2],  # x_min
+            box_mins[..., 0:1],  # y_min
+            box_maxes[..., 1:2],  # x_max
+            box_maxes[..., 0:1],  # y_max
+
+        ])
+        # Scale boxes back to original image shape.
+        boxes *= K.concatenate([image_shape[..., ::-1], image_shape[..., ::-1]])
+        boxes_all.append(boxes)
+        box_scores_all.append(box_scores)
+    boxes = K.concatenate(boxes_all, axis=1)
+    box_scores = K.concatenate(box_scores_all, axis=1)
+    boxes, scores, classes, valid_detections = tf.image.combined_non_max_suppression(tf.expand_dims(boxes, -2),
+                                                                                     box_scores,
+                                                                                     score_threshold=score_threshold,
+                                                                                     max_output_size_per_class=max_boxes,
+                                                                                     max_total_size=max_boxes,
+                                                                                     pad_per_class=False,
+                                                                                     iou_threshold=iou_threshold,
+                                                                                     clip_boxes=False)
+    return boxes, scores, classes, valid_detections
+
+
 def yolo_head_lite(feats, anchors, num_classes, input_shape):
     """计算grid和预测box的坐标和长宽
         Args:
-            feats, 即yolobody的输出，未经过未经过sigmoid函数处理,输出为batch 26,26,255
+            feats: 即yolobody的输出，未经过未经过sigmoid函数处理,输出为batch 26,26,255
             anchors: anchor box
             num_classes: number class
             input_shape: input shape of yolobody, like 416,320
-            calc_loss: where to caculate loss, used for training
         Returns:
             box_xy  相对整图的大小，0至1
             box_wh   相对input shape即416的大小，0，+无穷大
@@ -584,7 +658,9 @@ def yolo_correct_boxes_lite(box_xy, box_wh, input_shape, image_shape):
 
 
 def yolo_boxes_and_scores_lite(feats, anchors, num_classes, input_shape, image_shape):
-    '''Process Conv layer output'''
+    """
+    Process Conv layer output
+    """
     # 获取输出，即相对整图的长宽以及置信度与概率值
     box_xy, box_wh, box_confidence, box_class_probs = yolo_head_lite(feats,
                                                                      anchors, num_classes, input_shape)
@@ -593,36 +669,3 @@ def yolo_boxes_and_scores_lite(feats, anchors, num_classes, input_shape, image_s
     box_scores = box_confidence * box_class_probs
     box_scores = K.reshape(box_scores, [-1, num_classes])
     return boxes, box_scores
-
-
-def yolo_eval_lite(yolo_outputs,
-                   anchors,
-                   num_classes,
-                   image_shape,
-                   return_xy=True):
-    """Todo 未测试和完善
-    """
-    num_layers = len(yolo_outputs)
-    anchor_mask = [[6, 7, 8], [3, 4, 5], [0, 1, 2]] if num_layers == 3 else [[3, 4, 5], [1, 2, 3]]  # default setting
-    input_shape = K.shape(yolo_outputs[0])[1:3] * 32
-    boxes = []
-    box_scores = []
-    for l in range(num_layers):
-        # 此处的处理会去除batch的信息，完全展开，因此该计算图只能用于单张图片处理，不能批处理
-        _boxes, _box_scores = yolo_boxes_and_scores_lite(yolo_outputs[l],
-                                                         anchors[anchor_mask[l]], num_classes, input_shape, image_shape)
-        boxes.append(_boxes)
-        box_scores.append(_box_scores)
-    boxes = K.concatenate(boxes, axis=0)
-    if return_xy:
-        boxes = K.concatenate([
-            boxes[..., 1:2],  # y_min
-            boxes[..., 0:1],  # x_min
-            boxes[..., 3:],  # y_max
-            boxes[..., 2:3]  # x_max
-        ])
-    box_scores = K.concatenate(box_scores, axis=0)
-
-    # Todo 此处需要注意是为了方便java
-    box_scores = tf.transpose(box_scores)
-    return K.expand_dims(boxes, 0), K.expand_dims(box_scores, 0)
