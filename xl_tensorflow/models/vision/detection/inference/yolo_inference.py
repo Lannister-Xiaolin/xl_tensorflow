@@ -87,7 +87,7 @@ def tflite_export_yolo(model_name, num_classes, save_lite_file, weights="", inpu
     """
     anchors = YOLOV4_ANCHORS if anchors == "v4" else YOLOV3_ANCHORS
     from tensorflow.keras import layers
-    inputs = layers.Input(shape=(416, 416, 3))
+    inputs = layers.Input(shape=(*input_shape, 3))
     x = tf.multiply(inputs, 1 / 255.0)
     yolo_model = yolo_body(Input(shape=(*input_shape, 3)),
                            len(anchors) // 3, num_classes, model_name, reshape_y=False)
@@ -144,7 +144,7 @@ def yolo_inferece(image_files, output_dir, model_name, weights,
                   map_evaluate=False,
                   xml_files="", map_save="./map_evaluate", visual_one=False,
                   label2index_file="",
-                  save_result=True, nms_on_classes=True, max_output_size=20
+                  save_result=True, nms_on_classes=True
                   ):
     print("加载模型中.....")
     model = single_inference_model(model_name=model_name, weights=weights,
@@ -197,7 +197,7 @@ def yolo_inferece(image_files, output_dir, model_name, weights,
 
         if len(scores_) > 0:
             if not nms_on_classes:
-                indexes = np.array(tf.image.non_max_suppression(boxes_, scores_, max_output_size))
+                indexes = np.array(tf.image.non_max_suppression(boxes_, scores_, max_detections))
                 boxes_, scores_, classes_ = boxes_[indexes], scores_[indexes], classes_[indexes]
             dt_boxes = []
             if map_evaluate:

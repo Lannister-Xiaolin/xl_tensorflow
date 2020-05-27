@@ -99,7 +99,7 @@ def yolo_body(inputs, num_anchors, num_classes, architecture="yolov4"):
                     body.output]
     elif architecture == "yolov4_efficientnetb1":
         config = get_yolo_config("yolov4", num_anchors, num_classes)
-        backbone = EfficientNetB1(include_top=False, weights=None, input_tensor=inputs,force_relu="relu")
+        backbone = EfficientNetB1(include_top=False, weights=None, input_tensor=inputs, force_relu="relu")
         outputs = spatial_pyramid_block(
             backbone.get_layer("top_activation").output) if config.spp else backbone.get_layer("top_activation").output
         body = Model(inputs, outputs)
@@ -108,7 +108,7 @@ def yolo_body(inputs, num_anchors, num_classes, architecture="yolov4"):
                     body.output]
     elif architecture == "yolov4":
         config = get_yolo_config("yolov4_efficientnetb0", num_anchors, num_classes)
-        backbone = EfficientNetB2(include_top=False, weights=None, input_tensor=inputs,force_relu="relu")
+        backbone = EfficientNetB2(include_top=False, weights=None, input_tensor=inputs, force_relu="relu")
         outputs = spatial_pyramid_block(
             backbone.get_layer("top_activation").output) if config.spp else backbone.get_layer("top_activation").output
         body = Model(inputs, outputs)
@@ -126,7 +126,7 @@ def yolo_body(inputs, num_anchors, num_classes, architecture="yolov4"):
                     body.output]
     elif architecture == "yolov4_efficientnetliteb2":
         config = get_yolo_config("yolov4", num_anchors, num_classes)
-        backbone = EfficientNetLiteB2(include_top=False, weights=None, input_tensor=inputs,force_relu="relu")
+        backbone = EfficientNetLiteB2(include_top=False, weights=None, input_tensor=inputs, force_relu="relu")
         outputs = spatial_pyramid_block(
             backbone.get_layer("top_activation").output) if config.spp else backbone.get_layer("top_activation").output
         body = Model(inputs, outputs)
@@ -135,7 +135,7 @@ def yolo_body(inputs, num_anchors, num_classes, architecture="yolov4"):
                     body.output]
     elif architecture == "yolov4_efficientnetliteb3":
         config = get_yolo_config("yolov4", num_anchors, num_classes)
-        backbone = EfficientNetLiteB3(include_top=False, weights=None, input_tensor=inputs,force_relu="relu")
+        backbone = EfficientNetLiteB3(include_top=False, weights=None, input_tensor=inputs, force_relu="relu")
         outputs = spatial_pyramid_block(
             backbone.get_layer("top_activation").output) if config.spp else backbone.get_layer("top_activation").output
         body = Model(inputs, outputs)
@@ -144,7 +144,7 @@ def yolo_body(inputs, num_anchors, num_classes, architecture="yolov4"):
                     body.output]
     elif architecture == "yolov4_efficientnetliteb4":
         config = get_yolo_config("yolov4", num_anchors, num_classes)
-        backbone = EfficientNetLiteB4(include_top=False, weights=None, input_tensor=inputs,force_relu="relu")
+        backbone = EfficientNetLiteB4(include_top=False, weights=None, input_tensor=inputs, force_relu="relu")
         outputs = spatial_pyramid_block(
             backbone.get_layer("top_activation").output) if config.spp else backbone.get_layer("top_activation").output
         body = Model(inputs, outputs)
@@ -163,7 +163,7 @@ def yolo_body(inputs, num_anchors, num_classes, architecture="yolov4"):
     elif architecture == "yolov3_efficientnetliteb4_spp":
         config = get_yolo_config("yolov3", num_anchors, num_classes)
         config.agg_method = "fpn"
-        backbone = EfficientNetLiteB4(include_top=False, weights=None, input_tensor=inputs,force_relu="relu")
+        backbone = EfficientNetLiteB4(include_top=False, weights=None, input_tensor=inputs, force_relu="relu")
         outputs = spatial_pyramid_block(backbone.get_layer("top_activation").output)
         body = Model(inputs, outputs)
         features = [body.get_layer("block4a_expand_activation").output,
@@ -172,7 +172,7 @@ def yolo_body(inputs, num_anchors, num_classes, architecture="yolov4"):
     elif architecture == "yolov3_efficientnetliteb0_spp":
         config = get_yolo_config("yolov3", num_anchors, num_classes)
         config.agg_method = "fpn"
-        backbone = EfficientNetB0(include_top=False, weights=None, input_tensor=inputs,force_relu="relu")
+        backbone = EfficientNetB0(include_top=False, weights=None, input_tensor=inputs, force_relu="relu")
         outputs = spatial_pyramid_block(backbone.get_layer("top_activation").output)
         body = Model(inputs, outputs)
         features = [body.get_layer("block4a_expand_activation").output,
@@ -189,7 +189,7 @@ def yolo_body(inputs, num_anchors, num_classes, architecture="yolov4"):
                     body.output]
     elif architecture == "yolov3_efficientnetb0":
         config = get_yolo_config("yolov3", num_anchors, num_classes)
-        backbone = EfficientNetB0(include_top=False, weights=None, input_tensor=inputs,force_relu="relu")
+        backbone = EfficientNetB0(include_top=False, weights=None, input_tensor=inputs, force_relu="relu")
 
         outputs = spatial_pyramid_block(
             backbone.get_layer("top_activation").output) if config.spp else backbone.get_layer("top_activation").output
@@ -199,7 +199,7 @@ def yolo_body(inputs, num_anchors, num_classes, architecture="yolov4"):
                     body.output]
     elif architecture == "yolov3_efficientnetb1":
         config = get_yolo_config("yolov3", num_anchors, num_classes)
-        backbone = EfficientNetB1(include_top=False, weights=None, input_tensor=inputs,force_relu="relu")
+        backbone = EfficientNetB1(include_top=False, weights=None, input_tensor=inputs, force_relu="relu")
         outputs = spatial_pyramid_block(
             backbone.get_layer("top_activation").output) if config.spp else backbone.get_layer("top_activation").output
         body = Model(inputs, outputs)
