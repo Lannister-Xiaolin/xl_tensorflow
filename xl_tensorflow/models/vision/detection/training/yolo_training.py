@@ -27,7 +27,7 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
                                  epochs=(2, 30, 50), initial_epoch=0,
                                  paciences=(10, 10, 5),
                                  reduce_lrs=(3, 3, 3), trunc_inf=True,
-                                 ignore_thresh=0.4, print_loss=True,
+                                 ignore_thresh=0.5, print_loss=True,
                                  iou_scale=1.0):
     """
 

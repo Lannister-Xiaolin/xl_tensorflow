@@ -144,7 +144,7 @@ def yolo_inferece(image_files, output_dir, model_name, weights,
                   map_evaluate=False,
                   xml_files="", map_save="./map_evaluate", visual_one=False,
                   label2index_file="",
-                  save_result=True,
+                  save_result=True, nms_on_classes=True, max_output_size=20
                   ):
     print("加载模型中.....")
     model = single_inference_model(model_name=model_name, weights=weights,
@@ -194,7 +194,11 @@ def yolo_inferece(image_files, output_dir, model_name, weights,
         image_data = np.expand_dims(image_data, 0)
         boxes_, scores_, classes_ = model.predict([image_data, np.array([[*image.size][::-1]])])
         boxes_, scores_, classes_ = boxes_[0], scores_[0], classes_[0]
+
         if len(scores_) > 0:
+            if not nms_on_classes:
+                indexes = np.array(tf.image.non_max_suppression(boxes_, scores_, max_output_size))
+                boxes_, scores_, classes_ = boxes_[indexes], scores_[indexes], classes_[indexes]
             dt_boxes = []
             if map_evaluate:
                 for i in range(len(scores_)):
