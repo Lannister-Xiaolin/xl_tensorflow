@@ -188,7 +188,7 @@ def yolo_inferece(image_files, output_dir, model_name, weights,
         image = Image.open(image_file)
         basename = os.path.basename(image_file)
         image_id = os.path.basename(image_file).split('.')[0]
-        boxed_image = letterbox_image(image, (416, 416))
+        boxed_image = letterbox_image(image, input_shape)
         image_data = np.array(boxed_image, dtype='float32')
         image_data /= 255.
         image_data = np.expand_dims(image_data, 0)
