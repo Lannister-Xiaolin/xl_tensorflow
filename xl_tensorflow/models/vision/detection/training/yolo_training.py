@@ -29,7 +29,7 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
                                  reduce_lrs=(3, 3, 3), trunc_inf=True,
                                  ignore_thresh=0.5, print_loss=True,
                                  iou_scale=1.0,
-                                 autoaugment_policy_name="v0", autoaugment_ratio=0.8):
+                                 autoaugment_policy_name="v0", autoaugment_ratio=0.8, buffer=1000):
     """
 
     Args:
@@ -110,7 +110,7 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
         train_dataset = YoloInputFn(input_shape, train_annotation_path,
                                     num_classes, aug_scale_max=1.2, aug_scale_min=0.8, use_autoaugment=True,
                                     autoaugment_policy_name=autoaugment_policy_name, anchor=anchors,
-                                    autoaugment_ratio=autoaugment_ratio)(batch_size=batch_size)
+                                    autoaugment_ratio=autoaugment_ratio, buffer=buffer)(batch_size=batch_size)
         val_dataset = YoloInputFn(input_shape, val_annotation_path,
                                   num_classes, anchor=anchors, aug_scale_max=1.0, aug_scale_min=1.0,
                                   use_autoaugment=False)(

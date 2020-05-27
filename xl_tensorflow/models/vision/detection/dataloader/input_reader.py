@@ -125,7 +125,8 @@ class YoloInputFn(object):
                  autoaugment_ratio=0.8,
                  mode: Text = ModeKeys.TRAIN,
                  batch_size: int = 4,
-                 num_examples: Optional[int] = -1):
+                 num_examples: Optional[int] = -1,
+                 buffer=1000):
         """Initialize.
 
         Args:
@@ -149,7 +150,7 @@ class YoloInputFn(object):
                                              aug_scale_min=aug_scale_min, use_autoaugment=use_autoaugment,
                                              autoaugment_policy_name=autoaugment_policy_name,autoaugment_ratio=autoaugment_ratio)
         self._dataset_fn = tf.data.TFRecordDataset
-
+        self._buffer = buffer
     def __call__(self, ctx=None, batch_size: int = None):
         """Provides tf.data.Dataset object.
 
@@ -178,7 +179,7 @@ class YoloInputFn(object):
         if self._is_training:
             # Large shuffle size is critical for 2vm input pipeline. Can use small
             # value (e.g. 64) for 1vm.
-            dataset = dataset.shuffle(1000)
+            dataset = dataset.shuffle(self._buffer)
         if self._num_examples > 0:
             dataset = dataset.take(self._num_examples)
 
