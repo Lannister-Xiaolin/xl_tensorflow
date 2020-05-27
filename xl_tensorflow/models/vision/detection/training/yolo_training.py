@@ -28,7 +28,8 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
                                  paciences=(10, 10, 5),
                                  reduce_lrs=(3, 3, 3), trunc_inf=True,
                                  ignore_thresh=0.5, print_loss=True,
-                                 iou_scale=1.0):
+                                 iou_scale=1.0,
+                                 autoaugment_policy_name="v0", autoaugment_ratio=0.8):
     """
 
     Args:
@@ -48,6 +49,10 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
         tfrecord:
         lrs:
         freeze_layers:
+            185 v3
+            200 liteb1/b2
+            332 b1
+            250 v4
         epochs:
         initial_epoch:
         paciences:
@@ -56,6 +61,8 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
         ignore_thresh:
         print_loss:
         iou_scale:
+        autoaugment_policy_name: v0 v1 v2 v3 v4
+        autoaugment_ratio: ratio of shift and rotate, base of 50 for box cut  250 for trainslate
 
     Returns:
 
@@ -101,9 +108,12 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
                                                                         anchors, num_classes)
     else:
         train_dataset = YoloInputFn(input_shape, train_annotation_path,
-                                    num_classes, aug_scale_max=1.2, aug_scale_min=0.8)(batch_size=batch_size)
+                                    num_classes, aug_scale_max=1.2, aug_scale_min=0.8, use_autoaugment=True,
+                                    autoaugment_policy_name=autoaugment_policy_name, anchor=anchors,
+                                    autoaugment_ratio=autoaugment_ratio)(batch_size=batch_size)
         val_dataset = YoloInputFn(input_shape, val_annotation_path,
-                                  num_classes, aug_scale_max=1.0, aug_scale_min=1.0, use_autoaugment=False)(
+                                  num_classes, anchor=anchors, aug_scale_max=1.0, aug_scale_min=1.0,
+                                  use_autoaugment=False)(
             batch_size=batch_size)
     for i in range(len(lrs)):
         if epochs[i] <= initial_epoch: continue

@@ -233,7 +233,7 @@ def tflite_export_yolo(model_name, num_classes, save_lite_file, weights="", inpu
     return model
 
 
-def yolo_inferece(image_files, output_dir, model_name, weights,
+def yolo_evaluate(image_files, output_dir, model_name, weights,
                   num_classes,
                   origin_image_shape=(416, 416),
                   input_shape=(416, 416),

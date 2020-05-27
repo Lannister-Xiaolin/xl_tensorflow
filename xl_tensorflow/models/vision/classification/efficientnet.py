@@ -703,9 +703,11 @@ setattr(EfficientNetLiteB4, '__doc__', EfficientNet.__doc__)
 def main():
     image_input = layers.Input(shape=(640, 640, 3))
     from tensorflow.keras.applications import MobileNetV2
-    model = EfficientNetB0(include_top=False, input_tensor=image_input, weights=None, fpn_features=True)
-    print(model)
-
+    model = EfficientNetB1(include_top=False, input_tensor=image_input, weights=None, fpn_features=False)
+    print(len(model.layers))
+    # print(EfficientNetLiteB2(include_top=False, input_tensor=image_input, weights=None, fpn_features=False).trainable_weights)
+    # print(EfficientNetLiteB1(include_top=False, input_tensor=image_input, weights=None,
+    #                          fpn_features=False).trainable_weights)
 
 if __name__ == '__main__':
     main()
