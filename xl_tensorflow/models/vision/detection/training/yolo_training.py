@@ -16,7 +16,7 @@ from xl_tool.xl_io import read_json
 
 
 def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
-                                 classes_path="", batch_size=8, iou_loss="",
+                                 classes_path="", batch_size=8, iou_loss="giou",
                                  input_shape=(416, 416), num_classes=None,
                                  architecture="yolov3",
                                  suffix="voc", pre_weights=None, anchors="v3",
@@ -28,8 +28,9 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
                                  paciences=(10, 10, 5),
                                  reduce_lrs=(3, 3, 3), trunc_inf=True,
                                  ignore_thresh=0.5, print_loss=True,
-                                 iou_scale=1.0,
-                                 autoaugment_policy_name="v0", autoaugment_ratio=0.8, buffer=1000):
+                                 iou_scale=3.0,
+                                 autoaugment_policy_name="v1", autoaugment_ratio=0.6, buffer=1000,
+                                 aug_scale_max=1.3, aug_scale_min=0.7):
     """
 
     Args:
@@ -108,7 +109,7 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
                                                                         anchors, num_classes)
     else:
         train_dataset = YoloInputFn(input_shape, train_annotation_path,
-                                    num_classes, aug_scale_max=1.2, aug_scale_min=0.8, use_autoaugment=True,
+                                    num_classes, aug_scale_max=aug_scale_max, aug_scale_min=aug_scale_min, use_autoaugment=True,
                                     autoaugment_policy_name=autoaugment_policy_name, anchor=anchors,
                                     autoaugment_ratio=autoaugment_ratio, buffer=buffer)(batch_size=batch_size)
         val_dataset = YoloInputFn(input_shape, val_annotation_path,

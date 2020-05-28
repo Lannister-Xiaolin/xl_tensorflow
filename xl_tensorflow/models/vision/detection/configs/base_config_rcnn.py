@@ -122,14 +122,14 @@ BASE_CFG = {
         'use_separable_conv': False,
         'use_batch_norm': True,
         'fpn_cell_repeats': 3,  # efd
-        "apply_bn_for_resampling": True,
-        "conv_after_downsample": False,
-        "conv_bn_act_pattern": False,
-        "use_native_resize_op": False,
-        "pooling_type": None,
-        "fpn_config": None,
-        "fpn_weight_method": None,
-        "fpn_name":None
+        "apply_bn_for_resampling": True,  # efd
+        "conv_after_downsample": False,  # efd
+        "conv_bn_act_pattern": False,  # efd
+        "use_native_resize_op": False,  # efd
+        "pooling_type": None,  # efd
+        "fpn_config": None,  # efd
+        "fpn_weight_method": None,  # efd
+        "fpn_name": None  # efd
     },
     'postprocess': {
         'use_batched_nms': False,
@@ -139,8 +139,8 @@ BASE_CFG = {
         'pre_nms_num_boxes': 5000,
     },
     'enable_summary': False,
-    'data_format': 'channels_last',
-    "is_training_bn": True,
-    "act_type":"swish"
+    'data_format': 'channels_last', # efd
+    "is_training_bn": True, # efd,全局
+    "act_type": "swish"   # efd，全局
 }
 # pylint: enable=line-too-long

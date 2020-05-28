@@ -16,21 +16,24 @@
 
 from . import maskrcnn_config
 from . import retinanet_config
+from . import efficientdet_config
 from xl_tensorflow.utils import params_dict
 
 
 def config_generator(model):
-  """Model function generator."""
-  if model == 'retinanet':
-    default_config = retinanet_config.RETINANET_CFG
-    restrictions = retinanet_config.RETINANET_RESTRICTIONS
-  elif model == 'mask_rcnn':
-    default_config = maskrcnn_config.MASKRCNN_CFG
-    restrictions = maskrcnn_config.MASKRCNN_RESTRICTIONS
-  elif "efficientdet" in model:
-    # todo 完善配置文件
-    pass
-  else:
-    raise ValueError('Model %s is not supported.' % model)
+    """Model function generator."""
+    if model == 'retinanet':
+        default_config = retinanet_config.RETINANET_CFG
+        restrictions = retinanet_config.RETINANET_RESTRICTIONS
+    elif model == 'mask_rcnn':
+        default_config = maskrcnn_config.MASKRCNN_CFG
+        restrictions = maskrcnn_config.MASKRCNN_RESTRICTIONS
+    elif "efficientdet" in model:
+        default_config = efficientdet_config.EFFICIENTDET_CFG
+        default_config.override(efficientdet_config.efficientdet_model_param_dict[model], is_strict=False)
+        restrictions = efficientdet_config.EFFICIENTDET_RESTRICTIONS
+        pass
+    else:
+        raise ValueError('Model %s is not supported.' % model)
 
-  return params_dict.ParamsDict(default_config, restrictions)
+    return params_dict.ParamsDict(default_config, restrictions)

@@ -165,7 +165,6 @@ class BiFpn(object):
                  use_separable_conv=False,
                  activation='relu',
                  use_batch_norm=True,
-
                  output_size=(640, 640),
                  norm_activation=nn_ops.norm_activation_builder(
                      activation='relu')):

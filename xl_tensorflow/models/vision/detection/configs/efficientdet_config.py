@@ -37,13 +37,13 @@ EFFICIENTDET_CFG.override({
         'skip_crowd_during_training': True,
         'max_num_instances': 100,
     },
-    'retinanet_head': {
+    'efficientdet_head': {
         'anchors_per_location': 9,
         'num_convs': 4,
         'num_filters': 256,
         'use_separable_conv': False,
     },
-    'retinanet_loss': {
+    'efficientdet_loss': {
         'focal_loss_alpha': 0.25,
         'focal_loss_gamma': 1.5,
         'huber_loss_delta': 0.1,
@@ -52,11 +52,31 @@ EFFICIENTDET_CFG.override({
     'enable_summary': True,
 }, is_strict=False)
 
-RETINANET_RESTRICTIONS = [
+EFFICIENTDET_RESTRICTIONS = [
 ]
 
 EFFICIENTDET_CFG_DICT = {
 
 }
 
+efficientdet_model_param_dict = {
+    'efficientdet-d0':
+        {
+            "name": 'efficientdet-d0',
+            'architecture': {
+                'backbone': 'efficientnet-b0',
+                'min_level': 3,
+                'max_level': 7,
+                'multilevel_features': 'bifpn',
+                'use_bfloat16': False,
+                'num_classes': 91,
+            },
+            'fpn': {
+                'fpn_cell_repeats': 3,  # efd
+                'fpn_feat_dims': 64},
+            'efficientdet_parser': {
+                'output_size': [512, 512],
+            }
+        }
+}
 # pylint: enable=line-too-long
