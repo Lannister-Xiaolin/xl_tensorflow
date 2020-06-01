@@ -156,7 +156,7 @@ def dict_to_tf_example(data,
                 try:
                     classes.append(label_map_dict[obj['name'].strip()])
                 except KeyError:
-                    logging.warning(f"unknown classses: {obj['name']}")
+                    logging.warning(f"unknown classses: {obj['name']}——————{image_file}")
                     continue
             else:
                 try:
