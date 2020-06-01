@@ -353,9 +353,10 @@ def main(_):
             except ValueError:
                 xml = etree.fromstring(xml_str.encode("utf-8"))
             # 新增
-            if not tf.io.is_jpeg(tf.io.read_file(image_files[idx])):
-                print("图片编码错误！！", image_files[idx])
-                continue
+            try:
+                temp = tf.io.decode_image(tf.io.read_file(image_files[idx]), channels=3)
+            except tf.errors.InvalidArgumentError:
+                logging.warning("图片编码错误！！"+image_files[idx])
             data = tfrecord_util.recursive_parse_xml_to_dict(xml)['annotation']
             try:
                 tf_example, auto_label_index = dict_to_tf_example(
