@@ -37,7 +37,8 @@ import tensorflow.compat.v1 as tf
 import multiprocessing
 import threading
 from xl_tensorflow.datasets.tfrecord import tfrecord_util
-
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 flags.DEFINE_string('data_dir', '', 'Root directory to  VOC format dataset include image and xml files.')
 flags.DEFINE_string('output_path', '', 'Path to output TFRecord and json.')
 flags.DEFINE_string('label_map_json_path', None,
@@ -150,10 +151,10 @@ def dict_to_tf_example(data,
             ymin.append(float(obj['bndbox']['ymin']) / height)
             xmax.append(float(obj['bndbox']['xmax']) / width)
             ymax.append(float(obj['bndbox']['ymax']) / height)
-            classes_text.append(obj['name'].encode('utf8'))
+            classes_text.append(obj['name'].strip().encode('utf8'))
             if not auto_label_map:
                 try:
-                    classes.append(label_map_dict[obj['name']])
+                    classes.append(label_map_dict[obj['name'].strip()])
                 except KeyError:
                     logging.warning(f"unknown classses: {obj['name']}")
                     continue
@@ -180,7 +181,7 @@ def dict_to_tf_example(data,
                     'iscrowd': 0,
                     'image_id': image_id,
                     'bbox': [abs_xmin, abs_ymin, abs_width, abs_height],
-                    'category_id': label_map_dict[obj['name']],
+                    'category_id': label_map_dict[obj['name'].strip()],
                     'id': get_ann_id(),
                     'ignore': 0,
                     'segmentation': [],
