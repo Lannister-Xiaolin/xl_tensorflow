@@ -214,6 +214,7 @@ def tflite_export_yolo(model_name, num_classes, save_lite_file, weights="", inpu
     model = Model(inputs=inputs, outputs=[boxes_, scores_])
     # print(model.predict(np.random.rand(1,416,416,3)))
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
+    converter.experimental_new_converter = False
     # todo 量化暂时不支持LEAKY_RELU
     if quant == "int8":
         converter.optimizations = [tf.lite.Optimize.OPTIMIZE_FOR_SIZE]
