@@ -10,7 +10,7 @@ from tensorflow.keras import Model, layers
 from ..utils.yolo_utils import compose
 from tensorflow.keras.applications import MobileNetV2
 from xl_tensorflow.models.vision.classification.darknet import DarknetConv2D_BN_Leaky, \
-    darknet_body, cspdarknet_body
+    darknet_body, cspdarknet_body, DarknetConv2D_BN_Relu
 from xl_tensorflow.models.vision.classification.efficientnet import EfficientNetB0, EfficientNetB1, EfficientNetB2, \
     EfficientNetLiteB1, \
     EfficientNetLiteB2, EfficientNetLiteB3, EfficientNetLiteB4
@@ -19,7 +19,7 @@ from .aggregation import pan_network, fpn_network
 from ..configs.yolo_config import get_yolo_config
 
 
-def spatial_pyramid_block(feature):
+def spatial_pyramid_block(feature, base_ops=DarknetConv2D_BN_Leaky):
     """
     SSP layer for yolo
     Args:
@@ -29,17 +29,17 @@ def spatial_pyramid_block(feature):
 
     """
     pre_convs = [
-        DarknetConv2D_BN_Leaky(filters=512, kernel_size=1, strides=1),
-        DarknetConv2D_BN_Leaky(filters=1024, kernel_size=3, strides=1),
-        DarknetConv2D_BN_Leaky(filters=512, kernel_size=1, strides=1),
+        base_ops(filters=512, kernel_size=1, strides=1),
+        base_ops(filters=1024, kernel_size=3, strides=1),
+        base_ops(filters=512, kernel_size=1, strides=1),
     ]
     feature_1 = compose(*pre_convs)(feature)
     feature_5 = layers.MaxPooling2D(pool_size=5, padding="same", name="spp_5", strides=1)(feature_1)
     feature_9 = layers.MaxPooling2D(pool_size=9, padding="same", name="spp_9", strides=1)(feature_1)
     feature_13 = layers.MaxPooling2D(pool_size=13, padding="same", name="spp_13", strides=1)(feature_1)
     new_feature = node_aggregate([feature_13, feature_9, feature_5, feature_1], method="concat")
-    new_feature = DarknetConv2D_BN_Leaky(filters=512, kernel_size=1, strides=1)(new_feature)
-    new_feature = DarknetConv2D_BN_Leaky(filters=1024, kernel_size=3, strides=1)(new_feature)
+    new_feature = base_ops(filters=512, kernel_size=1, strides=1)(new_feature)
+    new_feature = base_ops(filters=1024, kernel_size=3, strides=1)(new_feature)
     return new_feature
 
 
@@ -48,8 +48,8 @@ def output_wrapper(func):
      reshape为(batch,anchor,anchor,3，(5+num_classes)),主要用于自定义的yololoss"""
 
     @wraps(func)
-    def wrapper(inputs, num_anchors, num_classes, architecture, reshape_y=False):
-        model = func(inputs, num_anchors, num_classes, architecture)
+    def wrapper(inputs, num_anchors, num_classes, architecture, base_ops=DarknetConv2D_BN_Leaky, reshape_y=False):
+        model = func(inputs, num_anchors, num_classes, architecture, base_ops)
         if reshape_y:
             y1, y2, y3 = model.outputs
             # print(y1, y2, y3)
@@ -64,7 +64,7 @@ def output_wrapper(func):
 
 
 @output_wrapper
-def yolo_body(inputs, num_anchors, num_classes, architecture="yolov4"):
+def yolo_body(inputs, num_anchors, num_classes, architecture="yolov4", base_ops=DarknetConv2D_BN_Leaky):
     """Create YOLO_V3 model CNN body in Keras.
     Args:
         architecture: one of following:
@@ -86,171 +86,185 @@ def yolo_body(inputs, num_anchors, num_classes, architecture="yolov4"):
 
     """
     if architecture == "yolov4":
-        config = get_yolo_config("yolov4", num_anchors, num_classes)
-        outputs = spatial_pyramid_block(cspdarknet_body(inputs)) if config.spp else cspdarknet_body(inputs)
+        config = get_yolo_config("yolov4", num_anchors, num_classes, base_ops=base_ops)
+        outputs = spatial_pyramid_block(cspdarknet_body(inputs), base_ops=base_ops) if config.spp else cspdarknet_body(
+            inputs)
         body = Model(inputs, outputs)
         features = [body.layers[131].output, body.layers[204].output, body.output]  # mish_37  58
     elif architecture == "yolov4_efficientnetb0":
-        config = get_yolo_config("yolov4", num_anchors, num_classes)
+        config = get_yolo_config("yolov4", num_anchors, num_classes, base_ops=base_ops)
         backbone = EfficientNetB0(include_top=False, weights=None, input_tensor=inputs)
 
         outputs = spatial_pyramid_block(
-            backbone.get_layer("top_activation").output) if config.spp else backbone.get_layer("top_activation").output
+            backbone.get_layer("top_activation").output, base_ops=base_ops) if config.spp else backbone.get_layer(
+            "top_activation").output
         body = Model(inputs, outputs)
         features = [body.get_layer("block4a_expand_activation").output,
                     body.get_layer("block6a_expand_activation").output,
                     body.output]
     elif architecture == "yolov4_efficientnetb1":
-        config = get_yolo_config("yolov4", num_anchors, num_classes)
+        config = get_yolo_config("yolov4", num_anchors, num_classes, base_ops=base_ops)
         backbone = EfficientNetB1(include_top=False, weights=None, input_tensor=inputs, force_relu="relu")
         outputs = spatial_pyramid_block(
-            backbone.get_layer("top_activation").output) if config.spp else backbone.get_layer("top_activation").output
+            backbone.get_layer("top_activation").output, base_ops=base_ops) if config.spp else backbone.get_layer(
+            "top_activation").output
         body = Model(inputs, outputs)
         features = [body.get_layer("block4a_expand_activation").output,
                     body.get_layer("block6a_expand_activation").output,
                     body.output]
     elif architecture == "yolov4":
-        config = get_yolo_config("yolov4_efficientnetb0", num_anchors, num_classes)
+        config = get_yolo_config("yolov4_efficientnetb0", num_anchors, num_classes, base_ops=base_ops)
         backbone = EfficientNetB2(include_top=False, weights=None, input_tensor=inputs, force_relu="relu")
         outputs = spatial_pyramid_block(
-            backbone.get_layer("top_activation").output) if config.spp else backbone.get_layer("top_activation").output
+            backbone.get_layer("top_activation").output, base_ops=base_ops) if config.spp else backbone.get_layer(
+            "top_activation").output
         body = Model(inputs, outputs)
         features = [body.get_layer("block4a_expand_activation").output,
                     body.get_layer("block6a_expand_activation").output,
                     body.output]
     elif architecture == "yolov4_efficientnetliteb1":
-        config = get_yolo_config("yolov4", num_anchors, num_classes)
+        config = get_yolo_config("yolov4", num_anchors, num_classes, base_ops=base_ops)
         backbone = EfficientNetLiteB1(include_top=False, weights=None, input_tensor=inputs, force_relu="relu")
         outputs = spatial_pyramid_block(
-            backbone.get_layer("top_activation").output) if config.spp else backbone.get_layer("top_activation").output
+            backbone.get_layer("top_activation").output, base_ops=base_ops) if config.spp else backbone.get_layer(
+            "top_activation").output
         body = Model(inputs, outputs)
         features = [body.get_layer("block4a_expand_activation").output,
                     body.get_layer("block6a_expand_activation").output,
                     body.output]
     elif architecture == "yolov4_efficientnetliteb2":
-        config = get_yolo_config("yolov4", num_anchors, num_classes)
+        config = get_yolo_config("yolov4", num_anchors, num_classes, base_ops=base_ops)
         backbone = EfficientNetLiteB2(include_top=False, weights=None, input_tensor=inputs, force_relu="relu")
         outputs = spatial_pyramid_block(
-            backbone.get_layer("top_activation").output) if config.spp else backbone.get_layer("top_activation").output
+            backbone.get_layer("top_activation").output, base_ops=base_ops) if config.spp else backbone.get_layer(
+            "top_activation").output
         body = Model(inputs, outputs)
         features = [body.get_layer("block4a_expand_activation").output,
                     body.get_layer("block6a_expand_activation").output,
                     body.output]
     elif architecture == "yolov4_efficientnetliteb3":
-        config = get_yolo_config("yolov4", num_anchors, num_classes)
+        config = get_yolo_config("yolov4", num_anchors, num_classes, base_ops=base_ops)
         backbone = EfficientNetLiteB3(include_top=False, weights=None, input_tensor=inputs, force_relu="relu")
         outputs = spatial_pyramid_block(
-            backbone.get_layer("top_activation").output) if config.spp else backbone.get_layer("top_activation").output
+            backbone.get_layer("top_activation").output, base_ops=base_ops) if config.spp else backbone.get_layer(
+            "top_activation").output
         body = Model(inputs, outputs)
         features = [body.get_layer("block4a_expand_activation").output,
                     body.get_layer("block6a_expand_activation").output,
                     body.output]
     elif architecture == "yolov4_efficientnetliteb4":
-        config = get_yolo_config("yolov4", num_anchors, num_classes)
+        config = get_yolo_config("yolov4", num_anchors, num_classes, base_ops=base_ops)
         backbone = EfficientNetLiteB4(include_top=False, weights=None, input_tensor=inputs, force_relu="relu")
         outputs = spatial_pyramid_block(
-            backbone.get_layer("top_activation").output) if config.spp else backbone.get_layer("top_activation").output
+            backbone.get_layer("top_activation").output, base_ops=base_ops) if config.spp else backbone.get_layer(
+            "top_activation").output
         body = Model(inputs, outputs)
         features = [body.get_layer("block4a_expand_activation").output,
                     body.get_layer("block6a_expand_activation").output,
                     body.output]
     elif architecture == "yolov4_mobilenetv2":
-        config = get_yolo_config("yolov4", num_anchors, num_classes)
+        config = get_yolo_config("yolov4", num_anchors, num_classes, base_ops=base_ops)
         backbone = MobileNetV2(include_top=False, weights=None, input_tensor=inputs)
         outputs = spatial_pyramid_block(
-            backbone.get_layer("out_relu").output) if config.spp else backbone.get_layer("out_relu").output
+            backbone.get_layer("out_relu").output, base_ops=base_ops) if config.spp else backbone.get_layer(
+            "out_relu").output
         body = Model(inputs, outputs)
         features = [body.get_layer("block_6_expand_relu").output,
                     body.get_layer("block_13_expand_relu").output,
                     body.output]
     elif architecture == "yolov3_efficientnetliteb4_spp":
-        config = get_yolo_config("yolov3", num_anchors, num_classes)
+        config = get_yolo_config("yolov3", num_anchors, num_classes, base_ops=base_ops)
         config.agg_method = "fpn"
         backbone = EfficientNetLiteB4(include_top=False, weights=None, input_tensor=inputs, force_relu="relu")
-        outputs = spatial_pyramid_block(backbone.get_layer("top_activation").output)
+        outputs = spatial_pyramid_block(backbone.get_layer("top_activation").output, base_ops=base_ops)
         body = Model(inputs, outputs)
         features = [body.get_layer("block4a_expand_activation").output,
                     body.get_layer("block6a_expand_activation").output,
                     body.output]
     elif architecture == "yolov3_efficientnetliteb0_spp":
-        config = get_yolo_config("yolov3", num_anchors, num_classes)
+        config = get_yolo_config("yolov3", num_anchors, num_classes, base_ops=base_ops)
         config.agg_method = "fpn"
         backbone = EfficientNetB0(include_top=False, weights=None, input_tensor=inputs, force_relu="relu")
-        outputs = spatial_pyramid_block(backbone.get_layer("top_activation").output)
+        outputs = spatial_pyramid_block(backbone.get_layer("top_activation").output, base_ops=base_ops)
         body = Model(inputs, outputs)
         features = [body.get_layer("block4a_expand_activation").output,
                     body.get_layer("block6a_expand_activation").output,
                     body.output]
     elif architecture == "yolov3_efficientnetliteb1_spp":
-        config = get_yolo_config("yolov3", num_anchors, num_classes)
+        config = get_yolo_config("yolov3", num_anchors, num_classes, base_ops=base_ops)
         config.agg_method = "fpn"
         backbone = EfficientNetLiteB1(include_top=False, weights=None, input_tensor=inputs, force_relu="relu")
-        outputs = spatial_pyramid_block(backbone.get_layer("top_activation").output)
+        outputs = spatial_pyramid_block(backbone.get_layer("top_activation").output, base_ops=base_ops)
         body = Model(inputs, outputs)
         features = [body.get_layer("block4a_expand_activation").output,
                     body.get_layer("block6a_expand_activation").output,
                     body.output]
     elif architecture == "yolov3_efficientnetliteb2_spp":
-        config = get_yolo_config("yolov3", num_anchors, num_classes)
+        config = get_yolo_config("yolov3", num_anchors, num_classes, base_ops=base_ops)
         config.agg_method = "fpn"
         backbone = EfficientNetLiteB2(include_top=False, weights=None, input_tensor=inputs, force_relu="relu")
-        outputs = spatial_pyramid_block(backbone.get_layer("top_activation").output)
+        outputs = spatial_pyramid_block(backbone.get_layer("top_activation").output, base_ops=base_ops)
         body = Model(inputs, outputs)
         features = [body.get_layer("block4a_expand_activation").output,
                     body.get_layer("block6a_expand_activation").output,
                     body.output]
     elif architecture == "yolov3_efficientnetb0":
-        config = get_yolo_config("yolov3", num_anchors, num_classes)
+        config = get_yolo_config("yolov3", num_anchors, num_classes, base_ops=base_ops)
         backbone = EfficientNetB0(include_top=False, weights=None, input_tensor=inputs, force_relu="relu")
 
         outputs = spatial_pyramid_block(
-            backbone.get_layer("top_activation").output) if config.spp else backbone.get_layer("top_activation").output
+            backbone.get_layer("top_activation").output, base_ops=base_ops) if config.spp else backbone.get_layer(
+            "top_activation").output
         body = Model(inputs, outputs)
         features = [body.get_layer("block4a_expand_activation").output,
                     body.get_layer("block6a_expand_activation").output,
                     body.output]
     elif architecture == "yolov3_efficientnetb1":
-        config = get_yolo_config("yolov3", num_anchors, num_classes)
+        config = get_yolo_config("yolov3", num_anchors, num_classes, base_ops=base_ops)
         backbone = EfficientNetB1(include_top=False, weights=None, input_tensor=inputs, force_relu="relu")
         outputs = spatial_pyramid_block(
-            backbone.get_layer("top_activation").output) if config.spp else backbone.get_layer("top_activation").output
+            backbone.get_layer("top_activation").output, base_ops=base_ops) if config.spp else backbone.get_layer(
+            "top_activation").output
         body = Model(inputs, outputs)
         features = [body.get_layer("block4a_expand_activation").output,
                     body.get_layer("block6a_expand_activation").output,
                     body.output]
     elif architecture == "yolov3_efficientnetb1_spp":
-        config = get_yolo_config("yolov3", num_anchors, num_classes)
+        config = get_yolo_config("yolov3", num_anchors, num_classes, base_ops=base_ops)
         config.spp = True
         backbone = EfficientNetLiteB1(include_top=False, weights=None, input_tensor=inputs, force_relu="relu")
         outputs = spatial_pyramid_block(
-            backbone.get_layer("top_activation").output) if config.spp else backbone.get_layer("top_activation").output
+            backbone.get_layer("top_activation").output, base_ops=base_ops) if config.spp else backbone.get_layer(
+            "top_activation").output
         body = Model(inputs, outputs)
         features = [body.get_layer("block4a_expand_activation").output,
                     body.get_layer("block6a_expand_activation").output,
                     body.output]
     elif architecture == "yolov3_efficientnetliteb1":
-        config = get_yolo_config("yolov3", num_anchors, num_classes)
+        config = get_yolo_config("yolov3", num_anchors, num_classes, base_ops=base_ops)
         backbone = EfficientNetLiteB1(include_top=False, weights=None, input_tensor=inputs, force_relu="relu")
         outputs = spatial_pyramid_block(
-            backbone.get_layer("top_activation").output) if config.spp else backbone.get_layer("top_activation").output
+            backbone.get_layer("top_activation").output, base_ops=base_ops) if config.spp else backbone.get_layer(
+            "top_activation").output
         body = Model(inputs, outputs)
         features = [body.get_layer("block4a_expand_activation").output,
                     body.get_layer("block6a_expand_activation").output,
                     body.output]
     elif architecture == "yolov3_mobilenetv2_spp":
-        config = get_yolo_config("yolov3", num_anchors, num_classes)
+        config = get_yolo_config("yolov3", num_anchors, num_classes, base_ops=base_ops)
         config.agg_method = "fpn"
         backbone = MobileNetV2(include_top=False, weights=None, input_tensor=inputs)
         outputs = spatial_pyramid_block(
-            backbone.get_layer("out_relu").output) if config.spp else backbone.get_layer("out_relu").output
+            backbone.get_layer("out_relu").output, base_ops=base_ops) if config.spp else backbone.get_layer(
+            "out_relu").output
         body = Model(inputs, outputs)
         features = [body.get_layer("block_6_expand_relu").output,
                     body.get_layer("block_13_expand_relu").output,
                     body.output]
     else:
-        config = get_yolo_config("yolov3", num_anchors, num_classes)
+        config = get_yolo_config("yolov3", num_anchors, num_classes, base_ops=base_ops)
         # print(config)
-        outputs = spatial_pyramid_block(darknet_body(inputs)) if config.spp else darknet_body(inputs)
+        outputs = spatial_pyramid_block(darknet_body(inputs), base_ops=base_ops) if config.spp else darknet_body(inputs)
         body = Model(inputs, outputs)
         features = [body.layers[92].output, body.layers[152].output, body.output]
         pass

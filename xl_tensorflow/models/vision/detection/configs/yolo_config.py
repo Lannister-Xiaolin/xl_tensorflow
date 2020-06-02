@@ -24,7 +24,7 @@ def default_yolo_config():
     return config
 
 
-def get_model_param(model_name='yolov4', num_anchors=3, num_classes=80):
+def get_model_param(model_name='yolov4', num_anchors=3, num_classes=80,base_ops=DarknetConv2D_BN_Leaky):
     yolo_out_size = (num_classes + 5) * num_anchors
     yolo_model_param_dict = {
         "yolov4":
@@ -34,66 +34,66 @@ def get_model_param(model_name='yolov4', num_anchors=3, num_classes=80):
                 spp=True,
                 # all config order as from  p1——>p7 direction
                 agg_inputs_ops=[
-                    [DarknetConv2D_BN_Leaky(filters=128, kernel_size=1, strides=1)],
-                    [DarknetConv2D_BN_Leaky(filters=256, kernel_size=1, strides=1)],
-                    [DarknetConv2D_BN_Leaky(filters=512, kernel_size=1, strides=1)]
+                    [base_ops(filters=128, kernel_size=1, strides=1)],
+                    [base_ops(filters=256, kernel_size=1, strides=1)],
+                    [base_ops(filters=512, kernel_size=1, strides=1)]
                 ],
 
                 # all config order as from p7——>p1 direction
                 backward_ops=[
-                    [DarknetConv2D_BN_Leaky(filters=256, kernel_size=1, strides=1),
+                    [base_ops(filters=256, kernel_size=1, strides=1),
                      layers.UpSampling2D()],
-                    [DarknetConv2D_BN_Leaky(filters=128, kernel_size=1, strides=1),
+                    [base_ops(filters=128, kernel_size=1, strides=1),
                      layers.UpSampling2D()]
                 ],
                 # all config order as from p1——>p7 direction
                 forward_ops=[
-                    [layers.ZeroPadding2D(((1, 0), (1, 0))), DarknetConv2D_BN_Leaky(filters=256, kernel_size=3, strides=2), ],
-                    [layers.ZeroPadding2D(((1, 0), (1, 0))), DarknetConv2D_BN_Leaky(filters=512, kernel_size=3, strides=2), ]
+                    [layers.ZeroPadding2D(((1, 0), (1, 0))), base_ops(filters=256, kernel_size=3, strides=2), ],
+                    [layers.ZeroPadding2D(((1, 0), (1, 0))), base_ops(filters=512, kernel_size=3, strides=2), ]
                 ],
                 # all config order as from p7——>p1 direction
                 inlevel_backward_ops=[
                     [],
                     [
-                        DarknetConv2D_BN_Leaky(filters=256, kernel_size=1, strides=1),
-                        DarknetConv2D_BN_Leaky(filters=512, kernel_size=3, strides=1),
-                        DarknetConv2D_BN_Leaky(filters=256, kernel_size=1, strides=1),
-                        DarknetConv2D_BN_Leaky(filters=512, kernel_size=3, strides=1),
-                        DarknetConv2D_BN_Leaky(filters=256, kernel_size=1, strides=1),
+                        base_ops(filters=256, kernel_size=1, strides=1),
+                        base_ops(filters=512, kernel_size=3, strides=1),
+                        base_ops(filters=256, kernel_size=1, strides=1),
+                        base_ops(filters=512, kernel_size=3, strides=1),
+                        base_ops(filters=256, kernel_size=1, strides=1),
                     ],
                     [
-                        DarknetConv2D_BN_Leaky(filters=128, kernel_size=1, strides=1),
-                        DarknetConv2D_BN_Leaky(filters=256, kernel_size=3, strides=1),
-                        DarknetConv2D_BN_Leaky(filters=128, kernel_size=1, strides=1),
-                        DarknetConv2D_BN_Leaky(filters=256, kernel_size=3, strides=1),
-                        DarknetConv2D_BN_Leaky(filters=128, kernel_size=1, strides=1),
+                        base_ops(filters=128, kernel_size=1, strides=1),
+                        base_ops(filters=256, kernel_size=3, strides=1),
+                        base_ops(filters=128, kernel_size=1, strides=1),
+                        base_ops(filters=256, kernel_size=3, strides=1),
+                        base_ops(filters=128, kernel_size=1, strides=1),
                     ],
                 ],
                 # all config order as from p1——>p7 direction
                 inlevel_forward_ops=[
                     [],
                     [
-                        DarknetConv2D_BN_Leaky(filters=256, kernel_size=1, strides=1),
-                        DarknetConv2D_BN_Leaky(filters=512, kernel_size=3, strides=1),
-                        DarknetConv2D_BN_Leaky(filters=256, kernel_size=1, strides=1),
-                        DarknetConv2D_BN_Leaky(filters=512, kernel_size=3, strides=1),
-                        DarknetConv2D_BN_Leaky(filters=256, kernel_size=1, strides=1),
+                        base_ops(filters=256, kernel_size=1, strides=1),
+                        base_ops(filters=512, kernel_size=3, strides=1),
+                        base_ops(filters=256, kernel_size=1, strides=1),
+                        base_ops(filters=512, kernel_size=3, strides=1),
+                        base_ops(filters=256, kernel_size=1, strides=1),
                     ],
                     [
-                        DarknetConv2D_BN_Leaky(filters=512, kernel_size=1, strides=1),
-                        DarknetConv2D_BN_Leaky(filters=1024, kernel_size=3, strides=1),
-                        DarknetConv2D_BN_Leaky(filters=512, kernel_size=1, strides=1),
-                        DarknetConv2D_BN_Leaky(filters=1024, kernel_size=3, strides=1),
-                        DarknetConv2D_BN_Leaky(filters=512, kernel_size=1, strides=1),
+                        base_ops(filters=512, kernel_size=1, strides=1),
+                        base_ops(filters=1024, kernel_size=3, strides=1),
+                        base_ops(filters=512, kernel_size=1, strides=1),
+                        base_ops(filters=1024, kernel_size=3, strides=1),
+                        base_ops(filters=512, kernel_size=1, strides=1),
                     ],
                 ],
                 # all config order as from  p1——>p7 direction
                 agg_out_ops=[
-                    [DarknetConv2D_BN_Leaky(filters=256, kernel_size=3, strides=1),
+                    [base_ops(filters=256, kernel_size=3, strides=1),
                      DarknetConv2D(filters=yolo_out_size, kernel_size=1, strides=1)],
-                    [DarknetConv2D_BN_Leaky(filters=512, kernel_size=3, strides=1),
+                    [base_ops(filters=512, kernel_size=3, strides=1),
                      DarknetConv2D(filters=yolo_out_size, kernel_size=1, strides=1)],
-                    [DarknetConv2D_BN_Leaky(filters=1024, kernel_size=3, strides=1),
+                    [base_ops(filters=1024, kernel_size=3, strides=1),
                      DarknetConv2D(filters=yolo_out_size, kernel_size=1, strides=1)]
                 ]
             ),
@@ -107,39 +107,39 @@ def get_model_param(model_name='yolov4', num_anchors=3, num_classes=80):
                 []
             ],
             backward_ops=[
-                [DarknetConv2D_BN_Leaky(filters=256, kernel_size=1, strides=1),
+                [base_ops(filters=256, kernel_size=1, strides=1),
                  layers.UpSampling2D()],
-                [DarknetConv2D_BN_Leaky(filters=128, kernel_size=1, strides=1),
+                [base_ops(filters=128, kernel_size=1, strides=1),
                  layers.UpSampling2D()]
             ],
             inlevel_backward_ops=[
-                [DarknetConv2D_BN_Leaky(filters=512, kernel_size=1, strides=1),
-                 DarknetConv2D_BN_Leaky(filters=1024, kernel_size=3, strides=1),
-                 DarknetConv2D_BN_Leaky(filters=512, kernel_size=1, strides=1),
-                 DarknetConv2D_BN_Leaky(filters=1024, kernel_size=3, strides=1),
-                 DarknetConv2D_BN_Leaky(filters=512, kernel_size=1, strides=1), ],
+                [base_ops(filters=512, kernel_size=1, strides=1),
+                 base_ops(filters=1024, kernel_size=3, strides=1),
+                 base_ops(filters=512, kernel_size=1, strides=1),
+                 base_ops(filters=1024, kernel_size=3, strides=1),
+                 base_ops(filters=512, kernel_size=1, strides=1), ],
                 [
-                    DarknetConv2D_BN_Leaky(filters=256, kernel_size=1, strides=1),
-                    DarknetConv2D_BN_Leaky(filters=512, kernel_size=3, strides=1),
-                    DarknetConv2D_BN_Leaky(filters=256, kernel_size=1, strides=1),
-                    DarknetConv2D_BN_Leaky(filters=512, kernel_size=3, strides=1),
-                    DarknetConv2D_BN_Leaky(filters=256, kernel_size=1, strides=1),
+                    base_ops(filters=256, kernel_size=1, strides=1),
+                    base_ops(filters=512, kernel_size=3, strides=1),
+                    base_ops(filters=256, kernel_size=1, strides=1),
+                    base_ops(filters=512, kernel_size=3, strides=1),
+                    base_ops(filters=256, kernel_size=1, strides=1),
                 ],
                 [
-                    DarknetConv2D_BN_Leaky(filters=128, kernel_size=1, strides=1),
-                    DarknetConv2D_BN_Leaky(filters=256, kernel_size=3, strides=1),
-                    DarknetConv2D_BN_Leaky(filters=128, kernel_size=1, strides=1),
-                    DarknetConv2D_BN_Leaky(filters=256, kernel_size=3, strides=1),
-                    DarknetConv2D_BN_Leaky(filters=128, kernel_size=1, strides=1),
+                    base_ops(filters=128, kernel_size=1, strides=1),
+                    base_ops(filters=256, kernel_size=3, strides=1),
+                    base_ops(filters=128, kernel_size=1, strides=1),
+                    base_ops(filters=256, kernel_size=3, strides=1),
+                    base_ops(filters=128, kernel_size=1, strides=1),
                 ],
             ],
             # all config order as from  p1——>p7 direction
             agg_out_ops=[
-                [DarknetConv2D_BN_Leaky(filters=256, kernel_size=3, strides=1),
+                [base_ops(filters=256, kernel_size=3, strides=1),
                  DarknetConv2D(filters=yolo_out_size, kernel_size=1, strides=1)],
-                [DarknetConv2D_BN_Leaky(filters=512, kernel_size=3, strides=1),
+                [base_ops(filters=512, kernel_size=3, strides=1),
                  DarknetConv2D(filters=yolo_out_size, kernel_size=1, strides=1)],
-                [DarknetConv2D_BN_Leaky(filters=1024, kernel_size=3, strides=1),
+                [base_ops(filters=1024, kernel_size=3, strides=1),
                  DarknetConv2D(filters=yolo_out_size, kernel_size=1, strides=1)]
             ]
         ),
@@ -147,9 +147,9 @@ def get_model_param(model_name='yolov4', num_anchors=3, num_classes=80):
     return yolo_model_param_dict[model_name]
 
 
-def get_yolo_config(model_name='yolov4', num_anchors=3, num_classes=80):
+def get_yolo_config(model_name='yolov4', num_anchors=3, num_classes=80,base_ops=DarknetConv2D_BN_Leaky):
     """Get the default config for yolo based on model name."""
     h = default_yolo_config()
     h.override(get_model_param(model_name=model_name,
-                               num_anchors=num_anchors, num_classes=num_classes))
+                               num_anchors=num_anchors, num_classes=num_classes,base_ops=base_ops))
     return h

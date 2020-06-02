@@ -48,6 +48,16 @@ def DarknetConv2D_BN_Mish(*args, **kwargs):
         Mish())
 
 
+def DarknetConv2D_BN_Relu(*args, **kwargs):
+    """Darknet Convolution2D followed by BatchNormalization and Relu activation."""
+    no_bias_kwargs = {'use_bias': False}
+    no_bias_kwargs.update(kwargs)
+    return compose(
+        DarknetConv2D(*args, **no_bias_kwargs),
+        layers.BatchNormalization(),
+        layers.ReLU())
+
+
 def resblock_body(x, num_filters, num_blocks):
     '''A series of resblocks starting with a downsampling Convolution2D'''
     # Darknet uses left and top padding instead of 'same' mode
