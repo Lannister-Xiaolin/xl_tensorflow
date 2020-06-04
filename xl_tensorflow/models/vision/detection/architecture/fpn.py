@@ -285,18 +285,13 @@ class BiFpn(object):
 
                 new_node = self.fuse_features(nodes, fpn_config.weight_method)
                 with tf.name_scope('op_after_combine{}'.format(len(feats))):
-                    # return new_node
-                    # print(new_node)
                     if not p.fpn.conv_bn_act_pattern:
                         new_node = activation_fn(new_node, p.act_type)
-                    # new_node = tf.nn.swish([new_node])
-                    # return new_node
                     if p.fpn.use_separable_conv:
                         conv_op = functools.partial(
                             tf.keras.layers.SeparableConv2D, depth_multiplier=1)
                     else:
                         conv_op = tf.keras.layers.Conv2D
-                    # return new_node
                     new_node = conv_op(
                         filters=p.fpn.fpn_feat_dims,
                         kernel_size=(3, 3),
@@ -304,7 +299,6 @@ class BiFpn(object):
                         use_bias=True if not p.fpn.conv_bn_act_pattern else False,
                         data_format=params.data_format)(new_node)
                     # 拆分activation
-                    # return new_node
                     act_type = None if not p.fpn.conv_bn_act_pattern else p.act_type
                     if act_type:
                         new_node = activation_fn(new_node, act_type)
@@ -381,7 +375,6 @@ class BiFpn(object):
           multilevel_features: a `dict` containing `int` keys for continuous feature
             levels, e.g., [2, 3, 4, 5]. The values are corresponding features with
             shape [batch_size, height_l, width_l, num_filters].
-          is_training: `bool` if True, the model is in training mode.
 
         Returns:
           a `dict` containing `int` keys for continuous feature levels

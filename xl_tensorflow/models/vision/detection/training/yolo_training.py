@@ -27,10 +27,10 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
                                  epochs=(2, 30, 50), initial_epoch=0,
                                  paciences=(10, 10, 5),
                                  reduce_lrs=(3, 3, 3), trunc_inf=True,
-                                 ignore_thresh=0.5, print_loss=True,
-                                 iou_scale=3.0,
-                                 autoaugment_policy_name="v1", autoaugment_ratio=0.6, buffer=1000,
-                                 aug_scale_max=1.3, aug_scale_min=0.7):
+                                 ignore_thresh=0.4, print_loss=True,
+                                 iou_scale=1.0,
+                                 autoaugment_policy_name="v1", autoaugment_ratio=0.8, buffer=1000,
+                                 aug_scale_max=1.2, aug_scale_min=0.8):
     """
 
     Args:
@@ -109,12 +109,13 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
                                                                         anchors, num_classes)
     else:
         train_dataset = YoloInputFn(input_shape, train_annotation_path,
-                                    num_classes, aug_scale_max=aug_scale_max, aug_scale_min=aug_scale_min, use_autoaugment=True,
+                                    num_classes, aug_scale_max=aug_scale_max, aug_scale_min=aug_scale_min,
+                                    use_autoaugment=True,aug_rand_hflip=True,
                                     autoaugment_policy_name=autoaugment_policy_name, anchor=anchors,
                                     autoaugment_ratio=autoaugment_ratio, buffer=buffer)(batch_size=batch_size)
         val_dataset = YoloInputFn(input_shape, val_annotation_path,
                                   num_classes, anchor=anchors, aug_scale_max=1.0, aug_scale_min=1.0,
-                                  use_autoaugment=False)(
+                                  use_autoaugment=False,aug_rand_hflip=False)(
             batch_size=batch_size)
     for i in range(len(lrs)):
         if epochs[i] <= initial_epoch: continue

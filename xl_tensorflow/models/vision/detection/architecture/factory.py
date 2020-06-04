@@ -42,6 +42,9 @@ def backbone_generator(params):
             activation=params.norm_activation.activation,
             norm_activation=norm_activation_generator(
                 params.norm_activation))
+    elif "efficientnet" in params.architecture.backbone:
+        # todo
+        backbone_fn = ""
     else:
         raise ValueError('Backbone model `{}` is not supported.'
                          .format(params.architecture.backbone))

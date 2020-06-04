@@ -126,6 +126,7 @@ class YoloInputFn(object):
                  mode: Text = ModeKeys.TRAIN,
                  batch_size: int = 4,
                  num_examples: Optional[int] = -1,
+                 aug_rand_hflip=False,
                  buffer=1000):
         """Initialize.
 
@@ -148,7 +149,9 @@ class YoloInputFn(object):
         self._num_examples = num_examples
         self._parser_fn = yolo_parser.Parser(output_size, num_classes, anchor=anchor, aug_scale_max=aug_scale_max,
                                              aug_scale_min=aug_scale_min, use_autoaugment=use_autoaugment,
-                                             autoaugment_policy_name=autoaugment_policy_name,autoaugment_ratio=autoaugment_ratio)
+                                             autoaugment_policy_name=autoaugment_policy_name,
+                                             aug_rand_hflip=aug_rand_hflip,
+                                             autoaugment_ratio=autoaugment_ratio)
         self._dataset_fn = tf.data.TFRecordDataset
         self._buffer = buffer
     def __call__(self, ctx=None, batch_size: int = None):
