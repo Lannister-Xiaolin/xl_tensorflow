@@ -119,7 +119,7 @@ BASE_CFG = {
     },
     'fpn': {
         'fpn_feat_dims': 256,
-        'use_separable_conv': False,
+        'use_separable_conv': True,
         'use_batch_norm': True,
         'fpn_cell_repeats': 3,  # efd
         "apply_bn_for_resampling": True,  # efd

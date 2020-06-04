@@ -23,6 +23,11 @@ EFFICIENTDET_CFG.override({
     'type': 'efficientdet',
     'architecture': {
         'parser': 'efficientdet_parser',
+        'min_level': 3,
+        'max_level': 7,
+        'multilevel_features': 'bifpn',
+        'use_bfloat16': False,
+        'num_classes': 91,
     },
     'efficientdet_parser': {
         'output_size': [640, 640],
@@ -65,17 +70,106 @@ efficientdet_model_param_dict = {
             "name": 'efficientdet-d0',
             'architecture': {
                 'backbone': 'efficientnet-b0',
-                'min_level': 3,
-                'max_level': 7,
-                'multilevel_features': 'bifpn',
-                'use_bfloat16': False,
-                'num_classes': 91,
+
             },
             'fpn': {
                 'fpn_cell_repeats': 3,  # efd
                 'fpn_feat_dims': 64},
             'efficientdet_parser': {
                 'output_size': [512, 512],
+            }
+        },
+    'efficientdet-d1':
+        {
+            "name": 'efficientdet-d1',
+            'architecture': {
+                'backbone': 'efficientnet-b1',
+            },
+            'fpn': {
+                'fpn_cell_repeats': 4,  # efd
+                'fpn_feat_dims': 88},
+            'efficientdet_parser': {
+                'output_size': [640, 640],
+            }
+        },
+    'efficientdet-d2':
+        {
+            "name": 'efficientdet-d2',
+            'architecture': {
+                'backbone': 'efficientnet-b2',
+            },
+            'fpn': {
+                'fpn_cell_repeats': 5,  # efd
+                'fpn_feat_dims': 112},
+            'efficientdet_parser': {
+                'output_size': [768, 768],
+            }
+        },
+    'efficientdet-d3':
+        {
+            "name": 'efficientdet-d3',
+            'architecture': {
+                'backbone': 'efficientnet-b3',
+            },
+            'fpn': {
+                'fpn_cell_repeats': 6,  # efd
+                'fpn_feat_dims': 160},
+            'efficientdet_parser': {
+                'output_size': [896, 896],
+            }
+        },
+    'efficientdet-d4':
+        {
+            "name": 'efficientdet-d4',
+            'architecture': {
+                'backbone': 'efficientnet-b4',
+            },
+            'fpn': {
+                'fpn_cell_repeats': 7,  # efd
+                'fpn_feat_dims': 288},
+            'efficientdet_parser': {
+                'output_size': [1024, 1024],
+            }
+        },
+    'efficientdet-d5':
+        {
+            "name": 'efficientdet-d5',
+            'architecture': {
+                'backbone': 'efficientnet-b5',
+            },
+            'fpn': {
+                'fpn_cell_repeats': 7,  # efd
+                'fpn_feat_dims': 288},
+            'efficientdet_parser': {
+                'output_size': [1280, 1280],
+            }
+        },
+    'efficientdet-d6':
+        {
+            "name": 'efficientdet-d6',
+
+            'architecture': {
+                'backbone': 'efficientnet-b6',
+            },
+            'fpn': {
+                'fpn_cell_repeats': 8,  # efd
+                'fpn_feat_dims': 384},
+            'efficientdet_parser': {
+                'output_size': [1280, 1280],
+            }
+        },
+    'efficientdet-d7':
+        {
+            "name": 'efficientdet-d7',
+            "anchor_scale": 5.0,
+            'architecture': {
+                'backbone': 'efficientnet-b7',
+            },
+            'fpn': {
+                'fpn_cell_repeats': 8,  # efd
+                'fpn_feat_dims': 384},
+            'efficientdet_parser': {
+                'output_size': [1536, 1536],
             }
         }
 }

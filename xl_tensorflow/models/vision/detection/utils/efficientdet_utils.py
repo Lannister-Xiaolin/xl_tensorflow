@@ -3,6 +3,7 @@
 
 from typing import Text, Tuple, Union
 import tensorflow as tf
+from xl_tensorflow.layers.actication import Swish
 
 
 def parse_image_size(image_size: Union[Text, int, Tuple[int, int]]):
@@ -53,7 +54,9 @@ def get_feat_sizes(image_size: Union[Text, int, Tuple[int, int]],
 def activation_fn(features: tf.Tensor, act_type: Text):
     """Customized non-linear activation type."""
     if act_type == 'swish':
-        return tf.nn.swish(features)
+        # return tf.nn.swish(features)
+        # 上面代码有点问题
+        return Swish()(features)
     elif act_type == 'swish_native':
         return features * tf.sigmoid(features)
     elif act_type == 'relu':

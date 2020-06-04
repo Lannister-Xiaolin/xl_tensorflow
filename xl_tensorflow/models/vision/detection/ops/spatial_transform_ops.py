@@ -35,10 +35,10 @@ def nearest_upsampling(data, scale, width_scale=None):
         data.
     """
     with tf.name_scope('nearest_upsampling'):
-        bs, _, _, c = data.get_shape().as_list()
+        bs, h, w, c = data.get_shape().as_list()
         shape = tf.shape(input=data)
-        h = shape[1]
-        w = shape[2]
+        # h = shape[1]
+        # w = shape[2]
         width_scale = scale if width_scale is None else width_scale
         bs = -1 if bs is None else bs
         # Uses reshape to quickly upsample the input.  The nearest pixel is selected
@@ -642,8 +642,7 @@ def resample_feature_map(feat,
                 padding='same',
                 data_format=data_format)(feat)
             if apply_bn:
-                feat = tf.keras.layers.BatchNormalization(training=is_training, data_format=data_format, name="bn",
-                                                          axis=1 if data_format == 'channels_first' else 3)(feat)
+                feat = tf.keras.layers.BatchNormalization(axis=1 if data_format == 'channels_first' else 3)(feat)
         return feat
 
     with tf.name_scope('resample_{}'.format(name)):

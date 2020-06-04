@@ -37,6 +37,46 @@ from ..utils.efficientdet_utils import get_feat_sizes, activation_fn
 from xl_tensorflow.utils import hparams_config
 
 
+@tf.keras.utils.register_keras_serializable(package='Text')
+class WeightedAdd(tf.keras.layers.Layer):
+    def __init__(self, epsilon=1e-4, activation="relu", **kwargs):
+        """
+
+        Args:
+            epsilon:
+            activation: relu and softmax
+            **kwargs:
+        """
+        super(WeightedAdd, self).__init__(**kwargs)
+        self.epsilon = epsilon
+        self.activation = tf.nn.softmax if activation == "softmax" else tf.nn.relu
+
+    def build(self, input_shape):
+        num_in = len(input_shape)
+        self.w = self.add_weight(name=self.name,
+                                 shape=(num_in,),
+                                 initializer=tf.keras.initializers.constant(1 / num_in),
+                                 trainable=True,
+                                 dtype=tf.float32)
+
+    def call(self, inputs, **kwargs):
+        w = self.activation(self.w)
+        weights_sum = tf.reduce_sum(self.w)
+        x = tf.reduce_sum([(w[i] * inputs[i]) / (weights_sum + self.epsilon) for i in range(len(inputs))], axis=0)
+        # x = x / (tf.reduce_sum(w) + self.epsilon)
+        return x
+
+    def compute_output_shape(self, input_shape):
+        return input_shape[0]
+
+    def get_config(self):
+        config = super(WeightedAdd, self).get_config()
+        config.update({
+            'epsilon': self.epsilon
+        })
+        return config
+
+
 class Fpn(object):
     """Feature pyramid networks."""
 
@@ -156,72 +196,24 @@ class Fpn(object):
 
 
 class BiFpn(object):
-    """BiFeature pyramid networks."""
+    """BiFeature pyramid networks.
+    1、去掉training_bn参数
+    2、以keras网络层为主，部分tf.nn层
+    todo 把bifpn放到yolo种
+    """
 
     def __init__(self,
-                 params,
                  min_level=3,
                  max_level=7,
-                 use_separable_conv=False,
-                 activation='relu',
-                 use_batch_norm=True,
-                 output_size=(640, 640),
-                 norm_activation=nn_ops.norm_activation_builder(
-                     activation='relu')):
+                 ):
         """FPN initialization function.
 
         Args:
           min_level: `int` minimum level in FPN output feature maps.
           max_level: `int` maximum level in FPN output feature maps.
-          fpn_feat_dims: `int` number of filters in FPN layers.
-          use_separable_conv: `bool`, if True use separable convolution for
-            convolution in FPN layers.
-          use_batch_norm: 'bool', indicating whether batchnorm layers are added.
-          norm_activation: an operation that includes a normalization layer
-            followed by an optional activation layer.
         """
         self._min_level = min_level
         self._max_level = max_level
-        self._output_size = output_size
-        if use_separable_conv:
-            self._conv2d_op = functools.partial(
-                tf.keras.layers.SeparableConv2D, depth_multiplier=1)
-        else:
-            self._conv2d_op = tf.keras.layers.Conv2D
-        if activation == 'relu':
-            self._activation_op = tf.nn.relu
-        elif activation == 'swish':
-            self._activation_op = tf.nn.swish
-        else:
-            raise ValueError('Unsupported activation `{}`.'.format(activation))
-        self._use_batch_norm = use_batch_norm
-        self._norm_activation = norm_activation
-
-        self._norm_activations = {}
-        self._lateral_conv2d_op = {}
-        self._post_hoc_conv2d_op = {}
-        self._coarse_conv2d_op = {}
-        for level in range(self._min_level, self._max_level + 1):
-            if self._use_batch_norm:
-                self._norm_activations[level] = norm_activation(
-                    use_activation=False, name='p%d-bn' % level)
-            self._lateral_conv2d_op[level] = self._conv2d_op(
-                filters=params.fpn.fpn_feat_dims,
-                kernel_size=(1, 1),
-                padding='same',
-                name='l%d' % level)
-            self._post_hoc_conv2d_op[level] = self._conv2d_op(
-                filters=params.fpn.fpn_feat_dims,
-                strides=(1, 1),
-                kernel_size=(3, 3),
-                padding='same',
-                name='post_hoc_d%d' % level)
-            self._coarse_conv2d_op[level] = self._conv2d_op(
-                filters=params.fpn.fpn_feat_dims,
-                strides=(2, 2),
-                kernel_size=(3, 3),
-                padding='same',
-                name='p%d' % level)
 
     def get_fpn_config(self, fpn_name, min_level, max_level, weight_method):
         """Get fpn related configuration."""
@@ -250,20 +242,9 @@ class BiFpn(object):
         dtype = nodes[0].dtype
 
         if weight_method == 'attn':
-            edge_weights = [tf.cast(tf.Variable(1.0, name='WSM'), dtype=dtype)
-                            for _ in nodes]
-            normalized_weights = tf.nn.softmax(tf.stack(edge_weights))
-            nodes = tf.stack(nodes, axis=-1)
-            new_node = tf.reduce_sum(nodes * normalized_weights, -1)
+            new_node = WeightedAdd(activation="softmax")(nodes)
         elif weight_method == 'fastattn':
-            edge_weights = [
-                tf.nn.relu(tf.cast(tf.Variable(1.0, name='WSM'), dtype=dtype))
-                for _ in nodes
-            ]
-            weights_sum = tf.add_n(edge_weights)
-            nodes = [nodes[i] * edge_weights[i] / (weights_sum + 0.0001)
-                     for i in range(len(nodes))]
-            new_node = tf.add_n(nodes)
+            new_node = WeightedAdd(activation="relu")(nodes)
         elif weight_method == 'sum':
             new_node = tf.add_n(nodes)
         else:
@@ -278,7 +259,7 @@ class BiFpn(object):
         if p.fpn.fpn_config:
             fpn_config = p.fpn_config
         else:
-            fpn_config = self.get_fpn_config(p.fpn.fpn_name, p.fpn.architecture.min_level, p.fpn.architecture.max_level,
+            fpn_config = self.get_fpn_config(p.fpn.fpn_name, p.architecture.min_level, p.architecture.max_level,
                                              p.fpn.fpn_weight_method)
 
         num_output_connections = [0 for _ in feats]
@@ -303,32 +284,32 @@ class BiFpn(object):
                     nodes.append(input_node)
 
                 new_node = self.fuse_features(nodes, fpn_config.weight_method)
-
                 with tf.name_scope('op_after_combine{}'.format(len(feats))):
+                    # return new_node
+                    # print(new_node)
                     if not p.fpn.conv_bn_act_pattern:
                         new_node = activation_fn(new_node, p.act_type)
-
+                    # new_node = tf.nn.swish([new_node])
+                    # return new_node
                     if p.fpn.use_separable_conv:
                         conv_op = functools.partial(
                             tf.keras.layers.SeparableConv2D, depth_multiplier=1)
                     else:
                         conv_op = tf.keras.layers.Conv2D
-
+                    # return new_node
                     new_node = conv_op(
                         filters=p.fpn.fpn_feat_dims,
                         kernel_size=(3, 3),
                         padding='same',
                         use_bias=True if not p.fpn.conv_bn_act_pattern else False,
-                        data_format=params.data_format,
-                        name='conv')(new_node)
-
+                        data_format=params.data_format)(new_node)
+                    # 拆分activation
+                    # return new_node
+                    act_type = None if not p.fpn.conv_bn_act_pattern else p.act_type
+                    if act_type:
+                        new_node = activation_fn(new_node, act_type)
                     new_node = tf.keras.layers.BatchNormalization(
-                        is_training_bn=p.is_training_bn,
-                        act_type=None if not p.fpn.conv_bn_act_pattern else p.act_type,
-                        data_format=params.data_format,
-                        use_tpu=p.use_tpu,
-                        name='bn')(new_node)
-
+                        axis=1 if params.data_format == "channels_first" else -1)(new_node)
                 feats.append(new_node)
                 num_output_connections.append(0)
 
@@ -367,24 +348,6 @@ class BiFpn(object):
         p = hparams_config.Config()
         p.weight_method = weight_method or 'fastattn'
 
-        # Node id starts from the input features and monotonically increase whenever
-        # a new node is added. Here is an example for level P3 - P7:
-        #     P7 (4)              P7" (12)
-        #     P6 (3)    P6' (5)   P6" (11)
-        #     P5 (2)    P5' (6)   P5" (10)
-        #     P4 (1)    P4' (7)   P4" (9)
-        #     P3 (0)              P3" (8)
-        # So output would be like:
-        # [
-        #   {'feat_level': 6, 'inputs_offsets': [3, 4]},  # for P6'
-        #   {'feat_level': 5, 'inputs_offsets': [2, 5]},  # for P5'
-        #   {'feat_level': 4, 'inputs_offsets': [1, 6]},  # for P4'
-        #   {'feat_level': 3, 'inputs_offsets': [0, 7]},  # for P3"
-        #   {'feat_level': 4, 'inputs_offsets': [1, 7, 8]},  # for P4"
-        #   {'feat_level': 5, 'inputs_offsets': [2, 6, 9]},  # for P5"
-        #   {'feat_level': 6, 'inputs_offsets': [3, 5, 10]},  # for P6"
-        #   {'feat_level': 7, 'inputs_offsets': [4, 11]},  # for P7"
-        # ]
         num_levels = max_level - min_level + 1
         node_ids = {min_level + i: [i] for i in range(num_levels)}
 
@@ -411,7 +374,7 @@ class BiFpn(object):
 
         return p
 
-    def __call__(self, multilevel_features, params, is_training=None):
+    def __call__(self, multilevel_features, params):
         """Returns the FPN features for a given multilevel features.
 
         Args:
@@ -427,12 +390,14 @@ class BiFpn(object):
         """
         # step 1: Build additional input features that are not from backbone.(ie. level 6 and 7)
         feats = []
+        # with  tf.name_scope('bifpn'):
         with backend.get_graph().as_default(), tf.name_scope('bifpn'):
+
             for level in range(self._min_level, self._max_level + 1):
                 if level in multilevel_features.keys():
                     feats.append(multilevel_features[level])
                 else:
-                    h_id, w_id = (1, 2)  # 不允许通道前置
+                    h_id, w_id = (1, 2)  # 不允许通道前置,即data_format必须等于channels_last
                     feats.append(
                         spatial_transform_ops.resample_feature_map(
                             feats[-1],
@@ -448,7 +413,7 @@ class BiFpn(object):
                             use_tpu=False,
                             data_format="channels_last"
                         ))
-            feat_sizes = get_feat_sizes(self._output_size[0], self._max_level)
+            feat_sizes = get_feat_sizes(params.efficientdet_parser.output_size[0], self._max_level)
             # todo 尺寸校验暂时搁置        _verify_feats_size
 
             with tf.name_scope("bifpn_cells"):
