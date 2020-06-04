@@ -23,6 +23,26 @@ from . import heads
 from . import identity
 from . import nn_ops
 from . import resnet
+from xl_tensorflow.models.vision.classification.efficientnet import EfficientNetB0, EfficientNetB1, EfficientNetB2, \
+    EfficientNetB3, EfficientNetB4, \
+    EfficientNetB5, EfficientNetB6, EfficientNetB7, EfficientNetLiteB4, EfficientNetLiteB3, EfficientNetLiteB2, \
+    EfficientNetLiteB1, EfficientNetLiteB0
+
+eff_dict = {
+    "efficientnet-b0": EfficientNetB0,
+    "efficientnet-b1": EfficientNetB1,
+    "efficientnet-b2": EfficientNetB2,
+    "efficientnet-b3": EfficientNetB3,
+    "efficientnet-b4": EfficientNetB4,
+    "efficientnet-b5": EfficientNetB5,
+    "efficientnet-b6": EfficientNetB6,
+    "efficientnet-b7": EfficientNetB7,
+    "efficientnetlite-b0": EfficientNetLiteB0,
+    "efficientnetlite-b1": EfficientNetLiteB1,
+    "efficientnetlite-b2": EfficientNetLiteB2,
+    "efficientnetlite-b3": EfficientNetLiteB3,
+    "efficientnetlite-b4": EfficientNetLiteB4,
+}
 
 
 def norm_activation_generator(params):
@@ -44,7 +64,7 @@ def backbone_generator(params):
                 params.norm_activation))
     elif "efficientnet" in params.architecture.backbone:
         # todo
-        backbone_fn = ""
+        backbone_fn = eff_dict[params.architecture.backbone]
     else:
         raise ValueError('Backbone model `{}` is not supported.'
                          .format(params.architecture.backbone))
@@ -67,6 +87,10 @@ def multilevel_features_generator(params):
                 params.norm_activation))
     elif params.architecture.multilevel_features == 'identity':
         fpn_fn = identity.Identity()
+    elif params.architecture.multilevel_features == 'bifpn':
+        fpn_fn = fpn.BiFpn(
+            min_level=params.architecture.min_level,
+            max_level=params.architecture.max_level)
     else:
         raise ValueError('The multi-level feature model `{}` is not supported.'
                          .format(params.architecture.multilevel_features))
@@ -86,6 +110,18 @@ def retinanet_head_generator(params):
         head_params.use_separable_conv,
         norm_activation=norm_activation_generator(params.norm_activation))
 
+def efficientdet_head_generator(params):
+    """Generator function for RetinaNet head architecture."""
+    head_params = params.efficientdet_head
+    return heads.RetinanetHead(
+        params.architecture.min_level,
+        params.architecture.max_level,
+        params.architecture.num_classes,
+        head_params.anchors_per_location,
+        head_params.num_convs,
+        head_params.num_filters,
+        head_params.use_separable_conv,
+        norm_activation=norm_activation_generator(params.norm_activation))
 
 def rpn_head_generator(params):
     """Generator function for RPN head architecture."""

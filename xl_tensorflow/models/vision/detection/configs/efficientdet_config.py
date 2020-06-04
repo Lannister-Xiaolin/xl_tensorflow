@@ -77,6 +77,11 @@ efficientdet_model_param_dict = {
                 'fpn_feat_dims': 64},
             'efficientdet_parser': {
                 'output_size': [512, 512],
+            },
+            'efficientdet_head': {
+                'num_convs': 3,
+                'num_filters': 64,
+                'use_separable_conv': False,
             }
         },
     'efficientdet-d1':
@@ -90,6 +95,11 @@ efficientdet_model_param_dict = {
                 'fpn_feat_dims': 88},
             'efficientdet_parser': {
                 'output_size': [640, 640],
+            },
+            'efficientdet_head': {
+                'num_convs': 3,
+                'num_filters': 88,
+                'use_separable_conv': False,
             }
         },
     'efficientdet-d2':
@@ -103,6 +113,11 @@ efficientdet_model_param_dict = {
                 'fpn_feat_dims': 112},
             'efficientdet_parser': {
                 'output_size': [768, 768],
+            },
+            'efficientdet_head': {
+                'num_convs': 3,
+                'num_filters': 112,
+                'use_separable_conv': False,
             }
         },
     'efficientdet-d3':
@@ -116,6 +131,11 @@ efficientdet_model_param_dict = {
                 'fpn_feat_dims': 160},
             'efficientdet_parser': {
                 'output_size': [896, 896],
+            },
+            'efficientdet_head': {
+                'num_convs': 4,
+                'num_filters': 160,
+                'use_separable_conv': False,
             }
         },
     'efficientdet-d4':
@@ -126,9 +146,14 @@ efficientdet_model_param_dict = {
             },
             'fpn': {
                 'fpn_cell_repeats': 7,  # efd
-                'fpn_feat_dims': 288},
+                'fpn_feat_dims': 224},
             'efficientdet_parser': {
                 'output_size': [1024, 1024],
+            },
+            'efficientdet_head': {
+                'num_convs': 4,
+                'num_filters': 224,
+                'use_separable_conv': False,
             }
         },
     'efficientdet-d5':
@@ -142,6 +167,11 @@ efficientdet_model_param_dict = {
                 'fpn_feat_dims': 288},
             'efficientdet_parser': {
                 'output_size': [1280, 1280],
+            },
+            'efficientdet_head': {
+                'num_convs': 4,
+                'num_filters': 288,
+                'use_separable_conv': False,
             }
         },
     'efficientdet-d6':
@@ -153,9 +183,16 @@ efficientdet_model_param_dict = {
             },
             'fpn': {
                 'fpn_cell_repeats': 8,  # efd
-                'fpn_feat_dims': 384},
+                'fpn_feat_dims': 384,
+                "fpn_name": "bifpn_sum"  # efd
+            },
             'efficientdet_parser': {
                 'output_size': [1280, 1280],
+            },
+            'efficientdet_head': {
+                'num_convs': 5,
+                'num_filters': 384,
+                'use_separable_conv': False,
             }
         },
     'efficientdet-d7':
@@ -167,9 +204,16 @@ efficientdet_model_param_dict = {
             },
             'fpn': {
                 'fpn_cell_repeats': 8,  # efd
-                'fpn_feat_dims': 384},
+                'fpn_feat_dims': 384,
+                "fpn_name": "bifpn_sum"  # efd
+            },
             'efficientdet_parser': {
                 'output_size': [1536, 1536],
+            },
+            'efficientdet_head': {
+                'num_convs': 5,
+                'num_filters': 384,
+                'use_separable_conv': False,
             }
         }
 }

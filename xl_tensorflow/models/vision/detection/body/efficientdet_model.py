@@ -44,13 +44,13 @@ class EfficientDetModel(base_model.Model):
         # Architecture generators.
         self._backbone_fn = factory.backbone_generator(params)
         self._fpn_fn = factory.multilevel_features_generator(params)
-        self._head_fn = factory.retinanet_head_generator(params)
+        self._head_fn = factory.efficientdet_head_generator(params)
 
         # Loss function.
         self._cls_loss_fn = losses.RetinanetClassLoss(
-            params.retinanet_loss, params.architecture.num_classes)
-        self._box_loss_fn = losses.RetinanetBoxLoss(params.retinanet_loss)
-        self._box_loss_weight = params.retinanet_loss.box_loss_weight
+            params.efficientdet_loss, params.architecture.num_classes)
+        self._box_loss_fn = losses.RetinanetBoxLoss(params.efficientdet_loss)
+        self._box_loss_weight = params.efficientdet_loss.box_loss_weight
         self._keras_model = None
 
         # Predict function.
@@ -63,8 +63,8 @@ class EfficientDetModel(base_model.Model):
         assert not self._transpose_input, 'Transpose input is not supportted.'
         # Input layer.
         input_shape = (
-                params.retinanet_parser.output_size +
-                [params.retinanet_parser.num_channels])
+                params.efficientdet_parser.output_size +
+                [params.efficientdet_parser.num_channels])
         self._input_layer = tf.keras.layers.Input(
             shape=input_shape, name='',
             dtype=tf.bfloat16 if self._use_bfloat16 else tf.float32)
@@ -75,12 +75,11 @@ class EfficientDetModel(base_model.Model):
         if self._transpose_input:
             inputs = tf.transpose(inputs, [3, 0, 1, 2])
 
-        backbone_features = self._backbone_fn(
-            inputs, is_training=(mode == mode_keys.TRAIN))
+        backbone_features = self._backbone_fn(input_tensor=inputs, fpn_features=True)
         fpn_features = self._fpn_fn(
-            backbone_features, is_training=(mode == mode_keys.TRAIN))
+            backbone_features, self._params)
         cls_outputs, box_outputs = self._head_fn(
-            fpn_features, is_training=(mode == mode_keys.TRAIN))
+            fpn_features, is_training=None)
 
         if self._use_bfloat16:
             levels = cls_outputs.keys()
@@ -122,6 +121,7 @@ class EfficientDetModel(base_model.Model):
         return _total_loss_fn
 
     def build_model(self, params, mode=None):
+        # todo keras 模型下是否需要显示的传递training=True进行训练和推理
         if self._keras_model is None:
             with backend.get_graph().as_default():
                 outputs = self.model_outputs(self._input_layer, mode)
