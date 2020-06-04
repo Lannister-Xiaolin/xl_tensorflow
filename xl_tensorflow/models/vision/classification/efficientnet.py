@@ -704,7 +704,11 @@ def main():
     image_input = layers.Input(shape=(640, 640, 3))
     from tensorflow.keras.applications import MobileNetV2
     model = EfficientNetB1(include_top=False, input_tensor=image_input, weights=None, fpn_features=False)
-    print(len(model.layers))
+    import numpy as np
+    data = np.random.random((1,640,640,3))
+    print((model(data,training=True)))
+    print((model(data, training=False)))
+    print((model(data)))
     # print(EfficientNetLiteB2(include_top=False, input_tensor=image_input, weights=None, fpn_features=False).trainable_weights)
     # print(EfficientNetLiteB1(include_top=False, input_tensor=image_input, weights=None,
     #                          fpn_features=False).trainable_weights)
