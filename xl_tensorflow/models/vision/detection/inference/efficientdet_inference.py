@@ -149,7 +149,7 @@ def batch_image_preprocess(raw_images,
 def det_post_process_combined(params, cls_outputs, box_outputs, scales,
                               min_score_thresh, max_boxes_to_draw):
     """A combined version of det_post_process with dynamic batch size support."""
-    # todo 流程确定，先训练看效果，然后对后处理进行优化
+    # todo 待校验，基本完成，就用这个，非极大抑制过程还可优化，即先过滤score再还原坐标
     batch_size = tf.shape(list(cls_outputs.values())[0])[0]
     cls_outputs_all = []
     box_outputs_all = []
@@ -177,7 +177,7 @@ def det_post_process_combined(params, cls_outputs, box_outputs, scales,
     boxes = faster_rcnn_box_coder.decode_box_outputs_tf(box_outputs_all, anchor_boxes)
 
     boxes = tf.expand_dims(boxes, axis=2)
-    scales = tf.expand_dims(scales, axis=-1)
+    # scales = tf.expand_dims(scales, axis=-1)
     nmsed_boxes, nmsed_scores, nmsed_classes, valid_detections = (
         tf.image.combined_non_max_suppression(
             boxes,
@@ -193,11 +193,10 @@ def det_post_process_combined(params, cls_outputs, box_outputs, scales,
             tf.expand_dims(tf.range(batch_size), axis=1), [1, max_boxes_to_draw]),
         dtype=tf.float32)
     image_size = params.efficientdet_parser.output_size
-    ymin = tf.clip_by_value(nmsed_boxes[..., 0], 0, image_size[0]) * scales
-    xmin = tf.clip_by_value(nmsed_boxes[..., 1], 0, image_size[1]) * scales
-    ymax = tf.clip_by_value(nmsed_boxes[..., 2], 0, image_size[0]) * scales
-    xmax = tf.clip_by_value(nmsed_boxes[..., 3], 0, image_size[1]) * scales
-
+    ymin = tf.clip_by_value(nmsed_boxes[..., 0], 0, image_size[0]) * scales[:, :1]
+    xmin = tf.clip_by_value(nmsed_boxes[..., 1], 0, image_size[1]) * scales[:, 1:2]
+    ymax = tf.clip_by_value(nmsed_boxes[..., 2], 0, image_size[0]) * scales[:, :1]
+    xmax = tf.clip_by_value(nmsed_boxes[..., 3], 0, image_size[1]) * scales[:, 1:2]
     classes = tf.cast(nmsed_classes + 1, tf.float32)
     detection_list = [image_ids, ymin, xmin, ymax, xmax, nmsed_scores, classes]
     detections = tf.stack(detection_list, axis=2, name='detections')
