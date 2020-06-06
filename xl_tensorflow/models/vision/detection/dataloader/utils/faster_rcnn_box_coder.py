@@ -102,6 +102,7 @@ class FasterRcnnBoxCoder(box_coder.BoxCoder):
     ycenter_a, xcenter_a, ha, wa = anchors.get_center_coordinates_and_sizes()
 
     ty, tx, th, tw = tf.unstack(tf.transpose(a=rel_codes))
+    # ty, tx, th, tw = tf.unstack(rel_codes, num=4, axis=-1)
     if self._scale_factors:
       ty /= self._scale_factors[0]
       tx /= self._scale_factors[1]
@@ -116,3 +117,33 @@ class FasterRcnnBoxCoder(box_coder.BoxCoder):
     ymax = ycenter + h / 2.
     xmax = xcenter + w / 2.
     return box_list.BoxList(tf.transpose(a=tf.stack([ymin, xmin, ymax, xmax])))
+
+
+def decode_box_outputs_tf(rel_codes, anchors):
+  """Transforms relative regression coordinates to absolute positions.
+
+  Network predictions are normalized and relative to a given anchor; this
+  reverses the transformation and outputs absolute coordinates for the input
+  image.
+
+  Args:
+    rel_codes: box regression targets.
+    anchors: anchors on all feature levels.
+  Returns:
+    outputs: bounding boxes.
+  """
+  ycenter_a = (anchors[..., 0] + anchors[..., 2]) / 2
+  xcenter_a = (anchors[..., 1] + anchors[..., 3]) / 2
+  ha = anchors[..., 2] - anchors[..., 0]
+  wa = anchors[..., 3] - anchors[..., 1]
+  ty, tx, th, tw = tf.unstack(rel_codes, num=4, axis=-1)
+
+  w = tf.math.exp(tw) * wa
+  h = tf.math.exp(th) * ha
+  ycenter = ty * ha + ycenter_a
+  xcenter = tx * wa + xcenter_a
+  ymin = ycenter - h / 2.
+  xmin = xcenter - w / 2.
+  ymax = ycenter + h / 2.
+  xmax = xcenter + w / 2.
+  return tf.stack([ymin, xmin, ymax, xmax], axis=-1)

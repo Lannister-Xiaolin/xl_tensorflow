@@ -1,0 +1,9 @@
+efficientdet数据加载模块整合
+    方案1：完全copy automl
+    方案2： 整合至官方tf2.0  采用,已完成
+efficientdet损失函数整合
+    暂未发现异常
+efficientdet训练代码整合
+    确定使用自定义代码训练（不用fit），     未开始
+    tf.estimator即参考官方代码进行训练
+推理部署代码：

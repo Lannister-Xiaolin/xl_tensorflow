@@ -33,7 +33,14 @@ from ..ops import postprocess_ops
 
 
 class EfficientDetModel(base_model.Model):
-    """RetinaNet model function."""
+    """EfficientDet Model  function.
+    hint：classnet和boxnet不同level的卷积层是共享的
+        classnet和boxnet都是卷积层直接输出未与anchor匹配和坐标还原
+    数据加载
+        官方损失函数会把输入的坐标直接还原成tx,ty,tw,th
+        真实标签未经onehot处理
+
+    """
 
     def __init__(self, params):
         super(EfficientDetModel, self).__init__(params)

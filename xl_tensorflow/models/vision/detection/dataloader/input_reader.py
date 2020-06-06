@@ -28,6 +28,7 @@ from . import yolo_parser
 from .utils.anchors_yolo import *
 from .utils import mode_keys as ModeKeys
 
+
 class InputFn(object):
     """Input function that creates dataset from files."""
 
@@ -154,6 +155,7 @@ class YoloInputFn(object):
                                              autoaugment_ratio=autoaugment_ratio)
         self._dataset_fn = tf.data.TFRecordDataset
         self._buffer = buffer
+
     def __call__(self, ctx=None, batch_size: int = None):
         """Provides tf.data.Dataset object.
 
