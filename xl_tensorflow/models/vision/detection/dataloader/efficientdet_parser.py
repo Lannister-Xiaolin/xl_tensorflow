@@ -197,7 +197,7 @@ class Parser(object):
             data = self._example_decoder.decode(value)
             return self._parse_fn(data)
 
-    # @tf.autograph.experimental.do_not_convert
+    @tf.autograph.experimental.do_not_convert
     def _parse_train_data(self, data):
         """Parses data for training and evaluation."""
         image = data['image']

@@ -38,8 +38,10 @@ def training_test():
         return model_fn.build_loss_fn()(labels, outputs)['total_loss']
 
     # loss_fn = model_fn.build_loss_fn()
-    # model.compile(loss=loss_fn)
-    # model.fit(data)
+    # todo keras model调用loss_fn是对应每个输出，而不是所有输出（多输出注意如何使用），见training.py 1611行
+    # todo  dict嵌套模式不适合使用 compile(loss='')的形式
+    model.compile(loss=loss_fn)
+    model.fit(data)
     temp = next(data.as_numpy_iterator())
 
 
@@ -61,4 +63,5 @@ def inference_test():
 
 
 if __name__ == '__main__':
-    inference_test()
+    # inference_test()
+    training_test()

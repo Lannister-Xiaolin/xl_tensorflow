@@ -22,7 +22,7 @@ from __future__ import print_function
 from absl import logging
 
 import tensorflow as tf
-from xl_tensorflow.training import distributed_executor as executor
+from xl_tensorflow.training import xl_distributed_executor as executor
 from ..dataloader.utils import visualization_utils
 
 

@@ -292,10 +292,11 @@ class DistributedExecutor(object):
             if not isinstance(num_steps, tf.Tensor):
                 raise ValueError('steps should be an Tensor. Python object may cause '
                                  'retracing.')
-            per_replica_losses = strategy.run(
+            # todo 此处将strategy.run 替换成了experimental_run_v2,tf2.1.0版本问题
+            per_replica_losses = strategy.experimental_run_v2(
                 replicated_step, args=(next(iterator),))
             for _ in tf.range(num_steps - 1):
-                per_replica_losses = strategy.run(
+                per_replica_losses = strategy.experimental_run_v2(
                     replicated_step, args=(next(iterator),))
 
             # For reporting, we returns the mean of losses.

@@ -134,7 +134,7 @@ class EfficientDetModel(base_model.Model):
                 outputs = self.model_outputs(self._input_layer, mode)
 
                 model = tf.keras.models.Model(
-                    inputs=self._input_layer, outputs=outputs, name='retinanet')
+                    inputs=self._input_layer, outputs=outputs, name=params.name)
                 assert model is not None, 'Fail to build tf.keras.Model.'
                 model.optimizer = self.build_optimizer()
                 self._keras_model = model
