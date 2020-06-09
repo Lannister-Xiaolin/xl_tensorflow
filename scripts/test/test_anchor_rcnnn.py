@@ -4,6 +4,7 @@ import xl_tensorflow.models.vision.detection.configs.factory as config_factory
 import xl_tensorflow.models.vision.detection.dataloader.input_reader as input_reader
 import numpy as np
 params = config_factory.config_generator("retinanet")
+params.retinanet_parser.unmatched_threshold = 0.4
 reader = input_reader.InputFn(
         file_pattern=r"E:\Temp\test\efficiendet_merge_test\*.tfrecord",
         params=params,

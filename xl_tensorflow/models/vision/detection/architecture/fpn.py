@@ -418,6 +418,4 @@ class BiFpn(object):
                         for level in range(
                             self._min_level, self._max_level + 1)
                     ]
-                    # todo 尺寸校验暂时搁置        _verify_feats_size
-
             return new_feats

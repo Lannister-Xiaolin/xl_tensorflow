@@ -33,7 +33,7 @@ def training_test():
     data = input_reader(batch_size=4)
     model_fn = EfficientDetModel(params)
     model = model_fn.build_model(params)
-
+    next(data.as_numpy_iterator())
     def loss_fn(labels, outputs):
         return model_fn.build_loss_fn()(labels, outputs)['total_loss']
 
