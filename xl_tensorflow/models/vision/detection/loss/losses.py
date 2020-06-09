@@ -472,9 +472,14 @@ class EfficientnetClassLoss(object):
         loss = focal_loss(cls_outputs, cls_targets_one_hot,
                           self._focal_loss_alpha, self._focal_loss_gamma,
                           num_positives)
-        ignore_loss = tf.cast(
-            tf.expand_dims(tf.not_equal(cls_targets, ignore_label), -1),
-            tf.float32)
+        ignore_loss = tf.where(
+            tf.equal(cls_targets, ignore_label),
+            tf.zeros_like(cls_targets, dtype=tf.float32),
+            tf.ones_like(cls_targets, dtype=tf.float32),
+        )
+        ignore_loss = tf.expand_dims(ignore_loss, -1)
+        ignore_loss = tf.tile(ignore_loss, [1, 1, 1, 1, self._num_classes])
+        ignore_loss = tf.reshape(ignore_loss, tf.shape(input=loss))
 
         return tf.reduce_sum(input_tensor=ignore_loss * loss)
 
