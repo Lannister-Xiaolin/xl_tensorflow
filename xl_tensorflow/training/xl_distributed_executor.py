@@ -419,7 +419,7 @@ class DistributedExecutor(object):
         with strategy.scope():
             # To correctly place the model weights on accelerators,
             # model and optimizer should be created in scope.
-            model = self.model_fn(params.as_dict())
+            model = self.model_fn(params)
             if not hasattr(model, 'optimizer'):
                 raise ValueError('User should set optimizer attribute to model '
                                  'inside `model_fn`.')
