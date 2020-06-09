@@ -296,14 +296,14 @@ class BiFpn(object):
                         filters=p.fpn.fpn_feat_dims,
                         kernel_size=(3, 3),
                         padding='same',
-                        use_bias=True if not p.fpn.conv_bn_act_pattern else False,
+                        use_bias=not p.fpn.conv_bn_act_pattern,
                         data_format=params.data_format)(new_node)
                     # 拆分activation
                     act_type = None if not p.fpn.conv_bn_act_pattern else p.act_type
-                    if act_type:
-                        new_node = activation_fn(new_node, act_type)
                     new_node = tf.keras.layers.BatchNormalization(
                         axis=1 if params.data_format == "channels_first" else -1)(new_node)
+                    if act_type:
+                        new_node = activation_fn(new_node, act_type)
                 feats.append(new_node)
                 num_output_connections.append(0)
 
@@ -413,6 +413,11 @@ class BiFpn(object):
                 for rep in range(params.fpn.fpn_cell_repeats):
                     logging.info('building cell %d', rep)
                     new_feats = self.build_bifpn_layer(feats, feat_sizes, params)
+                    feats = [
+                        new_feats[level]
+                        for level in range(
+                            self._min_level, self._max_level + 1)
+                    ]
                     # todo 尺寸校验暂时搁置        _verify_feats_size
 
             return new_feats

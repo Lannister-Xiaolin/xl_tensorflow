@@ -197,6 +197,7 @@ def det_post_process_combined(params, cls_outputs, box_outputs, scales,
     xmin = tf.clip_by_value(nmsed_boxes[..., 1], 0, image_size[1]) * scales[:, 1:2]
     ymax = tf.clip_by_value(nmsed_boxes[..., 2], 0, image_size[0]) * scales[:, :1]
     xmax = tf.clip_by_value(nmsed_boxes[..., 3], 0, image_size[1]) * scales[:, 1:2]
+    # 此处注意是否需要处理
     classes = tf.cast(nmsed_classes + 1, tf.float32)
     detection_list = [image_ids, ymin, xmin, ymax, xmax, nmsed_scores, classes]
     detections = tf.stack(detection_list, axis=2, name='detections')

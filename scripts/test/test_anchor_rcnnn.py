@@ -2,6 +2,7 @@
 # -*- coding: UTF-8 -*-
 import xl_tensorflow.models.vision.detection.configs.factory as config_factory
 import xl_tensorflow.models.vision.detection.dataloader.input_reader as input_reader
+import numpy as np
 params = config_factory.config_generator("retinanet")
 reader = input_reader.InputFn(
         file_pattern=r"E:\Temp\test\efficiendet_merge_test\*.tfrecord",
@@ -10,5 +11,8 @@ reader = input_reader.InputFn(
         batch_size=params.train.batch_size)
 
 dataset = reader(batch_size=1)
-data = (next(dataset.as_numpy_iterator()))
-print(data)
+for i in range(100):
+        data = (next(dataset.as_numpy_iterator()))
+        print([np.array(data[1]["cls_targets"][i]).max() for i in range(3,8)])
+        print([np.array(data[1]["cls_targets"][i]).min() for i in range(3,8)])
+        print()

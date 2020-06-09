@@ -48,6 +48,7 @@ EFFICIENTDET_CFG.override({
         'num_filters': 256,
         'use_separable_conv': False,
     },
+    'train': {"l2_weight_decay": 4e-5},
     'efficientdet_loss': {
         'focal_loss_alpha': 0.25,
         'focal_loss_gamma': 1.5,

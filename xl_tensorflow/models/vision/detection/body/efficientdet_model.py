@@ -54,7 +54,8 @@ class EfficientDetModel(base_model.Model):
         self._head_fn = factory.efficientdet_head_generator(params)
 
         # Loss function.
-        self._cls_loss_fn = losses.RetinanetClassLoss(
+        # class loss与automl完全一致，需要确认背景类
+        self._cls_loss_fn = losses.EfficientnetClassLoss(
             params.efficientdet_loss, params.architecture.num_classes)
         self._box_loss_fn = losses.RetinanetBoxLoss(params.efficientdet_loss)
         self._box_loss_weight = params.efficientdet_loss.box_loss_weight
@@ -108,6 +109,7 @@ class EfficientDetModel(base_model.Model):
         trainable_variables = filter_fn(self._keras_model.trainable_variables)
 
         def _total_loss_fn(labels, outputs):
+            # todo 此处与官方不一致
             cls_loss = self._cls_loss_fn(outputs['cls_outputs'],
                                          labels['cls_targets'],
                                          labels['num_positives'])

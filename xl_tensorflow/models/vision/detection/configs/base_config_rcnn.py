@@ -125,7 +125,7 @@ BASE_CFG = {
         "apply_bn_for_resampling": True,  # efd
         "conv_after_downsample": False,  # efd
         "conv_bn_act_pattern": False,  # efd
-        "use_native_resize_op": False,  # efd
+        "use_native_resize_op": True,  # efd
         "pooling_type": None,  # efd
         "fpn_config": None,  # efd
         "fpn_weight_method": None,  # efd
