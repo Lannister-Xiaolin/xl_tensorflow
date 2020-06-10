@@ -16,7 +16,7 @@ from xl_tensorflow.models.vision.detection.dataloader import input_reader
 from xl_tensorflow.models.vision.detection.inference.efficientdet_inference import det_post_process_combined, \
     batch_image_preprocess
 from xl_tensorflow.models.vision.detection.training.xl_detection_executor import DetectionDistributedExecutor
-from absl import flags, app
+from absl import flags, app, logging
 
 flags.DEFINE_integer('save_checkpoint_freq', None,
                      'Number of steps to save checkpoint.')
@@ -26,7 +26,7 @@ FLAGS = flags.FLAGS
 def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pattern, number_classes, optimizer="adam",
                                  mode="train", bactch_size=4, iterations_per_loop=None, total_steps=None,
                                  model_dir=None,
-                                 learning_rate=0.08,save_freq=None):
+                                 learning_rate=0.01, save_freq=None):
     # todo 校验训练与验证集损失问题
     # todo 分布式训练测试
     # todo map推理结果正确性
@@ -58,10 +58,13 @@ def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pa
     gpus = tf.config.experimental.list_physical_devices('GPU')
     if len(gpus) == 0:
         strategy = tf.distribute.OneDeviceStrategy("device:CPU:0")
+        logging.info("No gpu devices, using cpu")
     elif len(gpus) == 1:
         strategy = tf.distribute.OneDeviceStrategy("device:GPU:0")
+        logging.info("Find one  gpu devices, using OneDeviceStrategy")
     else:
         strategy = tf.distribute.MirroredStrategy()
+        logging.info("Find {}  gpu devices, using OneDeviceStrategy".format(len(gpus)))
     # 建立模型与数据加载
     model_builder = EfficientDetModel(params)
     # if training_file_pattern:
@@ -103,7 +106,7 @@ def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pa
             total_steps=params.train.total_steps,
             init_checkpoint=model_builder.make_restore_checkpoint_fn(),
             custom_callbacks=None,
-            save_config=True,save_freq=save_freq)
+            save_config=True, save_freq=save_freq)
 
 
 # mul_gpu_training_custom_data("efficientdet-d0",
