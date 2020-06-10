@@ -309,7 +309,7 @@ class DistributedExecutor(object):
 
         return train_step
 
-    def _create_test_step(self, strategy, model, metric):
+    def _create_test_step(self, strategy, model, metric, loss_fn=None):
         """Creates a distributed test step."""
         metrics = metrics_as_dict(metric)
 
@@ -472,7 +472,7 @@ class DistributedExecutor(object):
         test_step = None
         if eval_input_fn and eval_metric:
             self.global_train_step = model.optimizer.iterations
-            test_step = self._create_test_step(strategy, model, metric=eval_metric)
+            test_step = self._create_test_step(strategy, model, metric=eval_metric, loss_fn=self.loss_fn())
 
         # Step-0 operations
         if current_step == 0 and not latest_checkpoint_file:
@@ -541,7 +541,7 @@ class DistributedExecutor(object):
             if test_step:
                 eval_iterator = self._get_input_iterator(eval_input_fn, strategy)
                 eval_metric_result = self._run_evaluation(test_step, current_step,
-                                                          eval_metric, eval_iterator, self.loss_fn())
+                                                          eval_metric, eval_iterator)
                 logging.info('Step: %s evalation metric = %s.', current_step,
                              eval_metric_result)
                 test_summary_writer(
@@ -562,7 +562,7 @@ class DistributedExecutor(object):
             logging.info('Running final evaluation after training is complete.')
             eval_iterator = self._get_input_iterator(eval_input_fn, strategy)
             eval_metric_result = self._run_evaluation(test_step, current_step,
-                                                      eval_metric, eval_iterator, self.loss_fn())
+                                                      eval_metric, eval_iterator)
             logging.info('Final evaluation metric = %s.', eval_metric_result)
             test_summary_writer(
                 metrics=eval_metric_result, step=optimizer.iterations)
@@ -573,7 +573,7 @@ class DistributedExecutor(object):
         return train_loss, eval_metric_result
 
     def _run_evaluation(self, test_step, current_training_step, metric,
-                        test_iterator, loss_fn=None):
+                        test_iterator):
         """Runs validation steps and aggregate metrics."""
         if not test_iterator or not metric:
             logging.warning(

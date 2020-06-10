@@ -281,6 +281,7 @@ class Parser(object):
         return image, labels
 
     # todo 暂时不可用
+    @tf.autograph.experimental.do_not_convert
     def _parse_eval_data(self, data):
         """Parses data for training and evaluation."""
         print("------------------------------------------------------------------")

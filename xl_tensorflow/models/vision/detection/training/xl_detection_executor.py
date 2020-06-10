@@ -95,10 +95,10 @@ class DetectionDistributedExecutor(executor.DistributedExecutor):
         """Creates a distributed test step."""
 
         @tf.function
-        def test_step(iterator, eval_steps, loss_fn):
+        def test_step(iterator, eval_steps):
             """Calculates evaluation metrics on distributed devices."""
 
-            def _test_step_fn(inputs, eval_steps, loss_fn):
+            def _test_step_fn(inputs, eval_steps):
                 """Replicated accuracy calculation."""
                 inputs, labels = inputs
                 model_outputs = model(inputs, training=False)
@@ -126,7 +126,7 @@ class DetectionDistributedExecutor(executor.DistributedExecutor):
             labels, outputs, per_replica_losses = strategy.experimental_run_v2(
                 _test_step_fn, args=(
                     next(iterator),
-                    eval_steps, loss_fn
+                    eval_steps,
                 ))
             outputs = tf.nest.map_structure(strategy.experimental_local_results,
                                             outputs)
@@ -142,7 +142,7 @@ class DetectionDistributedExecutor(executor.DistributedExecutor):
         return test_step
 
     def _run_evaluation(self, test_step, current_training_step, metric,
-                        test_iterator, loss_fn=None):
+                        test_iterator):
         """Runs validation steps and aggregate metrics."""
         self.eval_steps.assign(0)
         if not test_iterator or not metric:
@@ -153,24 +153,28 @@ class DetectionDistributedExecutor(executor.DistributedExecutor):
         logging.info('Running evaluation after step: %s.', current_training_step)
         eval_step = 0
         eval_losses = {}
-        while True:
-            try:
-                labels, outputs, losses = test_step(test_iterator, self.eval_steps, loss_fn)
-                if metric:
-                    metric.update_state(labels, outputs)
-                eval_step += 1
-                logging.info('----->evaluation  step: %s.', eval_step)
-                try:
-                    for k, v in losses.items():
-                        eval_losses[k].append(losses[k])
-                except KeyError:
-                    for k, v in losses.items():
-                        eval_losses[k] = []
-                        eval_losses[k].append(losses[k])
-                # 调试
-                break
-            except (StopIteration, tf.errors.OutOfRangeError):
-                break
+        try:
+            with tf.experimental.async_scope():
+                while True:
+                    # try:
+                    labels, outputs, losses = test_step(test_iterator, self.eval_steps)
+                    if metric:
+                        metric.update_state(labels, outputs)
+                    eval_step += 1
+                    logging.info('----->evaluation  step: %s.', eval_step)
+                    try:
+                        for k, v in losses.items():
+                            eval_losses[k].append(losses[k])
+                    except KeyError:
+                        for k, v in losses.items():
+                            eval_losses[k] = []
+                            eval_losses[k].append(losses[k])
+                    # 调试
+                    break
+                # except (StopIteration, tf.errors.OutOfRangeError):
+                #     break
+        except (StopIteration, tf.errors.OutOfRangeError):
+            tf.experimental.async_clear_error()
         for k, v in eval_losses.items():
             eval_losses[k] = tf.reduce_mean(tf.stack(eval_losses[k])).numpy().astype(float)
         metric_result = metric.result()
