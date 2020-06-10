@@ -298,6 +298,8 @@ class DistributedExecutor(object):
             for _ in tf.range(num_steps - 1):
                 per_replica_losses = strategy.experimental_run_v2(
                     replicated_step, args=(next(iterator),))
+                # 调试用
+                tf.print(per_replica_losses)
 
             # For reporting, we returns the mean of losses.
             losses = tf.nest.map_structure(
@@ -486,7 +488,7 @@ class DistributedExecutor(object):
         #         metrics=eval_metric_result, step=optimizer.iterations)
         #     reset_states(eval_metric)
 
-        logging.info('Training started'.center(100,'-'))
+        logging.info('Training started from step'.center(100,'-'))
         last_save_checkpoint_step = current_step
         while current_step < total_steps:
 

@@ -167,7 +167,7 @@ class DetectionDistributedExecutor(executor.DistributedExecutor):
                     for k, v in losses.items():
                         eval_losses[k] = []
                         eval_losses[k].append(losses[k])
-                # break
+                break
             except (StopIteration, tf.errors.OutOfRangeError):
                 break
         for k, v in eval_losses.items():

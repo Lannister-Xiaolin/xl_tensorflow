@@ -64,7 +64,7 @@ def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pa
         logging.info("Find one  gpu devices, using OneDeviceStrategy")
     else:
         strategy = tf.distribute.MirroredStrategy()
-        logging.info("Find {}  gpu devices, using OneDeviceStrategy".format(len(gpus)))
+        logging.info("Find {}  gpu devices, using MirroredStrategy".format(len(gpus)))
     # 建立模型与数据加载
     model_builder = EfficientDetModel(params)
     # if training_file_pattern:
