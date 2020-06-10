@@ -363,6 +363,7 @@ class Parser(object):
         }
         return image, labels
 
+    @tf.autograph.experimental.do_not_convert
     def _parse_predict_data(self, data):
         """Parses data for prediction."""
         # Gets original image and its size.
