@@ -428,9 +428,9 @@ class DistributedExecutor(object):
             if pre_weights:
                 try:
 
-                    model.load_weigths(pre_weights)
+                    model.load_weights(pre_weights)
                 except ValueError:
-                    model.load_weigths(pre_weights, by_name=True)
+                    model.load_weights(pre_weights, by_name=True)
                 logging.info("Load weights: "+pre_weights)
             if not hasattr(model, 'optimizer'):
                 raise ValueError('User should set optimizer attribute to model '
