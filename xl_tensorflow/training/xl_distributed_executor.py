@@ -486,7 +486,7 @@ class DistributedExecutor(object):
         #         metrics=eval_metric_result, step=optimizer.iterations)
         #     reset_states(eval_metric)
 
-        logging.info('Training started')
+        logging.info('Training started'.center(100,'-'))
         last_save_checkpoint_step = current_step
         while current_step < total_steps:
 
@@ -527,8 +527,8 @@ class DistributedExecutor(object):
             # iterations_per_loop steps.
             # To avoid repeated model saving, we do not save after the last
             # step of training.
-            if save_freq > 0 and current_step < total_steps and (
-                    current_step - last_save_checkpoint_step) >= save_freq:
+            if 0 < save_freq <= (
+                    current_step - last_save_checkpoint_step) and current_step < total_steps:
                 _save_checkpoint(checkpoint, model_dir,
                                  checkpoint_name.format(step=current_step))
                 last_save_checkpoint_step = current_step
