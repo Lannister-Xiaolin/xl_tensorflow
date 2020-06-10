@@ -28,10 +28,9 @@ def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pa
                                  model_dir=None,
                                  learning_rate=0.01, save_freq=None):
     # todo 校验训练与验证集损失问题
-    # todo 分布式训练测试
     # todo map推理结果正确性
     # todo 提前终止，以及其他损失函数
-    # todo keras格式权重保存
+    # todo keras格式权重保存， 预训练权重加载，以及冻结网络层训练等
     # todo 推理部署
     params = config_factory.config_generator(model_name)
     params.architecture.num_classes = number_classes
