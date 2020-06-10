@@ -296,7 +296,7 @@ class DistributedExecutor(object):
             per_replica_losses = strategy.experimental_run_v2(
                 replicated_step, args=(next(iterator),))
             for _ in tf.range(num_steps - 1):
-                tf.print(num_steps)
+                # tf.print(num_steps)
                 per_replica_losses = strategy.experimental_run_v2(
                     replicated_step, args=(next(iterator),))
                 # 调试用

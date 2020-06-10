@@ -326,6 +326,6 @@ def yolo_evaluate(image_files, output_dir, model_name, weights,
             print("no box detected: ", basename)
             pass
     if map_evaluate:
-        map50, metrics_per_classes, map_str = mao_raf_from_txtfile(gt_path, dt_path)
+        map50, metrics_per_classes, map_str = mao_raf_from_txtfile(gt_path, dt_path,score_threshold=score_threshold)
         with open(f"{map_save}/map_result.txt", "w") as f:
             f.write(map_str)
