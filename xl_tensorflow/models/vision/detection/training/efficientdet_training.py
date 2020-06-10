@@ -27,6 +27,7 @@ def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pa
                                  mode="train", bactch_size=4, iterations_per_loop=None, total_steps=None,
                                  model_dir=None,
                                  learning_rate=0.01, save_freq=None):
+    # todo 损失函数后处理问题
     # todo 校验训练与验证集损失问题
     # todo map推理结果正确性
     # todo 提前终止，以及其他损失函数
