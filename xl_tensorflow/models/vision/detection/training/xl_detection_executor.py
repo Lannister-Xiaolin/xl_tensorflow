@@ -105,17 +105,17 @@ class DetectionDistributedExecutor(executor.DistributedExecutor):
                 # if self._predict_post_process_fn:
                 labels, prediction_outputs = self._predict_post_process_fn(
                     labels, model_outputs)
-                # num_remaining_visualizations = (
-                #         self._params.eval.num_images_to_visualize - eval_steps)
-                # # If there are remaining number of visualizations that needs to be
-                # # done, add next batch outputs for visualization.
-                # #
-                # # TODO(hongjunchoi): Once dynamic slicing is supported on TPU, only
-                # # write correct slice of outputs to summary file.
-                # if num_remaining_visualizations > 0:
-                #     visualization_utils.visualize_images_with_bounding_boxes(
-                #         inputs, prediction_outputs['detection_boxes'],
-                #         self.global_train_step, self.eval_summary_writer)
+                num_remaining_visualizations = (
+                        self._params.eval.num_images_to_visualize - eval_steps)
+                # If there are remaining number of visualizations that needs to be
+                # done, add next batch outputs for visualization.
+                #
+                # TODO(hongjunchoi): Once dynamic slicing is supported on TPU, only
+                # write correct slice of outputs to summary file.
+                if num_remaining_visualizations > 0:
+                    visualization_utils.visualize_images_with_bounding_boxes(
+                        inputs, prediction_outputs['detection_boxes'],
+                        self.global_train_step, self.eval_summary_writer)
 
                 all_losses = loss_fn(labels, model_outputs)
                 losses = {}
@@ -153,28 +153,24 @@ class DetectionDistributedExecutor(executor.DistributedExecutor):
         logging.info('Running evaluation after step: %s.', current_training_step)
         eval_step = 0
         eval_losses = {}
-        try:
-            with tf.experimental.async_scope():
-                while True:
-                    # try:
-                    labels, outputs, losses = test_step(test_iterator, self.eval_steps)
-                    if metric:
-                        metric.update_state(labels, outputs)
-                    eval_step += 1
-                    logging.info('----->evaluation  step: %s.', eval_step)
-                    try:
-                        for k, v in losses.items():
-                            eval_losses[k].append(losses[k])
-                    except KeyError:
-                        for k, v in losses.items():
-                            eval_losses[k] = []
-                            eval_losses[k].append(losses[k])
-                    # 调试
-                    break
-                # except (StopIteration, tf.errors.OutOfRangeError):
-                #     break
-        except (StopIteration, tf.errors.OutOfRangeError):
-            tf.experimental.async_clear_error()
+        while True:
+            try:
+                labels, outputs, losses = test_step(test_iterator, self.eval_steps)
+                if metric:
+                    metric.update_state(labels, outputs)
+                eval_step += 1
+                logging.info('----->evaluation  step: %s.', eval_step)
+                try:
+                    for k, v in losses.items():
+                        eval_losses[k].append(losses[k])
+                except KeyError:
+                    for k, v in losses.items():
+                        eval_losses[k] = []
+                        eval_losses[k].append(losses[k])
+                # 调试
+                break
+            except (StopIteration, tf.errors.OutOfRangeError):
+                break
         for k, v in eval_losses.items():
             eval_losses[k] = tf.reduce_mean(tf.stack(eval_losses[k])).numpy().astype(float)
         metric_result = metric.result()
