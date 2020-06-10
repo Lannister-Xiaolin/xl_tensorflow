@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="xl_tensorflow",  # Replace with your own username
-    version="0.4.9",
+    version="0.5.0",
 
     author="Xiaolin",
     author_email="119xiaolin@163.com",
