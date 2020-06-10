@@ -299,7 +299,7 @@ class DistributedExecutor(object):
                 per_replica_losses = strategy.experimental_run_v2(
                     replicated_step, args=(next(iterator),))
                 # 调试用
-                tf.print(per_replica_losses)
+
 
             # For reporting, we returns the mean of losses.
             losses = tf.nest.map_structure(
