@@ -23,19 +23,37 @@ flags.DEFINE_integer('save_checkpoint_freq', None,
 FLAGS = flags.FLAGS
 
 
-def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pattern, number_classes,
-                                 mode="train", bactch_size=4, steps_per_epoch=None, total_steps=None, model_dir=None,
-                                 log_dir=None):
-    # todo map评估函数
-    # todo evaluate 参考官方research文件
+def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pattern, number_classes, optimizer="adam",
+                                 mode="train", bactch_size=4, iterations_per_loop=None, total_steps=None,
+                                 model_dir=None,
+                                 learning_rate=0.08,save_freq=None):
+    # todo 校验训练与验证集损失问题
+    # todo 分布式训练测试
+    # todo map推理结果正确性
+    # todo 提前终止，以及其他损失函数
+    # todo keras格式权重保存
+    # todo 推理部署
     params = config_factory.config_generator(model_name)
     params.architecture.num_classes = number_classes
     params.train.batch_size = bactch_size
+    params.train.optimizer.type = optimizer
+    params.train.iterations_per_loop = params.train.iterations_per_loop if not iterations_per_loop else iterations_per_loop
+    params.train.total_steps = params.train.total_steps if not total_steps else total_steps
+
+    params.train.override({'learning_rate': {
+        'type': 'step',
+        'warmup_learning_rate': learning_rate * 0.1,
+        'warmup_steps': max(int(params.train.total_steps * 0.01), 200),
+        'init_learning_rate': learning_rate,
+        'learning_rate_levels': [learning_rate * 0.1, learning_rate * 0.01],
+        'learning_rate_steps': [int(params.train.total_steps * 0.67), int(params.train.total_steps * 0.83)],
+    }}, is_strict=False)
+
     # 模型保存路径与checkpoint保存路径
     model_dir = "./model" if not model_dir else model_dir
-    log_dir = "./model" if not log_dir else log_dir
+    # log_dir = "./model" if not log_dir else log_dir
     os.makedirs(model_dir, exist_ok=True)
-    os.makedirs(log_dir, exist_ok=True)
+    # os.makedirs(log_dir, exist_ok=True)
     # 设置分布式训练策略
     gpus = tf.config.experimental.list_physical_devices('GPU')
     if len(gpus) == 0:
@@ -51,14 +69,14 @@ def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pa
     train_input_fn = input_reader.InputFn(
         file_pattern=training_file_pattern,
         params=params,
-        mode=input_reader.ModeKeys.PREDICT_WITH_GT,
+        mode=input_reader.ModeKeys.TRAIN,
         batch_size=params.train.batch_size)
     if eval_file_pattern:
         eval_input_fn = input_reader.InputFn(
             file_pattern=eval_file_pattern,
             params=params,
             mode=input_reader.ModeKeys.PREDICT_WITH_GT,
-            batch_size=params.eval.batch_size,
+            batch_size=bactch_size,
             num_examples=params.eval.eval_samples)
     if mode == 'train':
         def _model_fn(params):
@@ -81,11 +99,11 @@ def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pa
             eval_input_fn=eval_input_fn if eval_file_pattern else None,
             eval_metric_fn=model_builder.eval_metrics if eval_file_pattern else None,
             model_dir=model_dir,
-            iterations_per_loop=params.train.iterations_per_loop if not steps_per_epoch else steps_per_epoch,
-            total_steps=params.train.total_steps if not total_steps else total_steps,
+            iterations_per_loop=params.train.iterations_per_loop,
+            total_steps=params.train.total_steps,
             init_checkpoint=model_builder.make_restore_checkpoint_fn(),
             custom_callbacks=None,
-            save_config=True)
+            save_config=True,save_freq=save_freq)
 
 
 # mul_gpu_training_custom_data("efficientdet-d0",
@@ -94,8 +112,8 @@ def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pa
 def main(_):
     mul_gpu_training_custom_loop("efficientdet-d0",
                                  r"E:\Temp\test\tfrecord\*.tfrecord",
-                                 r"E:\Temp\test\tfrecord\*.tfrecord", 21, bactch_size=4, steps_per_epoch=10,
-                                 total_steps=200)
+                                 r"E:\Temp\test\tfrecord\*.tfrecord", 21, bactch_size=4, iterations_per_loop=10,
+                                 total_steps=300)
 
 
 if __name__ == '__main__':

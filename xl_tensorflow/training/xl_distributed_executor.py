@@ -343,7 +343,8 @@ class DistributedExecutor(object):
                                           SummaryWriter] = SummaryWriter,
               init_checkpoint: Callable[[tf.keras.Model], Any] = None,
               custom_callbacks: List[tf.keras.callbacks.Callback] = None,
-              save_config: bool = True):
+              save_config: bool = True,
+              save_freq: int = None):
         """Runs distributed training.
 
         Args:
@@ -363,6 +364,7 @@ class DistributedExecutor(object):
             training. More specifically, `on_batch_begin()`, `on_batch_end()`,
             methods are invoked during training.
           save_config: bool. Whether to save params to model_dir.
+          save_freq: int, save frequency of model
 
         Returns:
           The training loss and eval metrics.
@@ -403,8 +405,8 @@ class DistributedExecutor(object):
         if save_config:
             self._save_config(model_dir)
 
-        if FLAGS.save_checkpoint_freq:
-            save_freq = FLAGS.save_checkpoint_freq
+        if save_freq:
+            save_freq = save_freq
         else:
             save_freq = iterations_per_loop
 
@@ -477,7 +479,7 @@ class DistributedExecutor(object):
         if test_step:
             eval_iterator = self._get_input_iterator(eval_input_fn, strategy)
             eval_metric_result = self._run_evaluation(
-                test_step, current_step, eval_metric, eval_iterator)
+                test_step, current_step, eval_metric, eval_iterator, self.loss_fn())
             logging.info(
                 'Step: %s evalation metric = %s.', current_step, eval_metric_result)
             test_summary_writer(
@@ -507,6 +509,7 @@ class DistributedExecutor(object):
                 train_metric_result = metric_results(train_metric)
                 train_metric_result.update(train_loss)
             else:
+                logging.info("add loss to train metric")
                 train_metric_result = train_loss
             if callable(optimizer.lr):
                 train_metric_result.update(
@@ -533,7 +536,7 @@ class DistributedExecutor(object):
             if test_step:
                 eval_iterator = self._get_input_iterator(eval_input_fn, strategy)
                 eval_metric_result = self._run_evaluation(test_step, current_step,
-                                                          eval_metric, eval_iterator)
+                                                          eval_metric, eval_iterator, self.loss_fn())
                 logging.info('Step: %s evalation metric = %s.', current_step,
                              eval_metric_result)
                 test_summary_writer(
@@ -554,7 +557,7 @@ class DistributedExecutor(object):
             logging.info('Running final evaluation after training is complete.')
             eval_iterator = self._get_input_iterator(eval_input_fn, strategy)
             eval_metric_result = self._run_evaluation(test_step, current_step,
-                                                      eval_metric, eval_iterator)
+                                                      eval_metric, eval_iterator, self.loss_fn())
             logging.info('Final evaluation metric = %s.', eval_metric_result)
             test_summary_writer(
                 metrics=eval_metric_result, step=optimizer.iterations)
@@ -565,7 +568,7 @@ class DistributedExecutor(object):
         return train_loss, eval_metric_result
 
     def _run_evaluation(self, test_step, current_training_step, metric,
-                        test_iterator):
+                        test_iterator, loss_fn=None):
         """Runs validation steps and aggregate metrics."""
         if not test_iterator or not metric:
             logging.warning(
@@ -574,8 +577,10 @@ class DistributedExecutor(object):
             return None
         logging.info('Running evaluation after step: %s.', current_training_step)
         eval_step = 0
+
         while True:
             try:
+                logging.info('Running evaluation  step: %s.', eval_step)
                 with tf.experimental.async_scope():
                     test_step(test_iterator)
                     eval_step += 1

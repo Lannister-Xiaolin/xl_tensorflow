@@ -175,7 +175,9 @@ class EfficientDetModel(base_model.Model):
             labels['classes'] = labels['groundtruths']['classes']
             labels['areas'] = labels['groundtruths']['areas']
             labels['is_crowds'] = labels['groundtruths']['is_crowds']
-
+            labels['num_detections'] = labels['groundtruths']['num_detections']
+            labels['height'] = labels['groundtruths']['height']
+            labels['width'] = labels['groundtruths']['width']
         return labels, outputs
 
     def eval_metrics(self):

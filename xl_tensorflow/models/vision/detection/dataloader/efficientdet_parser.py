@@ -280,8 +280,10 @@ class Parser(object):
         }
         return image, labels
 
+    # todo 暂时不可用
     def _parse_eval_data(self, data):
         """Parses data for training and evaluation."""
+        print("------------------------------------------------------------------")
         groundtruths = {}
         classes = data['groundtruth_classes']
         boxes = data['groundtruth_boxes']
@@ -340,6 +342,9 @@ class Parser(object):
             'classes': data['groundtruth_classes'],
             'areas': data['groundtruth_area'],
             'is_crowds': tf.cast(data['groundtruth_is_crowd'], tf.int32),
+            'height': data['height'],
+            'width': data['width'],
+
         }
         groundtruths['source_id'] = process_source_id(groundtruths['source_id'])
         groundtruths = pad_groundtruths_to_fixed_size(
@@ -353,6 +358,8 @@ class Parser(object):
             'num_positives': num_positives,
             'image_info': image_info,
             'groundtruths': groundtruths,
+            'height': data['height'],
+            'width': data['width'],
         }
         return image, labels
 
@@ -396,11 +403,13 @@ class Parser(object):
                 data['groundtruth_boxes'], image_shape)
             groundtruths = {
                 'source_id': data['source_id'],
-                'num_detections': tf.shape(data['groundtruth_classes']),
+                'num_detections': tf.shape(data['groundtruth_classes'])[0],
                 'boxes': boxes,
                 'classes': data['groundtruth_classes'],
                 'areas': data['groundtruth_area'],
                 'is_crowds': tf.cast(data['groundtruth_is_crowd'], tf.int32),
+                'height': data['height'],
+                'width': data['width'],
             }
             groundtruths['source_id'] = process_source_id(groundtruths['source_id'])
             groundtruths = pad_groundtruths_to_fixed_size(
@@ -427,4 +436,6 @@ class Parser(object):
             labels['cls_targets'] = cls_targets
             labels['box_targets'] = box_targets
             labels['num_positives'] = num_positives
+            labels['height'] = data['height']
+            labels['width'] = data['width']
         return image, labels
