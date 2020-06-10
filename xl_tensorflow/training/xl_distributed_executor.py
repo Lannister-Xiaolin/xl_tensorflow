@@ -488,11 +488,11 @@ class DistributedExecutor(object):
         #         metrics=eval_metric_result, step=optimizer.iterations)
         #     reset_states(eval_metric)
 
-        logging.info('Training started from step'.center(100,'-'))
+        logging.info('Training started from step {}'.format(current_step).center(80, '-'))
         last_save_checkpoint_step = current_step
         while current_step < total_steps:
-
-            num_steps = _steps_to_run(current_step, total_steps, iterations_per_loop)
+            num_steps = _steps_to_run(current_step, total_steps,
+                                      iterations_per_loop)
             _run_callbacks_on_batch_begin(current_step)
             train_loss = train_step(train_iterator,
                                     tf.convert_to_tensor(num_steps, dtype=tf.int32))
