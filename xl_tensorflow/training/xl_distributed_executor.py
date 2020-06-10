@@ -346,7 +346,8 @@ class DistributedExecutor(object):
               init_checkpoint: Callable[[tf.keras.Model], Any] = None,
               custom_callbacks: List[tf.keras.callbacks.Callback] = None,
               save_config: bool = True,
-              save_freq: int = None):
+              save_freq: int = None,
+              pre_weights: str = None):
         """Runs distributed training.
 
         Args:
@@ -424,6 +425,11 @@ class DistributedExecutor(object):
             # To correctly place the model weights on accelerators,
             # model and optimizer should be created in scope.
             model = self.model_fn(params)
+            if pre_weights:
+                try:
+                    model.load_weigths(pre_weights)
+                except ValueError:
+                    model.load_weigths(pre_weights, by_name=True)
             if not hasattr(model, 'optimizer'):
                 raise ValueError('User should set optimizer attribute to model '
                                  'inside `model_fn`.')
