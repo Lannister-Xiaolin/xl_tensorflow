@@ -105,17 +105,17 @@ class DetectionDistributedExecutor(executor.DistributedExecutor):
                 # if self._predict_post_process_fn:
                 labels, prediction_outputs = self._predict_post_process_fn(
                     labels, model_outputs)
-                num_remaining_visualizations = (
-                        self._params.eval.num_images_to_visualize - eval_steps)
-                # If there are remaining number of visualizations that needs to be
-                # done, add next batch outputs for visualization.
-                #
-                # TODO(hongjunchoi): Once dynamic slicing is supported on TPU, only
-                # write correct slice of outputs to summary file.
-                if num_remaining_visualizations > 0:
-                    visualization_utils.visualize_images_with_bounding_boxes(
-                        inputs, prediction_outputs['detection_boxes'],
-                        self.global_train_step, self.eval_summary_writer)
+                # num_remaining_visualizations = (
+                #         self._params.eval.num_images_to_visualize - eval_steps)
+                # # If there are remaining number of visualizations that needs to be
+                # # done, add next batch outputs for visualization.
+                # #
+                # # TODO(hongjunchoi): Once dynamic slicing is supported on TPU, only
+                # # write correct slice of outputs to summary file.
+                # if num_remaining_visualizations > 0:
+                #     visualization_utils.visualize_images_with_bounding_boxes(
+                #         inputs, prediction_outputs['detection_boxes'],
+                #         self.global_train_step, self.eval_summary_writer)
 
                 all_losses = loss_fn(labels, model_outputs)
                 losses = {}
