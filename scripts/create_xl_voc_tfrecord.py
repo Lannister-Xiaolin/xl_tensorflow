@@ -145,14 +145,6 @@ def dict_to_tf_example(data,
             difficult = bool(int(obj['difficult']))
             if ignore_difficult_instances and difficult:
                 continue
-
-            difficult_obj.append(int(difficult))
-
-            xmin.append(float(obj['bndbox']['xmin']) / width)
-            ymin.append(float(obj['bndbox']['ymin']) / height)
-            xmax.append(float(obj['bndbox']['xmax']) / width)
-            ymax.append(float(obj['bndbox']['ymax']) / height)
-            classes_text.append(obj['name'].strip().encode('utf8'))
             if not auto_label_map:
                 try:
                     classes.append(label_map_dict[obj['name'].strip()])
@@ -166,6 +158,12 @@ def dict_to_tf_example(data,
                     auto_label_index = auto_label_index + 1
                     classes.append(auto_label_index)
                     label_map_dict[obj['name']] = auto_label_index
+            difficult_obj.append(int(difficult))
+            xmin.append(float(obj['bndbox']['xmin']) / width)
+            ymin.append(float(obj['bndbox']['ymin']) / height)
+            xmax.append(float(obj['bndbox']['xmax']) / width)
+            ymax.append(float(obj['bndbox']['ymax']) / height)
+            classes_text.append(obj['name'].strip().encode('utf8'))
 
             truncated.append(int(obj['truncated']))
             poses.append(obj['pose'].encode('utf8'))

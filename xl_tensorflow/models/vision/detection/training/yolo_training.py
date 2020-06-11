@@ -30,7 +30,7 @@ def mul_gpu_training_custom_data(train_annotation_path, val_annotation_path,
                                  ignore_thresh=0.4, print_loss=True,
                                  iou_scale=1.0,
                                  autoaugment_policy_name="v0", autoaugment_ratio=0.8, buffer=1000,
-                                 aug_scale_max=1.2, aug_scale_min=0.8):
+                                 aug_scale_max=1.5, aug_scale_min=0.5):
     """
 
     Args:
