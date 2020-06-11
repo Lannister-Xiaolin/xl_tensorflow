@@ -340,9 +340,9 @@ def main(_):
 
     # Todo多进程数据共享的问题
     pool = multiprocessing.Pool(FLAGS.num_threads)
+    if FLAGS.num_images:
+        xml_files = xml_files[:FLAGS.num_images]
     for idx in range(len(xml_files)):
-        if FLAGS.num_images and idx >= FLAGS.num_images:
-            break
         if idx % 100 == 0:
             logging.info('On image %d of %d', idx, len(xml_files))
         path = xml_files[idx]

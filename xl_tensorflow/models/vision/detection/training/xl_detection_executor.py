@@ -102,12 +102,10 @@ class DetectionDistributedExecutor(executor.DistributedExecutor):
                 """Replicated accuracy calculation."""
                 inputs, labels = inputs
                 model_outputs = model(inputs, training=False)
+                all_losses = loss_fn(labels, model_outputs)
                 # if self._predict_post_process_fn:
                 labels, prediction_outputs = self._predict_post_process_fn(
                     labels, model_outputs)
-
-
-                all_losses = loss_fn(labels, model_outputs)
                 losses = {}
                 for k, v in all_losses.items():
                     losses[k] = tf.reduce_mean(v)

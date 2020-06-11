@@ -170,14 +170,25 @@ class EfficientDetModel(base_model.Model):
         }
 
         if 'groundtruths' in labels:
-            labels['source_id'] = labels['groundtruths']['source_id']
-            labels['boxes'] = labels['groundtruths']['boxes']
-            labels['classes'] = labels['groundtruths']['classes']
-            labels['areas'] = labels['groundtruths']['areas']
-            labels['is_crowds'] = labels['groundtruths']['is_crowds']
-            labels['num_detections'] = labels['groundtruths']['num_detections']
-            labels['height'] = labels['groundtruths']['height']
-            labels['width'] = labels['groundtruths']['width']
+            # todo 移除boxtarges ,cls_targets,待确认是否还有内存泄漏
+            labels = {
+                "source_id": labels['groundtruths']['source_id'],
+                "boxes": labels['groundtruths']['boxes'],
+                "classes": labels['groundtruths']['classes'],
+                'areas': labels['groundtruths']['areas'],
+                'is_crowds': labels['groundtruths']['is_crowds'],
+                'num_detections': labels['groundtruths']['num_detections'],
+                'height': labels['groundtruths']['height'],
+                'width': labels['groundtruths']['width']
+            }
+            # labels['source_id'] = labels['groundtruths']['source_id']
+            # labels['boxes'] = labels['groundtruths']['boxes']
+            # labels['classes'] = labels['groundtruths']['classes']
+            # labels['areas'] = labels['groundtruths']['areas']
+            # labels['is_crowds'] = labels['groundtruths']['is_crowds']
+            # labels['num_detections'] = labels['groundtruths']['num_detections']
+            # labels['height'] = labels['groundtruths']['height']
+            # labels['width'] = labels['groundtruths']['width']
         return labels, outputs
 
     def eval_metrics(self):
