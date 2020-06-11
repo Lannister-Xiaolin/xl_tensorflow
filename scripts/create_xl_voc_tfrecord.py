@@ -308,80 +308,80 @@ def main(_):
 
     auto_label_index = -1
     # 只有线程数能被shard整除时和指定类别字典时才允许多线程并发，
-    if FLAGS.num_threads and FLAGS.num_threads > 1 and FLAGS.label_map_json_path and (
-            FLAGS.num_shards == FLAGS.num_threads):
-        logging.info("多线程处理")
-        from copy import deepcopy
-        intervals = len(xml_files) // FLAGS.num_threads
-        files_indexes_all = [(i * intervals, (i + 1) * intervals) if i < (FLAGS.num_threads - 1) else (
-            i * intervals, max((i + 1) * intervals, len(xml_files))) for i in range(FLAGS.num_threads)]
-        print(files_indexes_all)
-        total_number = len(image_files)
-        threads = [None] * FLAGS.num_threads
-        for i in range(FLAGS.num_threads):
-            threads[i] = threading.Thread(target=batch_processing,
-                                          args=(i,
-                                                deepcopy(xml_files[files_indexes_all[i][0]:files_indexes_all[i][1]]),
-                                                deepcopy(image_files[files_indexes_all[i][0]:files_indexes_all[i][1]]),
-                                                deepcopy(label_map_dict), auto_label_map, deepcopy(ann_json_dict),
-                                                auto_label_index, total_number
-                                                ))
+    # if FLAGS.num_threads and FLAGS.num_threads > 1 and FLAGS.label_map_json_path and (
+    #         FLAGS.num_shards == FLAGS.num_threads):
+    #     logging.info("多线程处理")
+    #     from copy import deepcopy
+    #     intervals = len(xml_files) // FLAGS.num_threads
+    #     files_indexes_all = [(i * intervals, (i + 1) * intervals) if i < (FLAGS.num_threads - 1) else (
+    #         i * intervals, max((i + 1) * intervals, len(xml_files))) for i in range(FLAGS.num_threads)]
+    #     print(files_indexes_all)
+    #     total_number = len(image_files)
+    #     threads = [None] * FLAGS.num_threads
+    #     for i in range(FLAGS.num_threads):
+    #         threads[i] = threading.Thread(target=batch_processing,
+    #                                       args=(i,
+    #                                             deepcopy(xml_files[files_indexes_all[i][0]:files_indexes_all[i][1]]),
+    #                                             deepcopy(image_files[files_indexes_all[i][0]:files_indexes_all[i][1]]),
+    #                                             deepcopy(label_map_dict), auto_label_map, deepcopy(ann_json_dict),
+    #                                             auto_label_index, total_number
+    #                                             ))
+    #
+    #     for thread in threads:
+    #         thread.start()
+    #     for thread in threads: thread.join()
+    # else:
+    logging.info("单线程处理")
+    writers = [
+        tf.python_io.TFRecordWriter(os.path.join(FLAGS.output_path, FLAGS.prefix + '-%05d-of-%05d.tfrecord' %
+                                                 (i, FLAGS.num_shards)))
+        for i in range(FLAGS.num_shards)
+    ]
 
-        for thread in threads:
-            thread.start()
-        for thread in threads: thread.join()
-    else:
-        logging.info("单线程处理")
-        writers = [
-            tf.python_io.TFRecordWriter(os.path.join(FLAGS.output_path, FLAGS.prefix + '-%05d-of-%05d.tfrecord' %
-                                                     (i, FLAGS.num_shards)))
-            for i in range(FLAGS.num_shards)
-        ]
+    # Todo多进程数据共享的问题
+    pool = multiprocessing.Pool(FLAGS.num_threads)
+    for idx in range(len(xml_files)):
+        if FLAGS.num_images and idx >= FLAGS.num_images:
+            break
+        if idx % 100 == 0:
+            logging.info('On image %d of %d', idx, len(xml_files))
+        path = xml_files[idx]
+        with tf.gfile.GFile(path, 'r') as fid:
+            xml_str = fid.read()
+        try:
+            xml = etree.fromstring(xml_str)
+        except ValueError:
+            xml = etree.fromstring(xml_str.encode("utf-8"))
+        # 新增
+        try:
+            temp = tf.io.decode_image(tf.io.read_file(image_files[idx]), channels=3)
+        except tf.errors.InvalidArgumentError:
+            logging.warning("图片编码错误！！"+image_files[idx])
+            continue
+        data = tfrecord_util.recursive_parse_xml_to_dict(xml)['annotation']
+        try:
+            tf_example, auto_label_index = dict_to_tf_example(
+                data, image_files[idx],
+                label_map_dict,
+                auto_label_map=auto_label_map,
+                auto_label_index=auto_label_index,
+                ignore_difficult_instances=FLAGS.ignore_difficult_instances,
+                ann_json_dict=ann_json_dict)
+        except ZeroDivisionError:
+            logging.warning("ZeroDivisionError: " + path)
+            continue
+        except AssertionError as e:
+            logging.warning("AssertionError: " + path + str(e))
+            continue
+        writers[idx % FLAGS.num_shards].write(tf_example.SerializeToString())
 
-        # Todo多进程数据共享的问题
-        pool = multiprocessing.Pool(FLAGS.num_threads)
-        for idx in range(len(xml_files)):
-            if FLAGS.num_images and idx >= FLAGS.num_images:
-                break
-            if idx % 100 == 0:
-                logging.info('On image %d of %d', idx, len(xml_files))
-            path = xml_files[idx]
-            with tf.gfile.GFile(path, 'r') as fid:
-                xml_str = fid.read()
-            try:
-                xml = etree.fromstring(xml_str)
-            except ValueError:
-                xml = etree.fromstring(xml_str.encode("utf-8"))
-            # 新增
-            try:
-                temp = tf.io.decode_image(tf.io.read_file(image_files[idx]), channels=3)
-            except tf.errors.InvalidArgumentError:
-                logging.warning("图片编码错误！！"+image_files[idx])
-                continue
-            data = tfrecord_util.recursive_parse_xml_to_dict(xml)['annotation']
-            try:
-                tf_example, auto_label_index = dict_to_tf_example(
-                    data, image_files[idx],
-                    label_map_dict,
-                    auto_label_map=auto_label_map,
-                    auto_label_index=auto_label_index,
-                    ignore_difficult_instances=FLAGS.ignore_difficult_instances,
-                    ann_json_dict=ann_json_dict)
-            except ZeroDivisionError:
-                logging.warning("ZeroDivisionError: " + path)
-                continue
-            except AssertionError as e:
-                logging.warning("AssertionError: " + path + str(e))
-                continue
-            writers[idx % FLAGS.num_shards].write(tf_example.SerializeToString())
+    for writer in writers:
+        writer.close()
 
-        for writer in writers:
-            writer.close()
-
-        json_file_path = os.path.join(FLAGS.output_path, 'label2index.json')
-        if auto_label_map:
-            with tf.io.gfile.GFile(json_file_path, 'w') as f:
-                json.dump(label_map_dict, f)
+    json_file_path = os.path.join(FLAGS.output_path, 'label2index.json')
+    if auto_label_map:
+        with tf.io.gfile.GFile(json_file_path, 'w') as f:
+            json.dump(label_map_dict, f)
     print("-----------Convert time cost(second):", time.time() - st)
 
 
