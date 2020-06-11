@@ -38,6 +38,7 @@ import multiprocessing
 import threading
 from xl_tensorflow.datasets.tfrecord import tfrecord_util
 import os
+
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 flags.DEFINE_string('data_dir', '', 'Root directory to  VOC format dataset include image and xml files.')
 flags.DEFINE_string('output_path', '', 'Path to output TFRecord and json.')
@@ -187,7 +188,8 @@ def dict_to_tf_example(data,
                     'segmentation': [],
                 }
                 ann_json_dict['annotations'].append(ann)
-
+    if len(classes) == 0:
+        raise ValueError
     example = tf.train.Example(
         features=tf.train.Features(
             feature={
@@ -356,7 +358,7 @@ def main(_):
         try:
             temp = tf.io.decode_image(tf.io.read_file(image_files[idx]), channels=3)
         except tf.errors.InvalidArgumentError:
-            logging.warning("图片编码错误！！"+image_files[idx])
+            logging.warning("图片编码错误！！" + image_files[idx])
             continue
         data = tfrecord_util.recursive_parse_xml_to_dict(xml)['annotation']
         try:
@@ -372,6 +374,9 @@ def main(_):
             continue
         except AssertionError as e:
             logging.warning("AssertionError: " + path + str(e))
+            continue
+        except ValueError as e:
+            logging.warning("ValueError None classes in image: " + path + str(e))
             continue
         writers[idx % FLAGS.num_shards].write(tf_example.SerializeToString())
 

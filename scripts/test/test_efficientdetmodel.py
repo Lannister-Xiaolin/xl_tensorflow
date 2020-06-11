@@ -14,16 +14,29 @@ from xl_tensorflow.models.vision.detection.inference.efficientdet_inference impo
 
 
 def model_test():
-    params = config_factory.config_generator("efficientdet-d1")
+    path = r"E:\Temp\test\efficiendet_merge_test"
+    for i in range(7):
+        params = config_factory.config_generator(f"efficientdet-d{i}")
+        model_fn = EfficientDetModel(params)
+        model = model_fn.build_model(params)
+        # model.load_weights(
+        #     r"E:\Programming\Python\TOOL\weights\efficientnet\efficientnet-b1_weights_tf_dim_ordering_tf_kernels.h5",
+        #     by_name=True, skip_mismatch=True)
+        data = np.random.random((1, *params.efficientdet_parser.output_size, 3))
+        print(model(data, training=False)['cls_outputs'].keys())
+        model.save(f"{path}/{params.name}.h5", include_optimizer=False)
+        # print(model(data, training=False)['cls_outputs'])
+    for i in range(5):
+        params = config_factory.config_generator(f"efficientdetlite-d{i}")
 
-    model_fn = EfficientDetModel(params)
-    model = model_fn.build_model(params)
-    model.load_weights(
-        r"E:\Programming\Python\TOOL\weights\efficientnet\efficientnet-b1_weights_tf_dim_ordering_tf_kernels.h5",
-        by_name=True, skip_mismatch=True)
-    data = np.random.random((2, 640, 640, 3))
-    print(model(data, training=True)['cls_outputs'])
-    print(model(data, training=False)['cls_outputs'])
+        model_fn = EfficientDetModel(params)
+        model = model_fn.build_model(params)
+        # model.load_weights(
+        #     r"E:\Programming\Python\TOOL\weights\efficientnet\efficientnet-b1_weights_tf_dim_ordering_tf_kernels.h5",
+        #     by_name=True, skip_mismatch=True)
+        data = np.random.random((1, *params.efficientdet_parser.output_size, 3))
+        print(model(data, training=False)['cls_outputs'].keys())
+        model.save(f"{path}/{params.name}.h5", include_optimizer=False)
 
 
 def training_test():
@@ -34,6 +47,7 @@ def training_test():
     model_fn = EfficientDetModel(params)
     model = model_fn.build_model(params)
     next(data.as_numpy_iterator())
+
     def loss_fn(labels, outputs):
         return model_fn.build_loss_fn()(labels, outputs)['total_loss']
 
@@ -53,9 +67,9 @@ def inference_test():
     from PIL import Image
     import glob
     data = [np.array(Image.open(file)) for file in glob.glob(r"E:\Temp\test\image\a\*.jpg")]
-    print([i.shape  for i in data])
-    images, scales = batch_image_preprocess(data, (640, 640),batch_size=2)
-    print(np.array(images[0]).mean(axis=-1),scales)
+    print([i.shape for i in data])
+    images, scales = batch_image_preprocess(data, (640, 640), batch_size=2)
+    print(np.array(images[0]).mean(axis=-1), scales)
     outputs = model(images)
     #
     det_post_process_combined(params, scales=scales, min_score_thresh=0.2, max_boxes_to_draw=4, **outputs)
@@ -64,4 +78,5 @@ def inference_test():
 
 if __name__ == '__main__':
     # inference_test()
-    training_test()
+    # training_test()
+    model_test()
