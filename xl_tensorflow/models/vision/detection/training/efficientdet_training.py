@@ -13,8 +13,6 @@ from xl_tensorflow.models.vision.detection.body.efficientdet_model import Effici
 import numpy as np
 from tensorflow.keras import layers, Model
 from xl_tensorflow.models.vision.detection.dataloader import input_reader
-from xl_tensorflow.models.vision.detection.inference.efficientdet_inference import det_post_process_combined, \
-    batch_image_preprocess
 from xl_tensorflow.models.vision.detection.training.xl_detection_executor import DetectionDistributedExecutor
 from absl import flags, app, logging
 
