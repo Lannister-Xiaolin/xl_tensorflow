@@ -424,7 +424,7 @@ class DistributedExecutor(object):
         with strategy.scope():
             # To correctly place the model weights on accelerators,
             # model and optimizer should be created in scope.
-            model,inference_model = self.model_fn(params)
+            model = self.model_fn(params)
             if pre_weights:
                 try:
 
@@ -480,21 +480,21 @@ class DistributedExecutor(object):
         test_step = None
         if eval_input_fn and eval_metric:
             self.global_train_step = model.optimizer.iterations
-            test_step = self._create_test_step(strategy, inference_model, metric=eval_metric, loss_fn=self.loss_fn())
+            test_step = self._create_test_step(strategy, model, metric=eval_metric, loss_fn=self.loss_fn())
 
         # Step-0 operations
         if current_step == 0 and not latest_checkpoint_file:
             _save_checkpoint(
                 checkpoint, model_dir, checkpoint_name.format(step=current_step))
-        if test_step:
-            eval_iterator = self._get_input_iterator(eval_input_fn, strategy)
-            eval_metric_result = self._run_evaluation(test_step, current_step,
-                                                      eval_metric, eval_iterator)
-            logging.info(
-                'Step: %s evalation metric = %s.', current_step, eval_metric_result)
-            test_summary_writer(
-                metrics=eval_metric_result, step=optimizer.iterations)
-            reset_states(eval_metric)
+        # if test_step:
+        #     eval_iterator = self._get_input_iterator(eval_input_fn, strategy)
+        #     eval_metric_result = self._run_evaluation(
+        #         test_step, current_step, eval_metric, eval_iterator, self.loss_fn())
+        #     logging.info(
+        #         'Step: %s evalation metric = %s.', current_step, eval_metric_result)
+        #     test_summary_writer(
+        #         metrics=eval_metric_result, step=optimizer.iterations)
+        #     reset_states(eval_metric)
 
         logging.info('Training started from step {}'.format(current_step).center(80, '-'))
         last_save_checkpoint_step = current_step

@@ -104,31 +104,8 @@ class DetectionDistributedExecutor(executor.DistributedExecutor):
                 model_outputs = model(inputs, training=False)
                 all_losses = loss_fn(labels, model_outputs)
                 # if self._predict_post_process_fn:
-                # labels, prediction_outputs = self._predict_post_process_fn(
-                #     labels, model_outputs)
-                model_outputs.update({
-                    'source_id': labels['groundtruths']['source_id'],
-                    'image_info': labels['image_info'],
-                })
-                prediction_outputs = {
-                    'source_id': labels['groundtruths']['source_id'],
-                    'image_info': labels['image_info'],
-                    'num_detections': model_outputs['num_detections'],
-                    'detection_boxes': model_outputs['detection_boxes'],
-                    'detection_classes': model_outputs['detection_classes'],
-                    'detection_scores': model_outputs['detection_scores'],
-                }
-                labels = {
-                    'source_id': labels['groundtruths']['source_id'],
-                    'image_info': labels['image_info'],
-                    'num_detections': labels['groundtruths']['num_detections'],
-                    'boxes': labels['groundtruths']['boxes'],
-                    'classes': labels['groundtruths']['classes'],
-                    'areas': labels['groundtruths']['areas'],
-                    'is_crowds': labels['groundtruths']['is_crowds'],
-                    'height': labels['height'],
-                    'width': labels['width'],
-                }
+                labels, prediction_outputs = self._predict_post_process_fn(
+                    labels, model_outputs)
                 losses = {}
                 for k, v in all_losses.items():
                     losses[k] = tf.reduce_mean(v)

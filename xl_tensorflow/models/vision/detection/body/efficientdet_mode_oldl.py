@@ -63,9 +63,9 @@ class EfficientDetModel(base_model.Model):
             params.architecture.min_level,
             params.architecture.max_level,
             params.postprocess)
-        self._input_anchor = anchor.Anchor(
-            params.architecture.min_level, params.architecture.max_level, params.anchor.num_scales,
-            params.anchor.aspect_ratios, params.anchor.anchor_size, (*params.efficientdet_parser.output_size,))
+        # self._input_anchor = anchor.Anchor(
+        #     params.architecture.min_level, params.architecture.max_level, params.anchor.num_scales,
+        #     params.anchor.aspect_ratios, params.anchor.anchor_size, (*params.efficientdet_parser.output_size,))
         self._transpose_input = params.train.transpose_input
         assert not self._transpose_input, 'Transpose input is not supportted.'
         # Input layer.
@@ -99,8 +99,7 @@ class EfficientDetModel(base_model.Model):
             'cls_outputs': cls_outputs,
             'box_outputs': box_outputs,
         }
-        evaluate_outputs = self.post_processing_inference(model_outputs)
-        return model_outputs, evaluate_outputs
+        return model_outputs
 
     def build_loss_fn(self):
         if self._keras_model is None:
@@ -134,36 +133,62 @@ class EfficientDetModel(base_model.Model):
         # todo keras 模型下是否需要显示的传递training=True进行训练和推理(keras model 默认是推理状态，即model(data))
         if self._keras_model is None:
             with backend.get_graph().as_default():
-                outputs, evaluate_outputs = self.model_outputs(self._input_layer, mode)
+                outputs = self.model_outputs(self._input_layer, mode)
 
                 model = tf.keras.models.Model(
                     inputs=self._input_layer, outputs=outputs, name=params.name)
-                inference_model = tf.keras.models.Model(
-                    inputs=self._input_layer, outputs=evaluate_outputs, name=params.name + "_inference")
                 assert model is not None, 'Fail to build tf.keras.Model.'
                 model.optimizer = self.build_optimizer()
                 self._keras_model = model
-                self._inference_keras_model = inference_model
-        return self._keras_model, self._inference_keras_model
+        return self._keras_model
 
-    def post_processing_inference(self, outputs):
+    def post_processing(self, labels, outputs):
+        # TODO(yeqing): Moves the output related part into build_outputs.
+        required_output_fields = ['cls_outputs', 'box_outputs']
+        for field in required_output_fields:
+            if field not in outputs:
+                raise ValueError('"%s" is missing in outputs, requried %s found %s',
+                                 field, required_output_fields, outputs.keys())
+        required_label_fields = ['image_info', 'groundtruths']
+        for field in required_label_fields:
+            if field not in labels:
+                raise ValueError('"%s" is missing in outputs, requried %s found %s',
+                                 field, required_label_fields, labels.keys())
         boxes, scores, classes, valid_detections = self._generate_detections_fn(
             outputs['box_outputs'], outputs['cls_outputs'],
-            self._input_anchor.multilevel_boxes, self._input_image_size)
+            labels['anchor_boxes'], labels['image_info'][:, 1:2, :])
         # Discards the old output tensors to save memory. The `cls_outputs` and
         # `box_outputs` are pretty big and could potentiall lead to memory issue.
         outputs = {
-            # 'source_id': labels['groundtruths']['source_id'],
-            # 'image_info': labels['image_info'],
+            'source_id': labels['groundtruths']['source_id'],
+            'image_info': labels['image_info'],
             'num_detections': valid_detections,
             'detection_boxes': boxes,
             'detection_classes': classes,
             'detection_scores': scores,
-            'box_outputs': outputs['box_outputs'],
-            'cls_outputs': outputs['cls_outputs']
         }
 
-        return outputs
+        if 'groundtruths' in labels:
+            # todo 移除boxtarges ,cls_targets,待确认是否还有内存泄漏
+            labels = {
+                "source_id": labels['groundtruths']['source_id'],
+                "boxes": labels['groundtruths']['boxes'],
+                "classes": labels['groundtruths']['classes'],
+                'areas': labels['groundtruths']['areas'],
+                'is_crowds': labels['groundtruths']['is_crowds'],
+                'num_detections': labels['groundtruths']['num_detections'],
+                'height': labels['groundtruths']['height'],
+                'width': labels['groundtruths']['width']
+            }
+            # labels['source_id'] = labels['groundtruths']['source_id']
+            # labels['boxes'] = labels['groundtruths']['boxes']
+            # labels['classes'] = labels['groundtruths']['classes']
+            # labels['areas'] = labels['groundtruths']['areas']
+            # labels['is_crowds'] = labels['groundtruths']['is_crowds']
+            # labels['num_detections'] = labels['groundtruths']['num_detections']
+            # labels['height'] = labels['groundtruths']['height']
+            # labels['width'] = labels['groundtruths']['width']
+        return labels, outputs
 
     def eval_metrics(self):
         return eval_factory.evaluator_generator(self._params.eval)

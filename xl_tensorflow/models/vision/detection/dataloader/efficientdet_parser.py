@@ -23,7 +23,7 @@ Focal Loss for Dense Object Detection. arXiv:1708.02002
 
 import tensorflow as tf
 
-from .utils import anchor_rcnn as  anchor
+from .utils import anchor_rcnn as anchor
 from .utils import mode_keys as ModeKeys
 from .utils import tf_example_decoder
 from .utils import box_utils
