@@ -54,6 +54,7 @@ def batch_image_preprocess(raw_images,
   Returns:
     (image, scale): a tuple of processed images and scales.
   """
+    # hint； images must in the same shape if batch_size is none
     if not batch_size:
         # map_fn is a little bit slower due to some extra overhead.
         map_fn = functools.partial(image_preprocess, image_size=image_size)
