@@ -255,8 +255,8 @@ class Parser(object):
         indices = box_utils.get_non_empty_box_indices(boxes)
         boxes = tf.gather(boxes, indices)
         classes = tf.gather(classes, indices)
-
-        # Assigns anchors.
+        # tf.print(classes)
+        # Assigns anchors. 完全确认此处class 并没有减一，即背景类的情况
         input_anchor = anchor.Anchor(
             self._min_level, self._max_level, self._num_scales,
             self._aspect_ratios, self._anchor_size, (image_height, image_width))
@@ -265,7 +265,9 @@ class Parser(object):
         (cls_targets, box_targets, num_positives) = anchor_labeler.label_anchors(
             boxes,
             tf.cast(tf.expand_dims(classes, axis=1), tf.float32))
-
+        for i in range(3, 8):
+            tf.print(tf.keras.backend.max(cls_targets[i]), tf.keras.backend.min(cls_targets[i]))
+        # tf.print("---------------")
         # If bfloat16 is used, casts input image to tf.bfloat16.
         if self._use_bfloat16:
             image = tf.cast(image, dtype=tf.bfloat16)

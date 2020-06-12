@@ -427,7 +427,8 @@ class RetinanetClassLoss(object):
 
 
 class EfficientnetClassLoss(object):
-    """RetinaNet class loss."""
+    """RetinaNet class loss.
+    确认损失函数没有对类别 + 1 或者 减一"""
 
     def __init__(self, params, num_classes):
         self._num_classes = num_classes

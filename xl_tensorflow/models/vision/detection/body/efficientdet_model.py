@@ -110,7 +110,6 @@ class EfficientDetModel(base_model.Model):
         trainable_variables = filter_fn(self._keras_model.trainable_variables)
 
         def _total_loss_fn(labels, outputs):
-            # todo 此处与官方不一致
             cls_loss = self._cls_loss_fn(outputs['cls_outputs'],
                                          labels['cls_targets'],
                                          labels['num_positives'])
@@ -131,7 +130,6 @@ class EfficientDetModel(base_model.Model):
         return _total_loss_fn
 
     def build_model(self, params, mode=None):
-        # todo keras 模型下是否需要显示的传递training=True进行训练和推理(keras model 默认是推理状态，即model(data))
         if self._keras_model is None:
             with backend.get_graph().as_default():
                 outputs, evaluate_outputs = self.model_outputs(self._input_layer, mode)

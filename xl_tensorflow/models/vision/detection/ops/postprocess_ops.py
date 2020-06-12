@@ -317,7 +317,7 @@ class MultilevelDetectionGenerator(object):
             # Box decoding.
             # The anchor boxes are shared for all data in a batch.
             # One stage detector only supports class agnostic box regression.
-            #todo 此处变更
+            # todo 此处变更
             # anchor_boxes_i = tf.reshape(anchor_boxes[i], [batch_size, -1, 4])
             anchor_boxes_i = tf.reshape(anchor_boxes[i], [1, -1, 4])
             box_outputs_i = tf.reshape(box_outputs[i], [batch_size, -1, 4])
@@ -330,16 +330,14 @@ class MultilevelDetectionGenerator(object):
             scores.append(scores_i)
         boxes = tf.concat(boxes, axis=1)
         scores = tf.concat(scores, axis=1)
-        # todo 换成内置 tf nms api
-        # nmsed_boxes, nmsed_scores, nmsed_classes, valid_detections = (
-        #     self._generate_detections(tf.expand_dims(boxes, axis=2), scores))
-        #
         nmsed_boxes, nmsed_scores, nmsed_classes, valid_detections = tf.image.combined_non_max_suppression(
             tf.expand_dims(boxes, axis=2), scores, 100, 100, iou_threshold=0.5,
             score_threshold=0.05, pad_per_class=False, clip_boxes=False, name=None
         )
+        # tf.print(tf.keras.backend.min(nmsed_classes))
         # Adds 1 to offset the background class which has index 0.
-        nmsed_classes += 1
+        # todo
+        # nmsed_classes += 1
         return nmsed_boxes, nmsed_scores, nmsed_classes, valid_detections
 
 
