@@ -77,7 +77,7 @@ class EfficientDetModel(base_model.Model):
             shape=input_shape, name='',
             dtype=tf.bfloat16 if self._use_bfloat16 else tf.float32)
 
-    def build_outputs(self, inputs, mode):
+    def build_outputs(self, inputs, mode, inference_mode=False):
         # If the input image is transposed (from NHWC to HWCN), we need to revert it
         # back to the original shape before it's used in the computation.
         if self._transpose_input:
@@ -99,7 +99,7 @@ class EfficientDetModel(base_model.Model):
             'cls_outputs': cls_outputs,
             'box_outputs': box_outputs,
         }
-        evaluate_outputs = self.post_processing_inference(model_outputs)
+        evaluate_outputs = self.post_processing_inference(model_outputs, inference_mode)
         return model_outputs, evaluate_outputs
 
     def build_loss_fn(self):
@@ -129,10 +129,10 @@ class EfficientDetModel(base_model.Model):
 
         return _total_loss_fn
 
-    def build_model(self, params, mode=None):
+    def build_model(self, params, mode=None, inference_mode=False):
         if self._keras_model is None:
             with backend.get_graph().as_default():
-                outputs, evaluate_outputs = self.model_outputs(self._input_layer, mode)
+                outputs, evaluate_outputs = self.model_outputs(self._input_layer, mode, inference_mode=inference_mode)
 
                 model = tf.keras.models.Model(
                     inputs=self._input_layer, outputs=outputs, name=params.name)
@@ -144,22 +144,25 @@ class EfficientDetModel(base_model.Model):
                 self._inference_keras_model = inference_model
         return self._keras_model, self._inference_keras_model
 
-    def post_processing_inference(self, outputs):
+    def post_processing_inference(self, outputs, inference_mode=False):
         boxes, scores, classes, valid_detections = self._generate_detections_fn(
             outputs['box_outputs'], outputs['cls_outputs'],
             self._input_anchor.multilevel_boxes, self._input_image_size)
         # Discards the old output tensors to save memory. The `cls_outputs` and
         # `box_outputs` are pretty big and could potentiall lead to memory issue.
-        outputs = {
-            # 'source_id': labels['groundtruths']['source_id'],
-            # 'image_info': labels['image_info'],
-            'num_detections': valid_detections,
-            'detection_boxes': boxes,
-            'detection_classes': classes,
-            'detection_scores': scores,
-            'box_outputs': outputs['box_outputs'],
-            'cls_outputs': outputs['cls_outputs']
-        }
+        if inference_mode:
+            outputs = valid_detections, boxes, classes, scores
+        else:
+            outputs = {
+                # 'source_id': labels['groundtruths']['source_id'],
+                # 'image_info': labels['image_info'],
+                'num_detections': valid_detections,
+                'detection_boxes': boxes,
+                'detection_classes': classes,
+                'detection_scores': scores,
+                'box_outputs': outputs['box_outputs'],
+                'cls_outputs': outputs['cls_outputs']
+            }
 
         return outputs
 

@@ -299,7 +299,8 @@ class MultilevelDetectionGenerator(object):
         self._max_level = max_level
         self._generate_detections = generate_detections_factory(params)
 
-    def __call__(self, box_outputs, class_outputs, anchor_boxes, image_shape):
+    def __call__(self, box_outputs, class_outputs, anchor_boxes, image_shape,
+                 iou_threshold=0.5, score_threshold=0.05, max_boxes=100):
         # Collects outputs from all levels into a list.
         boxes = []
         scores = []
@@ -331,8 +332,8 @@ class MultilevelDetectionGenerator(object):
         boxes = tf.concat(boxes, axis=1)
         scores = tf.concat(scores, axis=1)
         nmsed_boxes, nmsed_scores, nmsed_classes, valid_detections = tf.image.combined_non_max_suppression(
-            tf.expand_dims(boxes, axis=2), scores, 100, 100, iou_threshold=0.5,
-            score_threshold=0.05, pad_per_class=False, clip_boxes=False, name=None
+            tf.expand_dims(boxes, axis=2), scores, max_boxes, max_boxes, iou_threshold=iou_threshold,
+            score_threshold=score_threshold, pad_per_class=False, clip_boxes=False, name=None
         )
         # tf.print(tf.keras.backend.min(nmsed_classes))
         # Adds 1 to offset the background class which has index 0.

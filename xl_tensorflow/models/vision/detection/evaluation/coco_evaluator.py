@@ -154,7 +154,7 @@ class COCOEvaluator(object):
             self._predictions)
         coco_dt = coco_gt.loadRes(predictions=coco_predictions)
         image_ids = [ann['image_id'] for ann in coco_predictions]
-        tf.print("Total_images" + str(len(image_ids)))
+        tf.print("Total_images: \t" + str(len(image_ids))+"\tmax \t"+ str(max(image_ids)))
         coco_eval = cocoeval.COCOeval(coco_gt, coco_dt, iouType='bbox')
         coco_eval.params.imgIds = image_ids
         coco_eval.evaluate()

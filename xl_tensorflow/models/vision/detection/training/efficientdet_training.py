@@ -28,7 +28,30 @@ def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pa
                                  total_steps=None,
                                  model_dir=None,
                                  learning_rate=0.01, save_freq=None, pre_weights=None,
-                                 l2_weight_decay=None):
+                                 l2_weight_decay=None, eval_samples=None):
+    """
+
+    Args:
+        model_name:
+        training_file_pattern:
+        eval_file_pattern:
+        number_classes:
+        optimizer:
+        mode:
+        train_batch_size:
+        eval_batch_size:
+        iterations_per_loop:
+        total_steps:
+        model_dir:
+        learning_rate:
+        save_freq:
+        pre_weights:
+        l2_weight_decay:
+        eval_samples:  评估数据集数量，-1表示全部，None 为5000，可选任意大于0的数字
+
+    Returns:
+
+    """
     # todo 提前终止，以及其他损失函数
     # todo keras格式权重保存， 预训练权重加载，以及冻结网络层训练等
     # todo 推理部署
@@ -76,7 +99,7 @@ def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pa
             params=params,
             mode=input_reader.ModeKeys.PREDICT_WITH_GT,
             batch_size=eval_batch_size if eval_batch_size else train_batch_size,
-            num_examples=params.eval.eval_samples)
+            num_examples=params.eval.eval_samples if eval_samples is None else eval_samples)
     if mode == 'train':
         def _model_fn(params):
             return model_builder.build_model(params, mode=input_reader.ModeKeys.TRAIN)

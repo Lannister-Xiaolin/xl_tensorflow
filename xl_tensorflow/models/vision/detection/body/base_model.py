@@ -81,7 +81,7 @@ class Model(object):
     self._model_dir = params.model_dir
 
   @abc.abstractmethod
-  def build_outputs(self, inputs, mode):
+  def build_outputs(self, inputs, mode,inference_mode):
     """Build the graph of the forward path."""
     pass
 
@@ -99,9 +99,9 @@ class Model(object):
     """Post-processing function."""
     return labels, outputs
 
-  def model_outputs(self, inputs, mode):
+  def model_outputs(self, inputs, mode,inference_mode=False):
     """Build the model outputs."""
-    return self.build_outputs(inputs, mode)
+    return self.build_outputs(inputs, mode,inference_mode)
 
   def build_optimizer(self):
     """Returns train_op to optimize total loss."""
