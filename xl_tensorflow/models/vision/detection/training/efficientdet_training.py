@@ -54,7 +54,7 @@ def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pa
     """
     # todo 提前终止，以及其他损失函数
     # todo keras格式权重保存， 预训练权重加载，以及冻结网络层训练等
-    # todo 推理部署
+
     params = config_factory.config_generator(model_name)
     params.architecture.num_classes = number_classes
     params.train.batch_size = train_batch_size

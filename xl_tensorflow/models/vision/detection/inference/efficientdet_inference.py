@@ -15,7 +15,7 @@ from xl_tensorflow.models.vision.detection.dataloader.efficientdet_parser import
 from xl_tensorflow.models.vision.detection.dataloader.utils import input_utils, box_list, faster_rcnn_box_coder
 from typing import Text, Dict, Any, List, Tuple, Union
 import tensorflow as tf
-
+# todo 推理部署 - 保证所有检测接口保持一致，高可用，高性能（参考谷歌官方，端到端，高效，快速）
 
 def image_preprocess(image, image_size: Union[int, Tuple[int, int]]):
     """Preprocess image for inference.
