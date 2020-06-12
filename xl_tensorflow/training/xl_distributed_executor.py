@@ -424,14 +424,14 @@ class DistributedExecutor(object):
         with strategy.scope():
             # To correctly place the model weights on accelerators,
             # model and optimizer should be created in scope.
-            model,inference_model = self.model_fn(params)
+            model, inference_model = self.model_fn(params)
             if pre_weights:
                 try:
 
                     model.load_weights(pre_weights)
                 except ValueError:
                     model.load_weights(pre_weights, by_name=True)
-                logging.info("Load weights: "+pre_weights)
+                logging.info("Load weights: " + pre_weights)
             if not hasattr(model, 'optimizer'):
                 raise ValueError('User should set optimizer attribute to model '
                                  'inside `model_fn`.')
@@ -486,15 +486,16 @@ class DistributedExecutor(object):
         if current_step == 0 and not latest_checkpoint_file:
             _save_checkpoint(
                 checkpoint, model_dir, checkpoint_name.format(step=current_step))
-        if test_step:
-            eval_iterator = self._get_input_iterator(eval_input_fn, strategy)
-            eval_metric_result = self._run_evaluation(test_step, current_step,
-                                                      eval_metric, eval_iterator)
-            logging.info(
-                'Step: %s evalation metric = %s.', current_step, eval_metric_result)
-            test_summary_writer(
-                metrics=eval_metric_result, step=optimizer.iterations)
-            reset_states(eval_metric)
+        # 训练开始前是否进行评估
+        # if test_step:
+        #     eval_iterator = self._get_input_iterator(eval_input_fn, strategy)
+        #     eval_metric_result = self._run_evaluation(test_step, current_step,
+        #                                               eval_metric, eval_iterator)
+        #     logging.info(
+        #         'Step: %s evalation metric = %s.', current_step, eval_metric_result)
+        #     test_summary_writer(
+        #         metrics=eval_metric_result, step=optimizer.iterations)
+        #     reset_states(eval_metric)
 
         logging.info('Training started from step {}'.format(current_step).center(80, '-'))
         last_save_checkpoint_step = current_step
@@ -696,12 +697,12 @@ class DistributedExecutor(object):
 
             # To correctly place the model weights on accelerators,
             # model and optimizer should be created in scope.
-            model = self.model_fn(params.as_dict())
+            model, inference_model = self.model_fn(params.as_dict())
             checkpoint = tf.train.Checkpoint(model=model)
 
             eval_metric = eval_metric_fn()
             assert eval_metric, 'eval_metric does not exist'
-            test_step = self._create_test_step(strategy, model, metric=eval_metric)
+            test_step = self._create_test_step(strategy, inference_model, metric=eval_metric)
 
             logging.info('Starting to evaluate.')
             if not checkpoint_path:

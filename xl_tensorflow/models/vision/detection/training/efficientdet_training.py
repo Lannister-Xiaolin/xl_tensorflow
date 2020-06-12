@@ -24,17 +24,18 @@ FLAGS = flags.FLAGS
 
 
 def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pattern, number_classes, optimizer="adam",
-                                 mode="train", bactch_size=4, iterations_per_loop=None, total_steps=None,
+                                 mode="train", train_batch_size=4, eval_batch_size=None, iterations_per_loop=None,
+                                 total_steps=None,
                                  model_dir=None,
-                                 learning_rate=0.01, save_freq=None, pre_weights=None):
-    # todo 校验训练与验证集损失问题
-    # todo map推理结果正确性
+                                 learning_rate=0.01, save_freq=None, pre_weights=None,
+                                 l2_weight_decay=None):
     # todo 提前终止，以及其他损失函数
     # todo keras格式权重保存， 预训练权重加载，以及冻结网络层训练等
     # todo 推理部署
     params = config_factory.config_generator(model_name)
     params.architecture.num_classes = number_classes
-    params.train.batch_size = bactch_size
+    params.train.batch_size = train_batch_size
+    params.train.l2_weight_decay = l2_weight_decay if l2_weight_decay else params.train.l2_weight_decay
     params.train.optimizer.type = optimizer
     params.train.iterations_per_loop = params.train.iterations_per_loop if not iterations_per_loop else iterations_per_loop
     params.train.total_steps = params.train.total_steps if not total_steps else total_steps
@@ -50,9 +51,7 @@ def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pa
 
     # 模型保存路径与checkpoint保存路径
     model_dir = "./model" if not model_dir else model_dir
-    # log_dir = "./model" if not log_dir else log_dir
     os.makedirs(model_dir, exist_ok=True)
-    # os.makedirs(log_dir, exist_ok=True)
     # 设置分布式训练策略
     gpus = tf.config.experimental.list_physical_devices('GPU')
     if len(gpus) == 0:
@@ -66,8 +65,6 @@ def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pa
         logging.info("Find {}  gpu devices, using MirroredStrategy".format(len(gpus)))
     # 建立模型与数据加载
     model_builder = EfficientDetModel(params)
-    # if training_file_pattern:
-    # Use global batch size for single host.
     train_input_fn = input_reader.InputFn(
         file_pattern=training_file_pattern,
         params=params,
@@ -78,7 +75,7 @@ def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pa
             file_pattern=eval_file_pattern,
             params=params,
             mode=input_reader.ModeKeys.PREDICT_WITH_GT,
-            batch_size=bactch_size,
+            batch_size=eval_batch_size if eval_batch_size else train_batch_size,
             num_examples=params.eval.eval_samples)
     if mode == 'train':
         def _model_fn(params):
