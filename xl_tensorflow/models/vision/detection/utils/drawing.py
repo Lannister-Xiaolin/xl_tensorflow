@@ -4,9 +4,10 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 import colorsys
+from xl_tool.data.image.general import cv_show_image
 
 
-def draw_boxes_cv(image, out_boxes, out_scores, out_classes, colors, index2label):
+def draw_boxes_cv(image, out_boxes, out_scores, out_classes, index2label, colors=None, coord_format="xy"):
     """
     Args:
         image: Numpy array,   RGB
@@ -24,21 +25,24 @@ def draw_boxes_cv(image, out_boxes, out_scores, out_classes, colors, index2label
     for box, l, s in zip(out_boxes, out_classes, out_scores):
         class_id = int(l)
         class_name = index2label[class_id]
-        xmin, ymin, xmax, ymax = list(map(int, box))
-        # score = '{:.4f}'.format(s)
+        if coord_format == "xy":
+            xmin, ymin, xmax, ymax = list(map(int, box))
+        else:
+            ymin, xmin, ymax, xmax = list(map(int, box))
+            # score = '{:.4f}'.format(s)
         color = colors[class_id]
         # label = '-'.join([class_name, score])
         label = '{} {:.2f}'.format(class_name, s)
         ret, baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-        cv2.rectangle(image, (xmin, ymin), (xmax, ymax), color, 1)
+        cv2.rectangle(image, (xmin, ymin), (xmax, ymax), color, 2)
         cv2.rectangle(image, (xmin, ymax - ret[1] - baseline), (xmin + ret[0], ymax), color, -1)
         cv2.putText(image, label, (xmin, ymax - baseline), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
     return image
 
 
-def draw_boxes_pil(image, out_boxes, out_scores, out_classes, index2label):
+def draw_boxes_pil(image, out_boxes, out_scores, out_classes, index2label, colors=None, coord_format="xy"):
     if type(image) == np.ndarray:
-        image = Image.fromarray(image)
+        image = Image.fromarray(image.astype(np.uint8))
     try:
         font = ImageFont.truetype(font='font/FiraMono-Medium.otf',
                                   size=np.floor(3e-2 * image.size[1] + 0.5).astype('int32'))
@@ -59,8 +63,11 @@ def draw_boxes_pil(image, out_boxes, out_scores, out_classes, index2label):
         label = '{} {:.2f}'.format(predicted_class, score)
         draw = ImageDraw.Draw(image)
         label_size = draw.textsize(label, font)
-
-        left, top, right, bottom = box
+        if coord_format == "xy":
+            left, top, right, bottom = box
+        else:
+            top, left, bottom, right = box
+        # left, top, right, bottom = box
         top = max(0, np.floor(top + 0.5).astype('int32'))
         left = max(0, np.floor(left + 0.5).astype('int32'))
         bottom = min(image.size[1], np.floor(bottom + 0.5).astype('int32'))
@@ -87,3 +94,19 @@ def draw_boxes_pil(image, out_boxes, out_scores, out_classes, index2label):
 
 
 setattr(draw_boxes_pil, "__doc__", draw_boxes_pil.__doc__)
+
+
+def test():
+    cv2.namedWindow("222")  # 0表示压缩图片，图片过大无法显示
+    cv2.imshow("222", draw_boxes_pil(np.random.randint(0, 255,
+                                                       (416, 416, 3)),
+                                     [[200, 200, 400, 400]], [0.5], [0],
+                                     {0: "风格和", 1: "3333", 3: "短发"}).astype(np.uint8))
+    k = cv2.waitKey(0)  # 无限期等待输入，需要有这个否则会死机
+    if k == 27:  # 如果输入ESC退出
+        cv2.destroyAllWindows()
+    # input()
+
+if __name__ == '__main__':
+    pass
+    # test()

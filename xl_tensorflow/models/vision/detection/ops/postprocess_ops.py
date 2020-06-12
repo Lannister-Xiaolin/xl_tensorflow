@@ -336,8 +336,8 @@ class MultilevelDetectionGenerator(object):
         )
         # tf.print(tf.keras.backend.min(nmsed_classes))
         # Adds 1 to offset the background class which has index 0.
-        # todo
-        # nmsed_classes += 1
+        nmsed_classes += 1
+        # tf.print(tf.keras.backend.min(nmsed_classes))
         return nmsed_boxes, nmsed_scores, nmsed_classes, valid_detections
 
 

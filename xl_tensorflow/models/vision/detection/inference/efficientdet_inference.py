@@ -17,12 +17,6 @@ from typing import Text, Dict, Any, List, Tuple, Union
 import tensorflow as tf
 
 
-def efficiendet_inference_model(model_name="efficientdet-d0"):
-    params = config_factory.config_generator(model_name)
-    model_fn = EfficientDetModel(params)
-    model = model_fn.build_model(params)
-
-
 def image_preprocess(image, image_size: Union[int, Tuple[int, int]]):
     """Preprocess image for inference.
 
@@ -188,10 +182,10 @@ def det_post_process_combined(params, cls_outputs, box_outputs, scales,
             clip_boxes=False))
     del valid_detections  # to be used in futue.
 
-    image_ids = tf.cast(
-        tf.tile(
-            tf.expand_dims(tf.range(batch_size), axis=1), [1, max_boxes_to_draw]),
-        dtype=tf.float32)
+    # image_ids = tf.cast(
+    #     tf.tile(
+    #         tf.expand_dims(tf.range(batch_size), axis=1), [1, max_boxes_to_draw]),
+    #     dtype=tf.float32)
     image_size = params.efficientdet_parser.output_size
     ymin = tf.clip_by_value(nmsed_boxes[..., 0], 0, image_size[0]) * scales[:, :1]
     xmin = tf.clip_by_value(nmsed_boxes[..., 1], 0, image_size[1]) * scales[:, 1:2]
@@ -199,6 +193,12 @@ def det_post_process_combined(params, cls_outputs, box_outputs, scales,
     xmax = tf.clip_by_value(nmsed_boxes[..., 3], 0, image_size[1]) * scales[:, 1:2]
     # 此处注意是否需要处理
     classes = tf.cast(nmsed_classes + 1, tf.float32)
-    detection_list = [image_ids, ymin, xmin, ymax, xmax, nmsed_scores, classes]
-    detections = tf.stack(detection_list, axis=2, name='detections')
-    return detections
+    # detection_list = [image_ids, ymin, xmin, ymax, xmax, nmsed_scores, classes]
+    # detections = tf.stack(detection_list, axis=2, name='detections')
+    return tf.stack([ymin, xmin, ymax, xmax]), nmsed_scores, classes
+
+
+def efficiendet_inference_model(model_name="efficientdet-d0"):
+    params = config_factory.config_generator(model_name)
+    model_fn = EfficientDetModel(params)
+    model, inference_model = model_fn.build_model(params)

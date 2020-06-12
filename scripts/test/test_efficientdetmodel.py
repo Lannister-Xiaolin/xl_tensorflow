@@ -82,9 +82,10 @@ def evaluate_test():
     # model.load_weights(
     #     r"E:\Programming\Python\TOOL\weights\efficientnet\efficientnet-b1_weights_tf_dim_ordering_tf_kernels.h5",
     #     by_name=True, skip_mismatch=True)
-    data = np.random.random((4, *params.efficientdet_parser.output_size, 3))
-    result = (model(data, training=False))
-    model_fn.post_processing_inference(result)
+    for i in range(10):
+        data = np.random.random((1, *params.efficientdet_parser.output_size, 3))
+        result = (model(data, training=False))
+        model_fn.post_processing_inference(result)
 
 if __name__ == '__main__':
     # inference_test()
