@@ -111,7 +111,7 @@ def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pa
 def main(_):
     mul_gpu_training_custom_loop("efficientdet-d0",
                                  r"E:\Temp\test\tfrecord\*.tfrecord",
-                                 r"E:\Temp\test\tfrecord\*.tfrecord", 21, bactch_size=4, iterations_per_loop=10,
+                                 r"E:\Temp\test\tfrecord\*.tfrecord", 21, train_batch_size=4, iterations_per_loop=10,
                                  total_steps=300)
 
 

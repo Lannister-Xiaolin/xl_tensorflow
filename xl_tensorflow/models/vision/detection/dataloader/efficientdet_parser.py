@@ -265,9 +265,6 @@ class Parser(object):
         (cls_targets, box_targets, num_positives) = anchor_labeler.label_anchors(
             boxes,
             tf.cast(tf.expand_dims(classes, axis=1), tf.float32))
-        for i in range(3, 8):
-            tf.print(tf.keras.backend.max(cls_targets[i]), tf.keras.backend.min(cls_targets[i]))
-        # tf.print("---------------")
         # If bfloat16 is used, casts input image to tf.bfloat16.
         if self._use_bfloat16:
             image = tf.cast(image, dtype=tf.bfloat16)
