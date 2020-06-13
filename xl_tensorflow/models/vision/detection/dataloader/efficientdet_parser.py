@@ -71,6 +71,7 @@ class Parser(object):
                  skip_crowd_during_training=True,
                  max_num_instances=100,
                  use_bfloat16=True,
+                 autoaugment_ratio=1.0,
                  mode=None):
         """Initializes parameters for parsing annotations in the dataset.
 
@@ -138,7 +139,7 @@ class Parser(object):
         # Data Augmentation with AutoAugment.
         self._use_autoaugment = use_autoaugment
         self._autoaugment_policy_name = autoaugment_policy_name
-
+        self._autoaugment_ratio = autoaugment_ratio
         # Device.
         self._use_bfloat16 = use_bfloat16
 
@@ -222,7 +223,7 @@ class Parser(object):
         if self._use_autoaugment:
             from .augment import autoaugment  # pylint: disable=g-import-not-at-top
             image, boxes = autoaugment.distort_image_with_autoaugment(
-                image, boxes, self._autoaugment_policy_name)
+                image, boxes, self._autoaugment_policy_name,ratio=self._autoaugment_ratio)
 
         # Gets original image and its size.
         image_shape = tf.shape(input=image)[0:2]

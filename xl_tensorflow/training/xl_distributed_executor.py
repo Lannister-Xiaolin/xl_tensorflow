@@ -33,7 +33,7 @@ from xl_tensorflow.utils import params_dict
 from xl_tensorflow.utils import hyperparams_flags
 from xl_tensorflow.utils.misc import distribution_utils
 from xl_tensorflow.utils.misc import keras_utils
-
+import gc
 FLAGS = flags.FLAGS
 
 strategy_flags_dict = hyperparams_flags.strategy_flags_dict
@@ -500,6 +500,7 @@ class DistributedExecutor(object):
         logging.info('Training started from step {}'.format(current_step).center(80, '-'))
         last_save_checkpoint_step = current_step
         while current_step < total_steps:
+            gc.collect()
             num_steps = _steps_to_run(current_step, total_steps,
                                       iterations_per_loop)
             _run_callbacks_on_batch_begin(current_step)

@@ -26,7 +26,13 @@ def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pa
                                  total_steps=None,
                                  model_dir=None,
                                  learning_rate=0.01, save_freq=None, pre_weights=None,
-                                 l2_weight_decay=None, eval_samples=None):
+                                 l2_weight_decay=None, eval_samples=None,
+                                 autoaugment_policy_name="v0",
+                                 autoaugment_ratio=0.8,
+                                 use_autoaugment=False,
+                                 unmatched_threshold=0.5,
+                                 aug_scale_min=0.1,
+                                 aug_scale_max=2.0):
     """
 
     Args:
@@ -60,6 +66,12 @@ def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pa
     params.train.optimizer.type = optimizer
     params.train.iterations_per_loop = params.train.iterations_per_loop if not iterations_per_loop else iterations_per_loop
     params.train.total_steps = params.train.total_steps if not total_steps else total_steps
+    params.efficientdet_parser.use_autoaugment = use_autoaugment
+    params.efficientdet_parser.autoaugment_policy_name = autoaugment_policy_name
+    params.efficientdet_parser.autoaugment_ratio = autoaugment_ratio
+    params.efficientdet_parser.unmatched_threshold = unmatched_threshold
+    params.efficientdet_parser.aug_scale_min = aug_scale_min
+    params.efficientdet_parser.aug_scale_max = aug_scale_max
 
     params.train.override({'learning_rate': {
         'type': 'step',

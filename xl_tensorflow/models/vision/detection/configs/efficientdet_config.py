@@ -39,6 +39,7 @@ EFFICIENTDET_CFG.override({
         'aug_scale_max': 2.0,
         'use_autoaugment': True,
         'autoaugment_policy_name': 'v0',
+        "autoaugment_ratio": 1.0,
         'skip_crowd_during_training': True,
         'max_num_instances': 100,
     },

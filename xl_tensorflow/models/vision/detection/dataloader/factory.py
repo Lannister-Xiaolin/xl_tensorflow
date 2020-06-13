@@ -19,7 +19,7 @@ from __future__ import division
 from __future__ import print_function
 
 # from official.vision.detection.dataloader import maskrcnn_parser
-from . import retinanet_parser, maskrcnn_parser,shapemask_parser,efficientdet_parser
+from . import retinanet_parser, maskrcnn_parser, shapemask_parser, efficientdet_parser
 
 
 # from official.vision.detection.dataloader import shapemask_parser
@@ -115,6 +115,7 @@ def parser_generator(params, mode):
             aug_scale_max=parser_params.aug_scale_max,
             use_autoaugment=parser_params.use_autoaugment,
             autoaugment_policy_name=parser_params.autoaugment_policy_name,
+            autoaugment_ratio=parser_params.autoaugment_ratio,
             skip_crowd_during_training=parser_params.skip_crowd_during_training,
             max_num_instances=parser_params.max_num_instances,
             use_bfloat16=params.architecture.use_bfloat16,
