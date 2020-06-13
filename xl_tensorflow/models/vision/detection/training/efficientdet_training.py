@@ -62,7 +62,7 @@ def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pa
     params = config_factory.config_generator(model_name)
     params.architecture.num_classes = number_classes
     params.train.batch_size = train_batch_size
-    params.train.l2_weight_decay = l2_weight_decay if l2_weight_decay else params.train.l2_weight_decay
+    params.train.l2_weight_decay = l2_weight_decay if l2_weight_decay is not None else params.train.l2_weight_decay
     params.train.optimizer.type = optimizer
     params.train.iterations_per_loop = params.train.iterations_per_loop if not iterations_per_loop else iterations_per_loop
     params.train.total_steps = params.train.total_steps if not total_steps else total_steps
@@ -138,9 +138,6 @@ def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pa
             save_config=True, save_freq=save_freq, pre_weights=pre_weights)
 
 
-# mul_gpu_training_custom_data("efficientdet-d0",
-#                              r"E:\Temp\test\tfrecord\*.tfrecord",
-#                              None,21)
 def main(_):
     mul_gpu_training_custom_loop("efficientdet-d0",
                                  r"E:\Temp\test\tfrecord\*.tfrecord",
