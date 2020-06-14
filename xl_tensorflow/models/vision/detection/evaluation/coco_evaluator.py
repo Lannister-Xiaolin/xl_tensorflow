@@ -72,7 +72,9 @@ class MetricWrapper(object):
 
 
 class COCOEvaluator(object):
-    """COCO evaluation metric class."""
+    """COCO evaluation metric class.
+    会还原到真实标签进行评估
+    """
 
     def __init__(self, annotation_file, include_mask, need_rescale_bboxes=True):
         """Constructs COCO evaluation class.
