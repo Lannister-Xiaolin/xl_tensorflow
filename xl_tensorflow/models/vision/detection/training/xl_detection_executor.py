@@ -24,7 +24,7 @@ from absl import logging
 import tensorflow as tf
 from xl_tensorflow.training import xl_distributed_executor as executor
 from ..dataloader.utils import visualization_utils
-
+import gc
 
 class DetectionDistributedExecutor(executor.DistributedExecutor):
     """Detection specific customer training loop executor.
@@ -195,4 +195,5 @@ class DetectionDistributedExecutor(executor.DistributedExecutor):
                      metric_result)
         metric_result.update(eval_losses)
         del eval_losses
+        gc.collect()
         return metric_result
