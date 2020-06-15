@@ -4,3 +4,5 @@ tensorflow_probability==0.9.0
 dataclasses
 cython>=0.27.3
 -e git+https://github.com/cocodataset/cocoapi#egg=pycocotools&subdirectory=PythonAPI
+xl-tool
+pillow
