@@ -181,6 +181,9 @@ class DetectionDistributedExecutor(executor.DistributedExecutor):
                 # 调试
                 # break
             except (StopIteration, tf.errors.OutOfRangeError):
+                del labels
+                del outputs
+                del losses
                 break
         for k, v in eval_losses.items():
             eval_losses[k] = tf.reduce_mean(tf.stack(eval_losses[k])).numpy().astype(float)
@@ -191,45 +194,5 @@ class DetectionDistributedExecutor(executor.DistributedExecutor):
         logging.info('Step: [%d] Validation metric = %s', current_training_step,
                      metric_result)
         metric_result.update(eval_losses)
-        return metric_result
-
-    def _run_evaluation_loss(self, test_step, current_training_step, metric,
-                             test_iterator):
-        """Runs validation steps and aggregate metrics."""
-        self.eval_steps.assign(0)
-        if not test_iterator or not metric:
-            logging.warning(
-                'Both test_iterator (%s) and metrics (%s) must not be None.',
-                test_iterator, metric)
-            return None
-        logging.info('Running evaluation after step: %s.', current_training_step)
-        eval_step = 0
-        eval_losses = {}
-        while True:
-            try:
-                labels, outputs, losses = test_step(test_iterator, self.eval_steps)
-                if metric:
-                    metric.update_state(labels, outputs)
-                eval_step += 1
-                logging.info('----->evaluation  step: %s.', eval_step)
-                try:
-                    for k, v in losses.items():
-                        eval_losses[k].append(losses[k])
-                except KeyError:
-                    for k, v in losses.items():
-                        eval_losses[k] = []
-                        eval_losses[k].append(losses[k])
-                # 调试
-                break
-            except (StopIteration, tf.errors.OutOfRangeError):
-                break
-        for k, v in eval_losses.items():
-            eval_losses[k] = tf.reduce_mean(tf.stack(eval_losses[k])).numpy().astype(float)
-        metric_result = metric.result()
-        if isinstance(metric, tf.keras.metrics.Metric):
-            metric_result = tf.nest.map_structure(lambda x: x.numpy().astype(float),
-                                                  metric_result)
-        logging.info('Step: [%d] Validation metric = %s', current_training_step,
-                     metric_result)
-        metric_result.update(eval_losses)
+        del eval_losses
         return metric_result

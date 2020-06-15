@@ -9,8 +9,7 @@ from xl_tensorflow.models.vision.detection.body.efficientdet_model import Effici
 import numpy as np
 from tensorflow.keras import layers, Model
 from xl_tensorflow.models.vision.detection.dataloader.input_reader import InputFn
-from xl_tensorflow.models.vision.detection.inference.efficientdet_inference import det_post_process_combined, \
-    batch_image_preprocess
+
 
 
 def model_test():
@@ -78,7 +77,13 @@ def inference_test():
 def evaluate_test():
     params = config_factory.config_generator(f"efficientdet-d0")
     model_fn = EfficientDetModel(params)
+    import tensorflow as tf
+
     model, inference_model = model_fn.build_model(params)
+    converter = tf.lite.TFLiteConverter.from_keras_model(model)
+    tflite_model = converter.convert()
+    import pathlib
+    pathlib.Path(r"E:\Temp\test\efficientdet2\save_lite_file").write_bytes(tflite_model)
     # model.load_weights(
     #     r"E:\Programming\Python\TOOL\weights\efficientnet\efficientnet-b1_weights_tf_dim_ordering_tf_kernels.h5",
     #     by_name=True, skip_mismatch=True)
