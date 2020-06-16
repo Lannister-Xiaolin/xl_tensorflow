@@ -484,6 +484,65 @@ class EfficientnetClassLoss(object):
 
         return tf.reduce_sum(input_tensor=ignore_loss * loss)
 
+# todo 变成keras形式
+class EfficientnetClassKerasLoss(object):
+    """RetinaNet class loss.
+    确认损失函数没有对类别 + 1 或者 减一"""
+
+    def __init__(self, params, num_classes):
+        self._num_classes = num_classes
+        self._focal_loss_alpha = params.focal_loss_alpha
+        self._focal_loss_gamma = params.focal_loss_gamma
+
+    def __call__(self, cls_outputs, labels):
+        """Computes total detection loss.
+
+        Computes total detection loss including box and class loss from all levels.
+
+        Args:
+          cls_outputs: an OrderDict with keys representing levels and values
+            representing logits in [batch_size, height, width,
+            num_anchors * num_classes].
+          labels: the dictionary that returned from dataloader that includes
+            class groundturth targets.
+          num_positives: number of positive examples in the minibatch.
+
+        Returns:
+          an integar tensor representing total class loss.
+        """
+        # Sums all positives in a batch for normalization and avoids zero
+        # num_positives_sum, which would lead to inf loss during training
+        num_positives_sum = tf.reduce_sum(input_tensor=num_positives) + 1.0
+
+        cls_losses = []
+        for level in cls_outputs.keys():
+            cls_losses.append(self.class_loss(
+                cls_outputs[level], labels[level], num_positives_sum))
+        # Sums per level losses to total loss.
+        return tf.add_n(cls_losses)
+
+    def class_loss(self, cls_outputs, cls_targets, num_positives,
+                   ignore_label=-2):
+        """Computes RetinaNet classification loss."""
+        # Onehot encoding for classification labels.
+        cls_targets_one_hot = tf.one_hot(cls_targets, self._num_classes)
+        bs, height, width, _, _ = cls_targets_one_hot.get_shape().as_list()
+        cls_targets_one_hot = tf.reshape(cls_targets_one_hot,
+                                         [bs, height, width, -1])
+        loss = focal_loss(cls_outputs, cls_targets_one_hot,
+                          self._focal_loss_alpha, self._focal_loss_gamma,
+                          num_positives)
+        ignore_loss = tf.where(
+            tf.equal(cls_targets, ignore_label),
+            tf.zeros_like(cls_targets, dtype=tf.float32),
+            tf.ones_like(cls_targets, dtype=tf.float32),
+        )
+        ignore_loss = tf.expand_dims(ignore_loss, -1)
+        ignore_loss = tf.tile(ignore_loss, [1, 1, 1, 1, self._num_classes])
+        ignore_loss = tf.reshape(ignore_loss, tf.shape(input=loss))
+
+        return tf.reduce_sum(input_tensor=ignore_loss * loss)
+
 
 class RetinanetBoxLoss(object):
     """RetinaNet box loss."""

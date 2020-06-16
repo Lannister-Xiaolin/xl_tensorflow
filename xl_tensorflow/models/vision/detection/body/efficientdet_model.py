@@ -60,7 +60,7 @@ class EfficientDetModel(base_model.Model):
         self._keras_model = None
         self._inference_keras_model = None
         # Predict function.
-        self._generate_detections_fn = postprocess_ops.MultilevelDetectionGenerator(
+        self._generate_detections_fn = postprocess_ops.MultilevelDetectionGeneratorWithScoreFilter(
             params.architecture.min_level,
             params.architecture.max_level,
             params.postprocess)
@@ -84,7 +84,7 @@ class EfficientDetModel(base_model.Model):
         if self._transpose_input:
             inputs = tf.transpose(inputs, [3, 0, 1, 2])
 
-        backbone_features = self._backbone_fn(input_tensor=inputs, fpn_features=True,)
+        backbone_features = self._backbone_fn(input_tensor=inputs, fpn_features=True, activation=self._params.act_type)
         fpn_features = self._fpn_fn(
             backbone_features, self._params)
         cls_outputs, box_outputs = self._head_fn(
@@ -102,8 +102,75 @@ class EfficientDetModel(base_model.Model):
         }
         evaluate_outputs = self.post_processing_inference(model_outputs, inference_mode)
         return model_outputs, evaluate_outputs
+    #todo
+    def build_outputs_keras(self, inputs, mode, inference_mode=False):
+        # If the input image is transposed (from NHWC to HWCN), we need to revert it
+        # back to the original shape before it's used in the computation.
+        if self._transpose_input:
+            inputs = tf.transpose(inputs, [3, 0, 1, 2])
+
+        backbone_features = self._backbone_fn(input_tensor=inputs, fpn_features=True, activation=self._params.act_type)
+        fpn_features = self._fpn_fn(
+            backbone_features, self._params)
+        cls_outputs, box_outputs = self._head_fn(
+            fpn_features, is_training=None)
+
+        if self._use_bfloat16:
+            levels = cls_outputs.keys()
+            for level in levels:
+                cls_outputs[level] = tf.cast(cls_outputs[level], tf.float32)
+                box_outputs[level] = tf.cast(box_outputs[level], tf.float32)
+
+        model_outputs = {
+            'cls_outputs': cls_outputs,
+            'box_outputs': box_outputs,
+        }
+        keys = cls_outputs.keys()
+        classification = []
+        regression = []
+        for key in keys:
+            classification.append(
+                tf.keras.layers.Reshape((-1, self._params.architecture.num_classes))(cls_outputs[key]))
+            regression.append(
+                tf.keras.layers.Reshape((-1, 4))(box_outputs[key]))
+
+        classification = tf.keras.layers.Concatenate(axis=1, name='classification')(classification)
+        regression = tf.keras.layers.Concatenate(axis=1, name='regression')(regression)
+
+
+
+        evaluate_outputs = self.post_processing_inference(model_outputs, inference_mode)
+        return model_outputs, evaluate_outputs
 
     def build_loss_fn(self):
+        if self._keras_model is None:
+            raise ValueError('build_loss_fn() must be called after build_model().')
+
+        filter_fn = self.make_filter_trainable_variables_fn()
+        trainable_variables = filter_fn(self._keras_model.trainable_variables)
+
+        def _total_loss_fn(labels, outputs):
+            cls_loss = self._cls_loss_fn(outputs['cls_outputs'],
+                                         labels['cls_targets'],
+                                         labels['num_positives'])
+            box_loss = self._box_loss_fn(outputs['box_outputs'],
+                                         labels['box_targets'],
+                                         labels['num_positives'])
+            model_loss = cls_loss + self._box_loss_weight * box_loss
+            l2_regularization_loss = self.weight_decay_loss(trainable_variables)
+            total_loss = model_loss + l2_regularization_loss
+            return {
+                'total_loss': total_loss,
+                'cls_loss': cls_loss,
+                'box_loss': box_loss,
+                'model_loss': model_loss,
+                'l2_regularization_loss': l2_regularization_loss,
+            }
+
+        return _total_loss_fn
+
+    # todo 变成keras形式
+    def build_loss_fn_keras(self):
         if self._keras_model is None:
             raise ValueError('build_loss_fn() must be called after build_model().')
 
