@@ -345,9 +345,11 @@ class MultilevelDetectionGenerator(object):
 class MultilevelDetectionGeneratorWithScoreFilter(object):
     """Generates detected boxes with scores and classes for one-stage detector."""
 
-    def __init__(self, min_level, max_level, params):
+    def __init__(self, min_level, max_level, params,num_classes):
         self._min_level = min_level
         self._max_level = max_level
+        self.params = params
+        self.num_classes = num_classes
         self._generate_detections = generate_detections_factory(params)
 
     def __call__(self, box_outputs, class_outputs, anchor_boxes, image_shape,
@@ -359,7 +361,7 @@ class MultilevelDetectionGeneratorWithScoreFilter(object):
             box_outputs_i_shape = tf.shape(box_outputs[i])
             batch_size = box_outputs_i_shape[0]
             num_anchors_per_locations = box_outputs_i_shape[-1] // 4
-            num_classes = tf.shape(class_outputs[i])[-1] // num_anchors_per_locations
+            num_classes = self.num_classes
 
             # Applies score transformation and remove the implicit background class.
             scores_i = tf.sigmoid(

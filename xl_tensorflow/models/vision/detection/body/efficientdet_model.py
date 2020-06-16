@@ -63,7 +63,7 @@ class EfficientDetModel(base_model.Model):
         self._generate_detections_fn = postprocess_ops.MultilevelDetectionGeneratorWithScoreFilter(
             params.architecture.min_level,
             params.architecture.max_level,
-            params.postprocess)
+            params.postprocess,params.architecture.num_classes)
         self._input_anchor = anchor.Anchor(
             params.architecture.min_level, params.architecture.max_level, params.anchor.num_scales,
             params.anchor.aspect_ratios, params.anchor.anchor_size, (*params.efficientdet_parser.output_size,))
