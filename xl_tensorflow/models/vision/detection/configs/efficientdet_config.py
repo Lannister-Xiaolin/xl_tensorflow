@@ -47,7 +47,7 @@ EFFICIENTDET_CFG.override({
         'anchors_per_location': 9,
         'num_convs': 4,
         'num_filters': 256,
-        'use_separable_conv': False,
+        'use_separable_conv': True,
     },
     'train': {"l2_weight_decay": 4e-5},
     'efficientdet_loss': {
@@ -83,7 +83,7 @@ efficientdet_model_param_dict = {
             'efficientdet_head': {
                 'num_convs': 3,
                 'num_filters': 64,
-                'use_separable_conv': False,
+                'use_separable_conv': True,
             }
         },
     'efficientdetlite-d0':
@@ -102,7 +102,7 @@ efficientdet_model_param_dict = {
             'efficientdet_head': {
                 'num_convs': 3,
                 'num_filters': 64,
-                'use_separable_conv': False,
+                'use_separable_conv': True,
             }
         },
     'efficientdet-d1':
@@ -120,7 +120,7 @@ efficientdet_model_param_dict = {
             'efficientdet_head': {
                 'num_convs': 3,
                 'num_filters': 88,
-                'use_separable_conv': False,
+                'use_separable_conv': True,
             }
         },
     'efficientdetlite-d1':
@@ -139,7 +139,7 @@ efficientdet_model_param_dict = {
             'efficientdet_head': {
                 'num_convs': 3,
                 'num_filters': 88,
-                'use_separable_conv': False,
+                'use_separable_conv': True,
             }
         },
     'efficientdet-d2':
@@ -157,7 +157,7 @@ efficientdet_model_param_dict = {
             'efficientdet_head': {
                 'num_convs': 3,
                 'num_filters': 112,
-                'use_separable_conv': False,
+                'use_separable_conv': True,
             }
         },
     'efficientdetlite-d2':
@@ -175,7 +175,7 @@ efficientdet_model_param_dict = {
             'efficientdet_head': {
                 'num_convs': 3,
                 'num_filters': 112,
-                'use_separable_conv': False,
+                'use_separable_conv': True,
             }
         },
     'efficientdet-d3':
@@ -193,7 +193,7 @@ efficientdet_model_param_dict = {
             'efficientdet_head': {
                 'num_convs': 4,
                 'num_filters': 160,
-                'use_separable_conv': False,
+                'use_separable_conv': True,
             }
         },
     'efficientdetlite-d3':
@@ -211,7 +211,7 @@ efficientdet_model_param_dict = {
             'efficientdet_head': {
                 'num_convs': 4,
                 'num_filters': 160,
-                'use_separable_conv': False,
+                'use_separable_conv': True,
             }
         },
     'efficientdet-d4':
@@ -229,7 +229,7 @@ efficientdet_model_param_dict = {
             'efficientdet_head': {
                 'num_convs': 4,
                 'num_filters': 224,
-                'use_separable_conv': False,
+                'use_separable_conv': True,
             }
         },
     'efficientdetlite-d4':
@@ -247,7 +247,7 @@ efficientdet_model_param_dict = {
             'efficientdet_head': {
                 'num_convs': 4,
                 'num_filters': 224,
-                'use_separable_conv': False,
+                'use_separable_conv': True,
             }
         },
     'efficientdet-d5':
@@ -265,7 +265,7 @@ efficientdet_model_param_dict = {
             'efficientdet_head': {
                 'num_convs': 4,
                 'num_filters': 288,
-                'use_separable_conv': False,
+                'use_separable_conv': True,
             }
         },
     'efficientdet-d6':
@@ -286,7 +286,7 @@ efficientdet_model_param_dict = {
             'efficientdet_head': {
                 'num_convs': 5,
                 'num_filters': 384,
-                'use_separable_conv': False,
+                'use_separable_conv': True,
             }
         },
     'efficientdet-d7':
@@ -307,7 +307,7 @@ efficientdet_model_param_dict = {
             'efficientdet_head': {
                 'num_convs': 5,
                 'num_filters': 384,
-                'use_separable_conv': False,
+                'use_separable_conv': True,
             }
         }
 }

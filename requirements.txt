@@ -6,3 +6,5 @@ cython>=0.27.3
 -e git+https://github.com/cocodataset/cocoapi#egg=pycocotools&subdirectory=PythonAPI
 xl-tool
 pillow
+scikit-image
+imgaug

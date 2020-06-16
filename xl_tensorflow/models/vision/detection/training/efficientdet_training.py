@@ -32,7 +32,7 @@ def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pa
                                  use_autoaugment=False,
                                  unmatched_threshold=0.5,
                                  aug_scale_min=0.1,
-                                 aug_scale_max=2.0):
+                                 aug_scale_max=2.0,warmup_steps=None):
     """
 
     Args:
@@ -76,7 +76,7 @@ def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pa
     params.train.override({'learning_rate': {
         'type': 'step',
         'warmup_learning_rate': learning_rate * 0.1,
-        'warmup_steps': max(int(params.train.total_steps * 0.02), 200),
+        'warmup_steps': max(int(params.train.total_steps * 0.02), 200) if not warmup_steps else warmup_steps,
         'init_learning_rate': learning_rate,
         'learning_rate_levels': [learning_rate * 0.1, learning_rate * 0.01],
         'learning_rate_steps': [int(params.train.total_steps * 0.67), int(params.train.total_steps * 0.83)],

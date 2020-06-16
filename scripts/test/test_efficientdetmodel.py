@@ -18,24 +18,25 @@ def model_test():
         params = config_factory.config_generator(f"efficientdet-d{i}")
         model_fn = EfficientDetModel(params)
         model,inference_model = model_fn.build_model(params)
-        # model.load_weights(
-        #     r"E:\Programming\Python\TOOL\weights\efficientnet\efficientnet-b1_weights_tf_dim_ordering_tf_kernels.h5",
-        #     by_name=True, skip_mismatch=True)
-        data = np.random.random((1, *params.efficientdet_parser.output_size, 3))
-        print(inference_model(data, training=False)['cls_outputs'].keys())
-        model.save(f"{path}/{params.name}.h5", include_optimizer=False)
+        print(model.summary())
+        # # model.load_weights(
+        # #     r"E:\Programming\Python\TOOL\weights\efficientnet\efficientnet-b1_weights_tf_dim_ordering_tf_kernels.h5",
+        # #     by_name=True, skip_mismatch=True)
+        # data = np.random.random((1, *params.efficientdet_parser.output_size, 3))
+        # print(inference_model(data, training=False)['cls_outputs'].keys())
+        # model.save(f"{path}/{params.name}.h5", include_optimizer=False)
         # print(model(data, training=False)['cls_outputs'])
-    for i in range(5):
-        params = config_factory.config_generator(f"efficientdetlite-d{i}")
-
-        model_fn = EfficientDetModel(params)
-        model = model_fn.build_model(params)
-        # model.load_weights(
-        #     r"E:\Programming\Python\TOOL\weights\efficientnet\efficientnet-b1_weights_tf_dim_ordering_tf_kernels.h5",
-        #     by_name=True, skip_mismatch=True)
-        data = np.random.random((1, *params.efficientdet_parser.output_size, 3))
-        print(model(data, training=False)['cls_outputs'].keys())
-        model.save(f"{path}/{params.name}.h5", include_optimizer=False)
+    # for i in range(5):
+    #     params = config_factory.config_generator(f"efficientdetlite-d{i}")
+    #
+    #     model_fn = EfficientDetModel(params)
+    #     model = model_fn.build_model(params)
+    #     # model.load_weights(
+    #     #     r"E:\Programming\Python\TOOL\weights\efficientnet\efficientnet-b1_weights_tf_dim_ordering_tf_kernels.h5",
+    #     #     by_name=True, skip_mismatch=True)
+    #     data = np.random.random((1, *params.efficientdet_parser.output_size, 3))
+    #     print(model(data, training=False)['cls_outputs'].keys())
+    #     model.save(f"{path}/{params.name}.h5", include_optimizer=False)
 
 
 def training_test():
@@ -95,4 +96,5 @@ def evaluate_test():
 if __name__ == '__main__':
     # inference_test()
     # training_test()
-    evaluate_test()
+    # evaluate_test()
+    model_test()
