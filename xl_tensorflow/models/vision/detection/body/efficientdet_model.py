@@ -48,6 +48,7 @@ class EfficientDetModel(base_model.Model):
         # Architecture generators.
         self._backbone_fn = factory.backbone_generator(params)
         self._fpn_fn = factory.multilevel_features_generator(params)
+        # hint: 与keras版本相比多boxnet和classnet多了激活函数,导致速度变慢
         self._head_fn = factory.efficientdet_head_generator(params)
 
         # Loss function.
@@ -83,7 +84,7 @@ class EfficientDetModel(base_model.Model):
         if self._transpose_input:
             inputs = tf.transpose(inputs, [3, 0, 1, 2])
 
-        backbone_features = self._backbone_fn(input_tensor=inputs, fpn_features=True)
+        backbone_features = self._backbone_fn(input_tensor=inputs, fpn_features=True,)
         fpn_features = self._fpn_fn(
             backbone_features, self._params)
         cls_outputs, box_outputs = self._head_fn(

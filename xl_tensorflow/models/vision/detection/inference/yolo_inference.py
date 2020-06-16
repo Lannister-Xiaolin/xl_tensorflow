@@ -176,7 +176,7 @@ def yolo_inference_model(model_name, weights,
 
 def tflite_export_yolo(model_name, num_classes, save_lite_file, weights="", input_shape=(416, 416), anchors="v3",
                        return_xy=True, score_threshold=.2,
-                       iou_threshold=.5, quant="", force_relu=False):
+                       iou_threshold=.5, quant="", activation=None):
     """
     模型输入为固定尺寸（不需要除以255），因此输出需要根据与固定尺寸的比例进行缩放和偏置（如过是右侧填充则不需要，居中两侧填充为）
     输出按照xyxy格式,
@@ -195,7 +195,7 @@ def tflite_export_yolo(model_name, num_classes, save_lite_file, weights="", inpu
     Returns:
 
     """
-    base_ops = DarknetConv2D_BN_Relu if force_relu else DarknetConv2D_BN_Leaky
+    base_ops = DarknetConv2D_BN_Relu if activation=="relu" else DarknetConv2D_BN_Leaky
     int_quantize_sample = (100, *input_shape, 3)
     anchors = YOLOV4_ANCHORS if anchors == "v4" else YOLOV3_ANCHORS
     from tensorflow.keras import layers

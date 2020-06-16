@@ -106,7 +106,7 @@ def finetune_model(name="", prefix="", class_num=6, train_path="./dataset/specif
                    test=True, classes=None, epochs=(5, 30, 60, 120), lrs=(0.00001, 0.003, 0.0003, 0.00003),
                    optimizer="adam", reducelr=3, tf_model=None,
                    batch_size=16, target_size=(224, 224), train_buffer_size=5000, val_buffer_size=5000,
-                   prefetch=False, force_relu=False):
+                   prefetch=False, activation=False):
     """预训训练最后一层与全部训练对比"""
     if tf_record:
 
@@ -160,7 +160,7 @@ def finetune_model(name="", prefix="", class_num=6, train_path="./dataset/specif
                                                  prefix=prefix,
                                                  suffix=f"_{class_num}", dropout=dropout,
                                                  non_flatten_trainable=True,
-                                                 input_shape=(*target_size, 3), force_relu=force_relu) if (
+                                                 input_shape=(*target_size, 3), activation=activation) if (
                 tf_model is None) else tf_model
         if tf_model is not None:
             model._name = prefix + name + f"_{class_num}"

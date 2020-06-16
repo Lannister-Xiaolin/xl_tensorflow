@@ -140,6 +140,17 @@ def round_repeats(repeats, depth_coefficient):
     return int(math.ceil(depth_coefficient * repeats))
 
 
+class FixedDropout(layers.Dropout):
+    def _get_noise_shape(self, inputs):
+        if self.noise_shape is None:
+            return self.noise_shape
+
+        symbolic_shape = backend.shape(inputs)
+        noise_shape = [symbolic_shape[axis] if shape is None else shape
+                       for axis, shape in enumerate(self.noise_shape)]
+        return tuple(noise_shape)
+
+
 def mb_conv_block(inputs, block_args, activation, drop_rate=None, prefix='',
                   using_se_global_pooling=True
                   ):
@@ -209,8 +220,8 @@ def mb_conv_block(inputs, block_args, activation, drop_rate=None, prefix='',
             s == 1 for s in block_args.strides
     ) and block_args.input_filters == block_args.output_filters:
         if drop_rate and (drop_rate > 0):
-            x = layers.Dropout(drop_rate, noise_shape=(None, 1, 1, 1),
-                               name=prefix + 'drop')(x)
+            x = FixedDropout(drop_rate, noise_shape=(None, 1, 1, 1),
+                             name=prefix + 'drop')(x)
         x = layers.Add(name=prefix + 'add')([x, inputs])
     return x
 
@@ -229,7 +240,7 @@ def EfficientNet(width_coefficient,
                  input_shape=None,
                  pooling=None,
                  classes=1000,
-                 force_relu=False,
+                 activation=None,
                  fix_head_stem=False,
                  using_se_global_pooling=True,
                  fpn_features=False,
@@ -277,7 +288,7 @@ def EfficientNet(width_coefficient,
         using_se_global_pooling: if True, cannot use GPU in lite,
             if false,must specify input shape
         fix_head_stem: fix head and stem
-        force_relu: force to using relu6 to replace swish, better for quant
+        activation: force to using relu6 to replace swish, better for quant
         fpn_features: whether return features for fpn
     # Returns
         A Keras model instance.
@@ -317,7 +328,17 @@ def EfficientNet(width_coefficient,
             img_input = input_tensor
 
     bn_axis = 3 if backend.image_data_format() == 'channels_last' else 1
-    activation = get_swish() if not force_relu else (force_relu if force_relu != True else get_relu6())
+
+    activation_dict = {
+        "swish": get_swish(),
+        "relu6": get_relu6,
+        'relu': "relu"
+    }
+
+    try:
+        activation = activation_dict[activation]
+    except KeyError:
+        activation = get_swish()
     print("使用激活函数---->", activation)
     # Build stem
     x = img_input
@@ -388,7 +409,7 @@ def EfficientNet(width_coefficient,
     if include_top:
         x = layers.GlobalAveragePooling2D(name='avg_pool')(x)
         if dropout_rate and dropout_rate > 0:
-            x = layers.Dropout(dropout_rate, name='top_dropout')(x)
+            x = FixedDropout(dropout_rate, name='top_dropout')(x)
         x = layers.Dense(classes,
                          activation='softmax',
                          kernel_initializer=DENSE_KERNEL_INITIALIZER,
@@ -431,7 +452,7 @@ def EfficientNetB0(include_top=True,
                    input_shape=None,
                    pooling=None,
                    classes=1000,
-                   force_relu=False,
+                   activation=None,
                    using_se_global_pooling=True,
                    fpn_features=False,
                    **kwargs):
@@ -439,7 +460,7 @@ def EfficientNetB0(include_top=True,
                         model_name='efficientnet-b0',
                         include_top=include_top, weights=weights,
                         input_tensor=input_tensor, input_shape=input_shape,
-                        pooling=pooling, classes=classes, force_relu=force_relu,
+                        pooling=pooling, classes=classes, activation=activation,
                         using_se_global_pooling=using_se_global_pooling,
                         fpn_features=fpn_features,
                         **kwargs)
@@ -451,7 +472,7 @@ def EfficientNetB1(include_top=True,
                    input_shape=None,
                    pooling=None,
                    classes=1000,
-                   force_relu=False,
+                   activation=None,
                    using_se_global_pooling=True,
                    fpn_features=False,
                    **kwargs):
@@ -459,7 +480,7 @@ def EfficientNetB1(include_top=True,
                         model_name='efficientnet-b1',
                         include_top=include_top, weights=weights,
                         input_tensor=input_tensor, input_shape=input_shape,
-                        pooling=pooling, classes=classes, force_relu=force_relu,
+                        pooling=pooling, classes=classes, activation=activation,
                         using_se_global_pooling=using_se_global_pooling,
                         fpn_features=fpn_features,
                         **kwargs)
@@ -471,14 +492,14 @@ def EfficientNetB2(include_top=True,
                    input_shape=None,
                    pooling=None,
                    classes=1000,
-                   force_relu=False, using_se_global_pooling=True,
+                   activation=None, using_se_global_pooling=True,
                    fpn_features=False,
                    **kwargs):
     return EfficientNet(1.1, 1.2, 260, 0.3,
                         model_name='efficientnet-b2',
                         include_top=include_top, weights=weights,
                         input_tensor=input_tensor, input_shape=input_shape,
-                        pooling=pooling, classes=classes, force_relu=force_relu,
+                        pooling=pooling, classes=classes, activation=activation,
                         using_se_global_pooling=using_se_global_pooling,
                         fpn_features=fpn_features,
                         **kwargs)
@@ -490,14 +511,14 @@ def EfficientNetB3(include_top=True,
                    input_shape=None,
                    pooling=None,
                    classes=1000,
-                   force_relu=False, using_se_global_pooling=True,
+                   activation=None, using_se_global_pooling=True,
                    fpn_features=False,
                    **kwargs):
     return EfficientNet(1.2, 1.4, 300, 0.3,
                         model_name='efficientnet-b3',
                         include_top=include_top, weights=weights,
                         input_tensor=input_tensor, input_shape=input_shape,
-                        pooling=pooling, classes=classes, force_relu=force_relu,
+                        pooling=pooling, classes=classes, activation=activation,
                         using_se_global_pooling=using_se_global_pooling,
                         fpn_features=fpn_features,
                         **kwargs)
@@ -509,14 +530,14 @@ def EfficientNetB4(include_top=True,
                    input_shape=None,
                    pooling=None,
                    classes=1000,
-                   force_relu=False, using_se_global_pooling=True,
+                   activation=None, using_se_global_pooling=True,
                    fpn_features=False,
                    **kwargs):
     return EfficientNet(1.4, 1.8, 380, 0.4,
                         model_name='efficientnet-b4',
                         include_top=include_top, weights=weights,
                         input_tensor=input_tensor, input_shape=input_shape,
-                        pooling=pooling, classes=classes, force_relu=force_relu,
+                        pooling=pooling, classes=classes, activation=activation,
                         using_se_global_pooling=using_se_global_pooling,
                         fpn_features=fpn_features,
                         **kwargs)
@@ -527,7 +548,7 @@ def EfficientNetB5(include_top=True,
                    input_tensor=None,
                    input_shape=None,
                    pooling=None,
-                   force_relu=False,
+                   activation=None,
                    classes=1000, using_se_global_pooling=True,
                    fpn_features=False,
                    **kwargs):
@@ -535,7 +556,7 @@ def EfficientNetB5(include_top=True,
                         model_name='efficientnet-b5',
                         include_top=include_top, weights=weights,
                         input_tensor=input_tensor, input_shape=input_shape,
-                        pooling=pooling, classes=classes, force_relu=force_relu,
+                        pooling=pooling, classes=classes, activation=activation,
                         using_se_global_pooling=using_se_global_pooling,
                         fpn_features=fpn_features,
                         **kwargs)
@@ -547,14 +568,14 @@ def EfficientNetB6(include_top=True,
                    input_shape=None,
                    pooling=None,
                    classes=1000,
-                   force_relu=False, using_se_global_pooling=True,
+                   activation=None, using_se_global_pooling=True,
                    fpn_features=False,
                    **kwargs):
     return EfficientNet(1.8, 2.6, 528, 0.5,
                         model_name='efficientnet-b6',
                         include_top=include_top, weights=weights,
                         input_tensor=input_tensor, input_shape=input_shape,
-                        pooling=pooling, classes=classes, force_relu=force_relu,
+                        pooling=pooling, classes=classes, activation=activation,
                         using_se_global_pooling=using_se_global_pooling,
                         fpn_features=fpn_features,
                         **kwargs)
@@ -566,14 +587,14 @@ def EfficientNetB7(include_top=True,
                    input_shape=None,
                    pooling=None,
                    classes=1000,
-                   force_relu=False, using_se_global_pooling=True,
+                   activation=None, using_se_global_pooling=True,
                    fpn_features=False,
                    **kwargs):
     return EfficientNet(2.0, 3.1, 600, 0.5,
                         model_name='efficientnet-b7',
                         include_top=include_top, weights=weights,
                         input_tensor=input_tensor, input_shape=input_shape,
-                        pooling=pooling, classes=classes, force_relu=force_relu,
+                        pooling=pooling, classes=classes, activation=activation,
                         using_se_global_pooling=using_se_global_pooling,
                         fpn_features=fpn_features,
                         **kwargs)
@@ -585,7 +606,7 @@ def EfficientNetLiteB0(include_top=True,
                        input_shape=None,
                        pooling=None,
                        classes=1000,
-                       force_relu=True,
+                       activation="relu6",
                        using_se_global_pooling=True,
                        fpn_features=False,
                        **kwargs):
@@ -595,7 +616,7 @@ def EfficientNetLiteB0(include_top=True,
                         blocks_args=DEFAULT_LITE_BLOCKS_ARGS,
                         fix_head_stem=True,
                         input_tensor=input_tensor, input_shape=input_shape,
-                        pooling=pooling, classes=classes, force_relu=force_relu,
+                        pooling=pooling, classes=classes, activation=activation,
                         using_se_global_pooling=using_se_global_pooling, fpn_features=fpn_features,
                         **kwargs)
 
@@ -606,7 +627,7 @@ def EfficientNetLiteB1(include_top=True,
                        input_shape=None,
                        pooling=None,
                        classes=1000,
-                       force_relu=True,
+                       activation="relu6",
                        using_se_global_pooling=True,
                        fpn_features=False,
                        **kwargs):
@@ -616,7 +637,7 @@ def EfficientNetLiteB1(include_top=True,
                         blocks_args=DEFAULT_LITE_BLOCKS_ARGS,
                         fix_head_stem=True,
                         input_tensor=input_tensor, input_shape=input_shape,
-                        pooling=pooling, classes=classes, force_relu=force_relu,
+                        pooling=pooling, classes=classes, activation=activation,
                         using_se_global_pooling=using_se_global_pooling,
                         fpn_features=fpn_features,
                         **kwargs)
@@ -628,7 +649,7 @@ def EfficientNetLiteB2(include_top=True,
                        input_shape=None,
                        pooling=None,
                        classes=1000,
-                       force_relu=True, using_se_global_pooling=True,
+                       activation="relu6", using_se_global_pooling=True,
                        fpn_features=False,
                        **kwargs):
     return EfficientNet(1.1, 1.2, 260, 0.3,
@@ -637,7 +658,7 @@ def EfficientNetLiteB2(include_top=True,
                         blocks_args=DEFAULT_LITE_BLOCKS_ARGS,
                         fix_head_stem=True,
                         input_tensor=input_tensor, input_shape=input_shape,
-                        pooling=pooling, classes=classes, force_relu=force_relu,
+                        pooling=pooling, classes=classes, activation=activation,
                         using_se_global_pooling=using_se_global_pooling,
                         fpn_features=fpn_features,
                         **kwargs)
@@ -649,7 +670,7 @@ def EfficientNetLiteB3(include_top=True,
                        input_shape=None,
                        pooling=None,
                        classes=1000,
-                       force_relu=True, using_se_global_pooling=True,
+                       activation="relu6", using_se_global_pooling=True,
                        fpn_features=False,
                        **kwargs):
     return EfficientNet(1.2, 1.4, 280, 0.3,
@@ -658,7 +679,7 @@ def EfficientNetLiteB3(include_top=True,
                         blocks_args=DEFAULT_LITE_BLOCKS_ARGS,
                         fix_head_stem=True,
                         input_tensor=input_tensor, input_shape=input_shape,
-                        pooling=pooling, classes=classes, force_relu=force_relu,
+                        pooling=pooling, classes=classes, activation=activation,
                         using_se_global_pooling=using_se_global_pooling,
                         fpn_features=fpn_features,
                         **kwargs)
@@ -670,7 +691,7 @@ def EfficientNetLiteB4(include_top=True,
                        input_shape=None,
                        pooling=None,
                        classes=1000,
-                       force_relu=True, using_se_global_pooling=True,
+                       activation="relu6", using_se_global_pooling=True,
                        fpn_features=False,
                        **kwargs):
     return EfficientNet(1.4, 1.8, 300, 0.3,
@@ -679,7 +700,7 @@ def EfficientNetLiteB4(include_top=True,
                         blocks_args=DEFAULT_LITE_BLOCKS_ARGS,
                         fix_head_stem=True,
                         input_tensor=input_tensor, input_shape=input_shape,
-                        pooling=pooling, classes=classes, force_relu=force_relu,
+                        pooling=pooling, classes=classes, activation=activation,
                         using_se_global_pooling=using_se_global_pooling,
                         fpn_features=fpn_features,
                         **kwargs)
@@ -705,13 +726,14 @@ def main():
     from tensorflow.keras.applications import MobileNetV2
     model = EfficientNetB1(include_top=False, input_tensor=image_input, weights=None, fpn_features=False)
     import numpy as np
-    data = np.random.random((1,640,640,3))
-    print((model(data,training=True)))
+    data = np.random.random((1, 640, 640, 3))
+    print((model(data, training=True)))
     print((model(data, training=False)))
     print((model(data)))
     # print(EfficientNetLiteB2(include_top=False, input_tensor=image_input, weights=None, fpn_features=False).trainable_weights)
     # print(EfficientNetLiteB1(include_top=False, input_tensor=image_input, weights=None,
     #                          fpn_features=False).trainable_weights)
+
 
 if __name__ == '__main__':
     main()

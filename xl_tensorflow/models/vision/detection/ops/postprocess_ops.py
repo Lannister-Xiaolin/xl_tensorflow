@@ -341,6 +341,133 @@ class MultilevelDetectionGenerator(object):
         # tf.print(tf.keras.backend.min(nmsed_classes))
         return nmsed_boxes, nmsed_scores, nmsed_classes, valid_detections
 
+class MultilevelDetectionGeneratorWithScoreFilter(object):
+    """Generates detected boxes with scores and classes for one-stage detector."""
+
+    def __init__(self, min_level, max_level, params):
+        self._min_level = min_level
+        self._max_level = max_level
+        self._generate_detections = generate_detections_factory(params)
+
+    def __call__(self, box_outputs, class_outputs, anchor_boxes, image_shape,
+                 iou_threshold=0.5, score_threshold=0.05, max_boxes=100):
+        # Collects outputs from all levels into a list.
+        boxes = []
+        scores = []
+        all_anchors = []
+        for i in range(self._min_level, self._max_level + 1):
+            box_outputs_i_shape = tf.shape(box_outputs[i])
+            batch_size = box_outputs_i_shape[0]
+            num_anchors_per_locations = box_outputs_i_shape[-1] // 4
+            num_classes = tf.shape(class_outputs[i])[-1] // num_anchors_per_locations
+
+            # Applies score transformation and remove the implicit background class.
+            scores_i = tf.sigmoid(
+                tf.reshape(class_outputs[i], [batch_size, -1, num_classes]))
+            scores_i = tf.slice(scores_i, [0, 0, 1], [-1, -1, -1])
+
+            # Box decoding.
+            # The anchor boxes are shared for all data in a batch.
+            # One stage detector only supports class agnostic box regression.
+            # todo 此处变更
+            # anchor_boxes_i = tf.reshape(anchor_boxes[i], [batch_size, -1, 4])
+            anchor_boxes_i = tf.reshape(anchor_boxes[i], [1, -1, 4])
+            box_outputs_i = tf.reshape(box_outputs[i], [batch_size, -1, 4])
+            # boxes_i = box_utils.decode_boxes(box_outputs_i, anchor_boxes_i)
+
+            # Box clipping.
+            # boxes_i = box_utils.clip_boxes(boxes_i, image_shape)
+
+            boxes.append(box_outputs_i)
+            scores.append(scores_i)
+            all_anchors.append(anchor_boxes_i)
+        boxes = tf.concat(boxes, axis=1)
+        scores = tf.concat(scores, axis=1)
+        all_anchors =  tf.concat(scores, axis=1)
+
+
+
+        filtered_boxes = tf.gather_nd(boxes, indices_)
+
+
+        nmsed_boxes, nmsed_scores, nmsed_classes, valid_detections = tf.image.combined_non_max_suppression(
+            tf.expand_dims(boxes, axis=2), scores, max_boxes, max_boxes, iou_threshold=iou_threshold,
+            score_threshold=score_threshold, pad_per_class=False, clip_boxes=False, name=None
+        )
+        # tf.print(tf.keras.backend.min(nmsed_classes))
+        # Adds 1 to offset the background class which has index 0.
+        nmsed_classes += 1
+        # tf.print(tf.keras.backend.min(nmsed_classes))
+        return nmsed_boxes, nmsed_scores, nmsed_classes, valid_detections
+
+def filter_detections(
+        boxes,
+        classification,
+        score_threshold=0.01,
+        max_detections=100,
+        nms_threshold=0.5,
+):
+    """
+    Filter detections using the boxes and classification values.
+
+    Args
+        boxes: Tensor of shape (num_boxes, 4) containing the boxes in (x1, y1, x2, y2) format.
+        classification: Tensor of shape (num_boxes, num_classes) containing the classification scores.
+        other: List of tensors of shape (num_boxes, ...) to filter along with the boxes and classification scores.
+        class_specific_filter: Whether to perform filtering per class, or take the best scoring class and filter those.
+        nms: Flag to enable/disable non maximum suppression.
+        score_threshold: Threshold used to prefilter the boxes with.
+        max_detections: Maximum number of detections to keep.
+        nms_threshold: Threshold for the IoU value to determine when a box should be suppressed.
+
+    Returns
+        A list of [boxes, scores, labels, other[0], other[1], ...].
+        boxes is shaped (max_detections, 4) and contains the (x1, y1, x2, y2) of the non-suppressed boxes.
+        scores is shaped (max_detections,) and contains the scores of the predicted class.
+        labels is shaped (max_detections,) and contains the predicted label.
+        other[i] is shaped (max_detections, ...) and contains the filtered other[i] data.
+        In case there are less than max_detections detections, the tensors are padded with -1's.
+    """
+    def _filter_detections(scores_, labels_,anchors_):
+        # threshold based on score
+        # (num_score_keeps, 1)
+        indices_ = tf.where(tf.keras.backend.greater(scores_, score_threshold))
+        filtered_boxes = tf.gather_nd(boxes, indices_)
+        filtered_scores = tf.keras.backend.gather(scores_, indices_)[:, 0]
+        nms_indices = tf.image.non_max_suppression(filtered_boxes, filtered_scores, max_output_size=max_detections,
+                                                   iou_threshold=nms_threshold)
+        indices_ = tf.keras.backend.gather(indices_, nms_indices)
+        labels_ = tf.gather_nd(labels_, indices_)
+        indices_ = tf.keras.backend.stack([indices_[:, 0], labels_], axis=1)
+        return indices_
+
+    all_indices = []
+    # perform per class filtering
+    for c in range(int(classification.shape[1])):
+        scores = classification[:, c]
+        labels = c * tf.ones((tf.keras.backend.shape(scores)[0],), dtype='int64')
+        all_indices.append(_filter_detections(scores, labels))
+    indices = tf.keras.backend.concatenate(all_indices, axis=0)
+    scores = tf.gather_nd(classification, indices)
+    labels = indices[:, 1]
+    scores, top_indices = tf.nn.top_k(scores,
+                                      k=tf.keras.backend.minimum(max_detections, tf.keras.backend.shape(scores)[0]))
+
+    # filter input using the final set of indices
+    indices = tf.keras.backend.gather(indices[:, 0], top_indices)
+    boxes = tf.keras.backend.gather(boxes, indices)
+    labels = tf.keras.backend.gather(labels, top_indices)
+    pad_size = tf.keras.backend.maximum(0, max_detections - tf.keras.backend.shape(scores)[0])
+    boxes = tf.pad(boxes, [[0, pad_size], [0, 0]], constant_values=-1)
+    scores = tf.pad(scores, [[0, pad_size]], constant_values=-1)
+    labels = tf.pad(labels, [[0, pad_size]], constant_values=-1)
+    labels = tf.keras.backend.cast(labels, 'int32')
+
+    # set shapes, since we know what they are
+    boxes.set_shape([max_detections, 4])
+    scores.set_shape([max_detections])
+    labels.set_shape([max_detections])
+    return [boxes, scores, labels]
 
 class GenericDetectionGenerator(object):
     """Generates the final detected boxes with scores and classes."""
