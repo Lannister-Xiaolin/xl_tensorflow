@@ -85,3 +85,177 @@ class SEConvEfnet2D(layers.Layer):
         config = super(SEConvEfnet2D, self).get_config()
         config.update({'se_ratio': self.se_ratio})
         return config
+
+
+@tf.keras.utils.register_keras_serializable(package='Text')
+class Base64ImageProcessLayer(tf.keras.layers.Layer):
+    """
+    Layer for deal with base64 input
+    """
+
+    def __init__(
+            self,
+            target_size=(512, 512),
+            mean=tf.constant([0.485, 0.456, 0.406]),
+            std=tf.constant([0.229, 0.224, 0.225]),
+            **kwargs):
+        """
+
+        Args:
+            target_size: target size to resize image
+            mean: mean value for rgb, if None， value only devide by 255
+            std: std value for rgb, if None， value only devide by 255
+            **kwargs:
+        """
+        self.target_size = target_size
+        self.mean = mean
+        self.std = std
+        super(Base64ImageProcessLayer, self).__init__(**kwargs)
+
+    def preprocess_and_decode(self, img_str):
+        img = tf.io.decode_base64(img_str)
+        img = tf.image.decode_jpeg(img, channels=3)
+        img = tf.cast(img, tf.float32)
+        img = img / 255.0
+        image_size = tf.cast(tf.shape(input=img)[0:2], tf.float32)
+        scale = tf.minimum(
+            self.target_size[0] / image_size[0], self.target_size[1] / image_size[1])
+        scaled_size = tf.round(image_size * scale)
+        image_scale = scaled_size / image_size
+        scaled_image = tf.image.resize(
+            img, tf.cast(scaled_size, tf.int32), method=tf.image.ResizeMethod.BILINEAR)
+
+        output_image = tf.image.pad_to_bounding_box(scaled_image, 0, 0,
+                                                    self.target_size[0], self.target_size[0])
+        return [output_image, image_scale, image_size]
+
+    def call(self, inputs, **kwargs):
+        """
+        Constructs the NMS graph.
+
+        Args
+            inputs : List of [boxes, classification, other[0], other[1], ...] tensors.
+        """
+        with tf.device("/cpu:0"):
+            ouput_tensor, scales, image_sizes = tf.map_fn(lambda im: self.preprocess_and_decode(im[0]),
+                                             inputs, parallel_iterations=32,
+                                             dtype=["float32", "float32", "float32"])
+        if (self.mean is not None) and (self.std is not None):
+            ouput_tensor = (ouput_tensor - self.mean) / self.std
+        return [ouput_tensor, scales, image_sizes]
+
+    def compute_output_shape(self, input_shape):
+        """
+        Computes the output shapes given the input shapes.
+
+        Args
+            input_shape : List of input shapes [boxes, classification].
+
+        Returns
+            List of tuples representing the output shapes:
+            [filtered_boxes.shape, filtered_scores.shape, filtered_labels.shape, filtered_other[0].shape, filtered_other[1].shape, ...]
+        """
+
+        return [
+            (input_shape[0], self.target_size[0], self.target_size[0], 3),
+            (input_shape[0], 2),
+            (input_shape[0], 2)
+        ]
+
+    def get_config(self):
+        """
+        Gets the configuration of this layer.
+
+        Returns
+            Dictionary containing the parameters of this layer.
+        """
+        config = super(Base64ImageProcessLayer, self).get_config()
+        config.update({
+            'target_size': self.target_size,
+        })
+
+
+@tf.keras.utils.register_keras_serializable(package='Text')
+class ResizeImageProcessLayer(tf.keras.layers.Layer):
+    """
+    Layer for resize image and
+    """
+
+    def __init__(
+            self,
+            target_size=(512, 512),
+            mean=tf.constant([0.485, 0.456, 0.406]),
+            std=tf.constant([0.229, 0.224, 0.225]),
+            **kwargs):
+        """
+
+        Args:
+            target_size: target size to resize image
+            mean: mean value for rgb, if None， value only devide by 255
+            std: std value for rgb, if None， value only devide by 255
+            **kwargs:
+        """
+        self.target_size = target_size
+        self.mean = mean
+        self.std = std
+        super(ResizeImageProcessLayer, self).__init__(**kwargs)
+
+    def preprocess_and_decode(self, img):
+        img = tf.cast(img, tf.float32)
+        img = img / 255.0
+        image_size = tf.cast(tf.shape(input=img)[0:2], tf.float32)
+        scale = tf.minimum(
+            self.target_size[0] / image_size[0], self.target_size[0] / image_size[1])
+        scaled_size = tf.round(image_size * scale)
+        image_scale = scaled_size / image_size
+        scaled_image = tf.image.resize(
+            img, tf.cast(scaled_size, tf.int32), method=tf.image.ResizeMethod.BILINEAR)
+
+        output_image = tf.image.pad_to_bounding_box(scaled_image, 0, 0,
+                                                    self.target_size[0], self.target_size[0])
+        return [output_image, image_scale, image_size]
+
+    def call(self, inputs, **kwargs):
+        """
+        Constructs the NMS graph.
+
+        Args
+            inputs : List of [boxes, classification, other[0], other[1], ...] tensors.
+        """
+        # with tf.device("/cpu:0"):
+        ouput_tensor, scales, image_sizes = tf.map_fn(lambda im: self.preprocess_and_decode(im),
+                                                      inputs, parallel_iterations=32,
+                                                      dtype=["float32", "float32", "float32"])
+        if (self.mean is not None) and (self.std is not None):
+            ouput_tensor = (ouput_tensor - self.mean) / self.std
+        return [ouput_tensor, scales, image_sizes]
+
+    def compute_output_shape(self, input_shape):
+        """
+        Computes the output shapes given the input shapes.
+
+        Args
+            input_shape : List of input shapes [boxes, classification].
+
+        Returns
+            List of tuples representing the output shapes:
+            [filtered_boxes.shape, filtered_scores.shape, filtered_labels.shape, filtered_other[0].shape, filtered_other[1].shape, ...]
+        """
+
+        return [
+            (input_shape[0], self.target_size[0], self.target_size[0], 3),
+            (input_shape[0], 2),
+            (input_shape[0], 2),
+        ]
+
+    def get_config(self):
+        """
+        Gets the configuration of this layer.
+
+        Returns
+            Dictionary containing the parameters of this layer.
+        """
+        config = super(ResizeImageProcessLayer, self).get_config()
+        config.update({
+            'target_size': self.target_size,
+        })

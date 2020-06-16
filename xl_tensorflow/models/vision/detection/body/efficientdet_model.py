@@ -215,11 +215,14 @@ class EfficientDetModel(base_model.Model):
     def post_processing_inference(self, outputs, inference_mode=False):
         boxes, scores, classes, valid_detections = self._generate_detections_fn(
             outputs['box_outputs'], outputs['cls_outputs'],
-            self._input_anchor.multilevel_boxes, self._input_image_size)
+            self._input_anchor.multilevel_boxes, self._input_image_size,
+            iou_threshold=self._params.postprocess.nms_iou_threshold,
+            score_threshold=self._params.postprocess.score_threshold,
+            max_total_size=self._params.postprocess.max_total_size)
         # Discards the old output tensors to save memory. The `cls_outputs` and
         # `box_outputs` are pretty big and could potentiall lead to memory issue.
         if inference_mode:
-            outputs = valid_detections, boxes, classes, scores
+            outputs = boxes, scores, classes, valid_detections
         else:
             outputs = {
                 # 'source_id': labels['groundtruths']['source_id'],

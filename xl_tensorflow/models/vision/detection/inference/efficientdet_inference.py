@@ -15,6 +15,9 @@ from xl_tensorflow.models.vision.detection.dataloader.efficientdet_parser import
 from xl_tensorflow.models.vision.detection.dataloader.utils import input_utils, box_list, faster_rcnn_box_coder
 from typing import Text, Dict, Any, List, Tuple, Union
 import tensorflow as tf
+from xl_tensorflow.layers.conv import Base64ImageProcessLayer, ResizeImageProcessLayer
+
+
 # todo 推理部署 - 保证所有检测接口保持一致，高可用，高性能（参考谷歌官方，端到端，高效，快速）
 
 def image_preprocess(image, image_size: Union[int, Tuple[int, int]]):
@@ -72,34 +75,68 @@ def batch_image_preprocess(raw_images,
     return images, scales
 
 
+def efficiendet_inference_model(model_name="efficientdet-d0", input_shape=(512, 512),
+                                inference_mode="fixed",num_classes=85,
+                                mean=tf.constant([0.485, 0.456, 0.406]),
+                                std=tf.constant([0.229, 0.224, 0.225])):
+    """
 
+    Args:
+        model_name:
+        input_shape:
+        inference_mode:
+            base64:  end to end, no need to preprocess and post process
+            dynamic: fixed size inputs and shape input:  just read image with array, no need to add extral preprocess and post process
+            fixed: fixed size inputs as target size：
+        preprocessing:
+        shape_input:
 
+    Returns:
 
-def efficiendet_inference_model(model_name="efficientdet-d0",input_shape=(512, 512)):
+    """
     params = config_factory.config_generator(model_name)
+    params.architecture.num_classes = num_classes
+
+    if inference_mode == "base64":
+        inputs = tf.keras.layers.Input(shape=(1,), dtype="string", name="image_b64")
+        ouput_tensor, scales, image_sizes = Base64ImageProcessLayer(target_size=input_shape)(inputs)
+    elif inference_mode == "dynamic":
+        inputs = tf.keras.layers.Input(shape=(None, None, 3), name="image_b64")
+        ouput_tensor, scales, image_sizes = ResizeImageProcessLayer(target_size=input_shape)(inputs)
+    else:
+        inputs = tf.keras.layers.Input(shape=(input_shape[0], input_shape[1], 3), name="image_b64")
+        ouput_tensor = tf.cast(inputs, tf.float32) / 255.0
+        if (mean is not None) and (std is not None):
+            ouput_tensor = (ouput_tensor - mean) / std
+        shape_inputs = tf.keras.layers.Input(shape=(2,), name="shape_input")
+        width_scales = input_shape[0] / shape_inputs[:, 0:1]
+        hight_scales = input_shape[1] / shape_inputs[:, 1:]
+        scales = tf.where(tf.keras.backend.greater(width_scales, hight_scales), hight_scales, width_scales)
+        scaled_size = tf.round(shape_inputs * scales)
+        scales = scaled_size / shape_inputs
+        image_sizes = shape_inputs
+
+
     model_fn = EfficientDetModel(params)
     model, inference_model = model_fn.build_model(params, inference_mode=True)
-    def preprocess_and_decode(img_str, input_shape=input_shape):
-        img = tf.io.decode_base64(img_str)
-        img = tf.image.decode_jpeg(img, channels=3)
-        img = tf.cast(img, tf.float32)
-        img = tf.image.resize_with_pad(img, input_shape[0], input_shape[1],
-                                       method=tf.image.ResizeMethod.BILINEAR)
-        return img
+    outputs = inference_model(ouput_tensor)
+    boxes, scores, classes, valid_detections = outputs[0], outputs[1], outputs[2], outputs[3]
+    scales = tf.expand_dims(tf.concat([scales,scales], 1), 1)
+    image_sizes = tf.expand_dims(tf.concat([image_sizes, image_sizes], axis=1), 1)
+    boxes = boxes / scales
+    boxes = tf.keras.backend.clip(boxes, 0.0, image_sizes)
+    if inference_mode == "base64":
+        model = tf.keras.Model(inputs, [boxes, scores, classes, valid_detections])
+    elif inference_mode == "dynamic":
+        model = tf.keras.Model(inputs, [boxes, scores, classes, valid_detections])
+    else:
+        model = tf.keras.Model([inputs, shape_inputs], [boxes, scores, classes, valid_detections])
+    return model
 
-    def preprocess_and_decode_shape(img_str):
-        img = tf.io.decode_base64(img_str)
-        img = tf.image.decode_jpeg(img, channels=3)
-        shape = tf.keras.backend.shape(img)[:2]
-        shape = tf.keras.backend.cast(shape, tf.float32)
-        return shape
+# params = config_factory.config_generator("efficientdet-d0")
+# params.architecture.num_classes = 85
 
-    def batch_decode_on_cpu(image_files):
-        with tf.device("/cpu:0"):
-            ouput_tensor = tf.map_fn(lambda im: preprocess_and_decode(im[0]), image_files, dtype="float32")
-        return ouput_tensor
 
-    def batch_decode_shape_on_cpu(image_files):
-        with tf.device("/cpu:0"):
-            shape_input = tf.map_fn(lambda im: preprocess_and_decode_shape(im[0]), image_files, dtype="float32")
-        return shape_input
+# efficiendet_inference_model().summary()
+efficiendet_inference_model(inference_mode="base64").summary()
+efficiendet_inference_model(inference_mode="dynamic").summary()

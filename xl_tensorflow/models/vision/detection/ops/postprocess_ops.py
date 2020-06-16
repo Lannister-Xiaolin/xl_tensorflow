@@ -345,7 +345,7 @@ class MultilevelDetectionGenerator(object):
 class MultilevelDetectionGeneratorWithScoreFilter(object):
     """Generates detected boxes with scores and classes for one-stage detector."""
 
-    def __init__(self, min_level, max_level, params,num_classes):
+    def __init__(self, min_level, max_level, params, num_classes):
         self._min_level = min_level
         self._max_level = max_level
         self.params = params
@@ -353,14 +353,13 @@ class MultilevelDetectionGeneratorWithScoreFilter(object):
         self._generate_detections = generate_detections_factory(params)
 
     def __call__(self, box_outputs, class_outputs, anchor_boxes, image_shape,
-                 iou_threshold=0.5, score_threshold=0.05, max_boxes=100):
+                 iou_threshold=0.5, score_threshold=0.05, max_total_size=100):
         # Collects outputs from all levels into a list.
         boxes = []
         scores = []
         for i in range(self._min_level, self._max_level + 1):
             box_outputs_i_shape = tf.shape(box_outputs[i])
             batch_size = box_outputs_i_shape[0]
-            num_anchors_per_locations = box_outputs_i_shape[-1] // 4
             num_classes = self.num_classes
 
             # Applies score transformation and remove the implicit background class.
@@ -384,9 +383,9 @@ class MultilevelDetectionGeneratorWithScoreFilter(object):
             scores.append(scores_i)
         boxes = tf.concat(boxes, axis=1)
         classification = tf.concat(scores, axis=1)
-        nmsed_boxes, nmsed_scores, nmsed_classes, valid_detections = FilterDetectionsOwn(
+        nmsed_boxes, nmsed_scores, nmsed_classes, valid_detections = FilterDetectionsOwn(num_classes=num_classes-1,
             name='filtered_detections', class_specific_filter=True, iou_threshold=iou_threshold,
-            score_threshold=score_threshold, max_detections=max_boxes
+            score_threshold=score_threshold, max_detections=max_total_size
         )([boxes, classification])
         nmsed_classes += 1
         return nmsed_boxes, nmsed_scores, nmsed_classes, valid_detections
@@ -470,6 +469,7 @@ class GenericDetectionGenerator(object):
 def filter_detections_own(
         boxes,
         classification,
+        num_classes,
         class_specific_filter=True,
         score_threshold=0.05,
         max_detections=100,
@@ -513,7 +513,8 @@ def filter_detections_own(
     if class_specific_filter:
         all_indices = []
         # perform per class filtering
-        for c in range(int(classification.shape[1])):
+        for c in range(int(num_classes)):
+        # for c in tf.range(tf.cast(classification.shape[1], tf.int64)):
             scores = classification[:, c]
             labels = c * tf.ones((tf.keras.backend.shape(scores)[0],), dtype='int64')
             all_indices.append(_filter_detections(scores, labels))
@@ -556,6 +557,7 @@ class FilterDetectionsOwn(tf.keras.layers.Layer):
 
     def __init__(
             self,
+            num_classes=80,
             class_specific_filter=True,
             iou_threshold=0.5,
             score_threshold=0.05,
@@ -579,6 +581,7 @@ class FilterDetectionsOwn(tf.keras.layers.Layer):
         self.score_threshold = score_threshold
         self.max_detections = max_detections
         self.parallel_iterations = parallel_iterations
+        self.num_classes = num_classes
         super(FilterDetectionsOwn, self).__init__(**kwargs)
 
     def call(self, inputs, **kwargs):
@@ -599,6 +602,7 @@ class FilterDetectionsOwn(tf.keras.layers.Layer):
             return filter_detections_own(
                 boxes_,
                 classification_,
+                self.num_classes,
                 class_specific_filter=self.class_specific_filter,
                 score_threshold=self.score_threshold,
                 max_detections=self.max_detections,
