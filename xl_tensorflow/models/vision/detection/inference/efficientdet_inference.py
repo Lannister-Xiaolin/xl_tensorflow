@@ -77,7 +77,6 @@ def batch_image_preprocess(raw_images,
     return images, scales
 
 
-# todo 待完成lite版本模型
 def efficiendet_inference_model(model_name="efficientdet-d0", input_shape=(512, 512),
                                 inference_mode="fixed", num_classes=85, weights=None,
                                 mean=tf.constant([0.485, 0.456, 0.406]),
@@ -103,7 +102,9 @@ def efficiendet_inference_model(model_name="efficientdet-d0", input_shape=(512, 
     """
     params = config_factory.config_generator(model_name)
     params.architecture.num_classes = num_classes
-
+    if input_shape:
+        params.efficientdet_parser.output_size = list(input_shape)
+    input_shape = params.efficientdet_parser.output_size
     if inference_mode == "base64":
         inputs = tf.keras.layers.Input(shape=(1,), dtype="string", name="image_b64")
         ouput_tensor, scales, image_sizes = Base64ImageProcessLayer(target_size=input_shape)(inputs)
@@ -143,16 +144,20 @@ def efficiendet_inference_model(model_name="efficientdet-d0", input_shape=(512, 
     model.output_names[1] = "scores"
     model.output_names[2] = "labels"
     model.output_names[3] = "valid_detections"
+
     lite_inputs = tf.keras.layers.Input(shape=(input_shape[0], input_shape[1], 3), name="image_tensor")
     lite_ouput_tensor = tf.cast(lite_inputs, tf.float32) / 255.0
     if (mean is not None) and (std is not None):
         lite_ouput_tensor = (lite_ouput_tensor - mean) / std
     lite_ouput_tensor = lite_model(lite_ouput_tensor)
-    lite_model_with_pre = tf.keras.Model(lite_inputs, lite_ouput_tensor)
+    # todo 待校验转置分数以及tflite 类别数量加一
+    boxes_, scores_ = lite_ouput_tensor
+    scores_ = tf.keras.layers.Permute([2, 1])(scores_)
+    tf.keras.layers.Permute([2, 1])
+    lite_model_with_pre = tf.keras.Model(lite_inputs, [boxes_, scores_])
     if serving_export and serving_path:
         os.makedirs(serving_path, exist_ok=True)
         serving_model_export(model, serving_path, version=version, auto_incre_version=auto_incre_version)
-
     return model, lite_model_with_pre
 
 
@@ -169,12 +174,13 @@ import numpy as np
 # efficiendet_inference_model(inference_mode="dynamic").predict(np.random.randn(1, 640, 480, 3))
 
 _, lite_model = efficiendet_inference_model(inference_mode="dynamic",
-                                            serving_export=True,
+                                            serving_export=False,
                                             serving_path=r"E:\Temp\test\temp")
-# print(lite_model.outputs)
-# converter = tf.lite.TFLiteConverter.from_keras_model(lite_model)
-# tflite_model = converter.convert()
-# import pathlib
+print(lite_model.outputs)
+converter = tf.lite.TFLiteConverter.from_keras_model(lite_model)
+tflite_model = converter.convert()
+import pathlib
+
 #
-# pathlib.Path(r"E:\Temp\test\save_lite_file.tflite").write_bytes(converter.convert())
+pathlib.Path(r"E:\Temp\test\save_lite_file.tflite").write_bytes(converter.convert())
 # data = np.random.randn(1, 640, 480, 3)

@@ -32,7 +32,7 @@ def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pa
                                  use_autoaugment=False,
                                  unmatched_threshold=0.5,
                                  aug_scale_min=0.1,
-                                 aug_scale_max=2.0,warmup_steps=None):
+                                 aug_scale_max=2.0, warmup_steps=None, input_shape=None):
     """
 
     Args:
@@ -60,6 +60,8 @@ def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pa
     # todo keras格式权重保存， 预训练权重加载，以及冻结网络层训练等
 
     params = config_factory.config_generator(model_name)
+    if input_shape:
+        params.efficientdet_parser.output_size = list(input_shape)
     params.architecture.num_classes = number_classes
     params.train.batch_size = train_batch_size
     params.train.l2_weight_decay = l2_weight_decay if l2_weight_decay is not None else params.train.l2_weight_decay
