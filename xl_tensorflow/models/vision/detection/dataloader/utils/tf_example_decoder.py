@@ -31,6 +31,8 @@ class TfExampleDecoder(object):
             tf.io.FixedLenFeature((), tf.string),
         'image/source_id':
             tf.io.FixedLenFeature((), tf.string),
+        # 'image/filename':
+        #     tf.io.FixedLenFeature((), tf.string),
         'image/height':
             tf.io.FixedLenFeature((), tf.int64),
         'image/width':
@@ -147,6 +149,7 @@ class TfExampleDecoder(object):
         'groundtruth_is_crowd': is_crowds,
         'groundtruth_area': areas,
         'groundtruth_boxes': boxes,
+        # "filename": parsed_tensors["image/filename"]
     }
     if self._include_mask:
       decoded_tensors.update({

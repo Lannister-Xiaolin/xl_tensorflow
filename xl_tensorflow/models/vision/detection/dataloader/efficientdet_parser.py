@@ -261,13 +261,6 @@ class Parser(object):
         indices = box_utils.get_non_empty_box_indices(boxes)
         boxes = tf.gather(boxes, indices)
         classes = tf.gather(classes, indices)
-        # tf.print(classes)
-        # Assigns anchors. 完全确认此处class 并没有减一，即背景类的情况
-        # input_anchor = anchor.Anchor(
-        #     self._min_level, self._max_level, self._num_scales,
-        #     self._aspect_ratios, self._anchor_size, (image_height, image_width))
-        # anchor_labeler = anchor.AnchorLabeler(
-        #     input_anchor, self._match_threshold, self._unmatched_threshold)
         (cls_targets, box_targets, num_positives) = self._anchor_labeler.label_anchors(
             boxes,
             tf.cast(tf.expand_dims(classes, axis=1), tf.float32))
@@ -410,15 +403,16 @@ class Parser(object):
                 data['groundtruth_boxes'], image_shape)
             classes = data['groundtruth_classes']
             indices = box_utils.get_non_empty_box_indices(boxes)
-            boxes = tf.gather(boxes, indices)
-            classes = tf.gather(classes, indices)
+            boxes = tf.gather(boxes, indices)[:self._max_num_instances]
+            classes = tf.gather(classes, indices)[:self._max_num_instances]
             groundtruths = {
                 'source_id': data['source_id'],
                 'num_detections': tf.shape(classes)[0],
                 'boxes': boxes,
                 'classes': classes,
-                'areas':  tf.gather(data['groundtruth_area'], indices),
-                'is_crowds': tf.cast(tf.gather(data['groundtruth_is_crowd'], indices), tf.int32),
+                'areas': tf.gather(data['groundtruth_area'], indices)[:self._max_num_instances],
+                'is_crowds': tf.cast(tf.gather(data['groundtruth_is_crowd'], indices), tf.int32)[
+                             :self._max_num_instances],
                 'height': data['height'],
                 'width': data['width'],
             }
