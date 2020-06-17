@@ -75,8 +75,9 @@ def batch_image_preprocess(raw_images,
     return images, scales
 
 
+# todo 待完成lite版本模型
 def efficiendet_inference_model(model_name="efficientdet-d0", input_shape=(512, 512),
-                                inference_mode="fixed",num_classes=85,
+                                inference_mode="fixed", num_classes=85, weights=None,
                                 mean=tf.constant([0.485, 0.456, 0.406]),
                                 std=tf.constant([0.229, 0.224, 0.225])):
     """
@@ -116,12 +117,13 @@ def efficiendet_inference_model(model_name="efficientdet-d0", input_shape=(512, 
         scales = scaled_size / shape_inputs
         image_sizes = shape_inputs
 
-
     model_fn = EfficientDetModel(params)
     model, inference_model = model_fn.build_model(params, inference_mode=True)
+    if weights:
+        model.load_weights(weights)
     outputs = inference_model(ouput_tensor)
     boxes, scores, classes, valid_detections = outputs[0], outputs[1], outputs[2], outputs[3]
-    scales = tf.expand_dims(tf.concat([scales,scales], 1), 1)
+    scales = tf.expand_dims(tf.concat([scales, scales], 1), 1)
     image_sizes = tf.expand_dims(tf.concat([image_sizes, image_sizes], axis=1), 1)
     boxes = boxes / scales
     boxes = tf.keras.backend.clip(boxes, 0.0, image_sizes)
@@ -133,10 +135,15 @@ def efficiendet_inference_model(model_name="efficientdet-d0", input_shape=(512, 
         model = tf.keras.Model([inputs, shape_inputs], [boxes, scores, classes, valid_detections])
     return model
 
+
 # params = config_factory.config_generator("efficientdet-d0")
 # params.architecture.num_classes = 85
 
+import base64
+import numpy as np
 
-# efficiendet_inference_model().summary()
-efficiendet_inference_model(inference_mode="base64").summary()
-efficiendet_inference_model(inference_mode="dynamic").summary()
+efficiendet_inference_model().predict([np.random.randn(1, 512, 512, 3), np.array([[640, 480]])])
+efficiendet_inference_model(inference_mode="base64"
+                            ).predict(
+    np.array([[base64.urlsafe_b64encode(open(r"E:\Temp\test\broccoli1.jpg", "rb").read())]]))
+efficiendet_inference_model(inference_mode="dynamic").predict(np.random.randn(1, 640, 480, 3))

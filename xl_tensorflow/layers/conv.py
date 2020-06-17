@@ -117,6 +117,9 @@ class Base64ImageProcessLayer(tf.keras.layers.Layer):
         img = tf.image.decode_jpeg(img, channels=3)
         img = tf.cast(img, tf.float32)
         img = img / 255.0
+        if (self.mean is not None) and (self.std is not None):
+            img = (img - self.mean) / self.std
+
         image_size = tf.cast(tf.shape(input=img)[0:2], tf.float32)
         scale = tf.minimum(
             self.target_size[0] / image_size[0], self.target_size[1] / image_size[1])
@@ -138,10 +141,9 @@ class Base64ImageProcessLayer(tf.keras.layers.Layer):
         """
         with tf.device("/cpu:0"):
             ouput_tensor, scales, image_sizes = tf.map_fn(lambda im: self.preprocess_and_decode(im[0]),
-                                             inputs, parallel_iterations=32,
-                                             dtype=["float32", "float32", "float32"])
-        if (self.mean is not None) and (self.std is not None):
-            ouput_tensor = (ouput_tensor - self.mean) / self.std
+                                                          inputs, parallel_iterations=32,
+                                                          dtype=["float32", "float32", "float32"])
+
         return [ouput_tensor, scales, image_sizes]
 
     def compute_output_shape(self, input_shape):
@@ -203,6 +205,9 @@ class ResizeImageProcessLayer(tf.keras.layers.Layer):
     def preprocess_and_decode(self, img):
         img = tf.cast(img, tf.float32)
         img = img / 255.0
+        if (self.mean is not None) and (self.std is not None):
+            img = (img - self.mean) / self.std
+
         image_size = tf.cast(tf.shape(input=img)[0:2], tf.float32)
         scale = tf.minimum(
             self.target_size[0] / image_size[0], self.target_size[0] / image_size[1])
@@ -226,8 +231,7 @@ class ResizeImageProcessLayer(tf.keras.layers.Layer):
         ouput_tensor, scales, image_sizes = tf.map_fn(lambda im: self.preprocess_and_decode(im),
                                                       inputs, parallel_iterations=32,
                                                       dtype=["float32", "float32", "float32"])
-        if (self.mean is not None) and (self.std is not None):
-            ouput_tensor = (ouput_tensor - self.mean) / self.std
+
         return [ouput_tensor, scales, image_sizes]
 
     def compute_output_shape(self, input_shape):

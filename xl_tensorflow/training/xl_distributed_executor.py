@@ -34,6 +34,7 @@ from xl_tensorflow.utils import hyperparams_flags
 from xl_tensorflow.utils.misc import distribution_utils
 from xl_tensorflow.utils.misc import keras_utils
 import gc
+
 FLAGS = flags.FLAGS
 
 strategy_flags_dict = hyperparams_flags.strategy_flags_dict
@@ -425,6 +426,8 @@ class DistributedExecutor(object):
             # To correctly place the model weights on accelerators,
             # model and optimizer should be created in scope.
             model, inference_model = self.model_fn(params)
+            # todo 内存泄漏问题
+            # inference_model = model
             if pre_weights:
                 try:
 
@@ -562,7 +565,10 @@ class DistributedExecutor(object):
                 reset_states(eval_metric)
             if train_metric and current_step < total_steps:
                 reset_states(train_metric)
-
+            logging.info("save weights")
+            save_weights = f"{model_dir}/{current_step}_train_{float(train_metric_result['total_loss'])}_{model.name}.h5" if not test_step \
+                else f"{model_dir}/{current_step}_train_{float(train_metric_result['total_loss'])}_val_{float(eval_metric_result['total_loss'])}_{model.name}.h5"
+            model.save_weights(save_weights)
         # Reaches the end of training and saves the last checkpoint.
         if last_save_checkpoint_step < total_steps:
             _save_checkpoint(checkpoint, model_dir,
