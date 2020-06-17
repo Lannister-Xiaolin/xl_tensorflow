@@ -63,7 +63,11 @@ class EfficientDetModel(base_model.Model):
         self._generate_detections_fn = postprocess_ops.MultilevelDetectionGeneratorWithScoreFilter(
             params.architecture.min_level,
             params.architecture.max_level,
-            params.postprocess,params.architecture.num_classes)
+            params.postprocess, params.architecture.num_classes)
+        self._generate_tflite_detections_fn = postprocess_ops.MultilevelDetectionGeneratorWithScoreFilter(
+            params.architecture.min_level,
+            params.architecture.max_level,
+            params.postprocess, params.architecture.num_classes)
         self._input_anchor = anchor.Anchor(
             params.architecture.min_level, params.architecture.max_level, params.anchor.num_scales,
             params.anchor.aspect_ratios, params.anchor.anchor_size, (*params.efficientdet_parser.output_size,))
@@ -102,7 +106,8 @@ class EfficientDetModel(base_model.Model):
         }
         evaluate_outputs = self.post_processing_inference(model_outputs, inference_mode)
         return model_outputs, evaluate_outputs
-    #todo
+
+    # todo
     def build_outputs_keras(self, inputs, mode, inference_mode=False):
         # If the input image is transposed (from NHWC to HWCN), we need to revert it
         # back to the original shape before it's used in the computation.
@@ -136,8 +141,6 @@ class EfficientDetModel(base_model.Model):
 
         classification = tf.keras.layers.Concatenate(axis=1, name='classification')(classification)
         regression = tf.keras.layers.Concatenate(axis=1, name='regression')(regression)
-
-
 
         evaluate_outputs = self.post_processing_inference(model_outputs, inference_mode)
         return model_outputs, evaluate_outputs
@@ -201,19 +204,22 @@ class EfficientDetModel(base_model.Model):
         if self._keras_model is None:
             with backend.get_graph().as_default():
                 outputs, evaluate_outputs = self.model_outputs(self._input_layer, mode, inference_mode=inference_mode)
-
+                inference_outputs, lite_outputs = evaluate_outputs
                 model = tf.keras.models.Model(
                     inputs=self._input_layer, outputs=outputs, name=params.name)
                 inference_model = tf.keras.models.Model(
-                    inputs=self._input_layer, outputs=evaluate_outputs, name=params.name + "_inference")
+                    inputs=self._input_layer, outputs=inference_outputs, name=params.name + "_inference")
+                lite_model = tf.keras.models.Model(
+                    inputs=self._input_layer, outputs=lite_outputs, name=params.name + "_tflite")
                 assert model is not None, 'Fail to build tf.keras.Model.'
                 model.optimizer = self.build_optimizer()
                 self._keras_model = model
                 self._inference_keras_model = inference_model
-        return self._keras_model, self._inference_keras_model
+                self._lite_keras_model = lite_model
+        return self._keras_model, self._inference_keras_model, self._lite_keras_model
 
     def post_processing_inference(self, outputs, inference_mode=False):
-        boxes, scores, classes, valid_detections = self._generate_detections_fn(
+        boxes, scores, classes, valid_detections, boxes, classification = self._generate_detections_fn(
             outputs['box_outputs'], outputs['cls_outputs'],
             self._input_anchor.multilevel_boxes, self._input_image_size,
             iou_threshold=self._params.postprocess.nms_iou_threshold,
@@ -235,7 +241,7 @@ class EfficientDetModel(base_model.Model):
                 'cls_outputs': outputs['cls_outputs']
             }
 
-        return outputs
+        return outputs, [boxes, classification]
 
     def eval_metrics(self):
         return eval_factory.evaluator_generator(self._params.eval)

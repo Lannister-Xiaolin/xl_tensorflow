@@ -361,8 +361,7 @@ class Parser(object):
 
         # 3 - 图片归一化
         # Normalizes image with mean and std pixel values.
-        image = input_utils.normalize_image(image, offset=(0.0, 0.0, 0.0),
-                                            scale=(1., 1., 1.))
+        image = input_utils.normalize_image(image)
 
         # Flips image randomly during training.
         if self._aug_rand_hflip:

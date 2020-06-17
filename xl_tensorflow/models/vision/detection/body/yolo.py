@@ -17,6 +17,7 @@ from xl_tensorflow.models.vision.classification.efficientnet import EfficientNet
 from .common import node_aggregate
 from .aggregation import pan_network, fpn_network
 from ..configs.yolo_config import get_yolo_config
+from ..ops.postprocess_ops import FilterDetectionsOwn
 
 
 def spatial_pyramid_block(feature, base_ops=DarknetConv2D_BN_Leaky):
@@ -542,7 +543,7 @@ def yolo_eval_batch(yolo_outputs,
                     origin_image_shapes,
                     max_boxes=20,
                     score_threshold=.6,
-                    iou_threshold=.5):
+                    iou_threshold=.5,return_xy=False):
     """
     批量推理
     Args:
@@ -580,9 +581,13 @@ def yolo_eval_batch(yolo_outputs,
         box_scores = K.reshape(box_scores, (batch, -1, num_classes))
         box_yx = box_xy[..., ::-1]
         box_hw = box_wh[..., ::-1]
-        offset = (input_shape - new_shape) / 2. / input_shape  # 相对整图的偏移量
+        # todo 待校验效果，resize crop不根据中心
+        # offset = (input_shape - new_shape) / 2. / input_shape  # 相对整图的偏移量
+        # scale = input_shape / new_shape
+        # box_yx = (box_yx - offset) * scale
+
         scale = input_shape / new_shape
-        box_yx = (box_yx - offset) * scale
+        box_yx = box_yx * scale
         box_hw *= scale
         box_mins = box_yx - (box_hw / 2.)
         box_maxes = box_yx + (box_hw / 2.)
@@ -590,26 +595,40 @@ def yolo_eval_batch(yolo_outputs,
         box_maxes = tf.clip_by_value(box_maxes, 0., 1.)
         # 注此处y和x对换
         boxes = K.concatenate([
-            box_mins[..., 1:2],  # x_min
             box_mins[..., 0:1],  # y_min
-            box_maxes[..., 1:2],  # x_max
+            box_mins[..., 1:2],  # x_min
             box_maxes[..., 0:1],  # y_max
-
+            box_maxes[..., 1:2],  # x_max
         ])
         # Scale boxes back to original image shape.
-        boxes *= K.concatenate([image_shape[..., ::-1], image_shape[..., ::-1]])
+        boxes *= K.concatenate([image_shape, image_shape])
         boxes_all.append(boxes)
         box_scores_all.append(box_scores)
     boxes = K.concatenate(boxes_all, axis=1)
     box_scores = K.concatenate(box_scores_all, axis=1)
-    boxes, scores, classes, valid_detections = tf.image.combined_non_max_suppression(tf.expand_dims(boxes, -2),
-                                                                                     box_scores,
-                                                                                     score_threshold=score_threshold,
-                                                                                     max_output_size_per_class=max_boxes,
-                                                                                     max_total_size=max_boxes,
-                                                                                     pad_per_class=False,
-                                                                                     iou_threshold=iou_threshold,
-                                                                                     clip_boxes=False)
+    # boxes, scores, classes, valid_detections = tf.image.combined_non_max_suppression(tf.expand_dims(boxes, -2),
+    #                                                                                  box_scores,
+    #                                                                                  score_threshold=score_threshold,
+    #                                                                                  max_output_size_per_class=max_boxes,
+    #                                                                                  max_total_size=max_boxes,
+    #                                                                                  pad_per_class=False,
+    #                                                                                  iou_threshold=iou_threshold,
+    #                                                                                  clip_boxes=False)
+    boxes, scores, classes, valid_detections = FilterDetectionsOwn(num_classes=num_classes,
+                                                                   name='filtered_detections',
+                                                                   class_specific_filter=True,
+                                                                   iou_threshold=iou_threshold,
+                                                                   score_threshold=score_threshold,
+                                                                   max_detections=max_boxes
+                                                                   )([boxes, box_scores])
+    if return_xy:
+        boxes = K.concatenate([
+            boxes[..., 1:2],  # x_min
+            boxes[..., 0:1],  # y_min
+            boxes[..., 1:2],  # x_max
+            boxes[..., 0:1],  # y_max
+
+        ])
     return boxes, scores, classes, valid_detections
 
 

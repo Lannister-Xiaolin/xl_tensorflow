@@ -37,7 +37,7 @@ from ..utils.efficientdet_utils import get_feat_sizes, activation_fn
 from xl_tensorflow.utils import hparams_config
 
 
-@tf.keras.utils.register_keras_serializable(package='Text')
+# @tf.keras.utils.register_keras_serializable(package='Text')
 class WeightedAdd(tf.keras.layers.Layer):
     def __init__(self, epsilon=1e-4, activation="relu", **kwargs):
         """

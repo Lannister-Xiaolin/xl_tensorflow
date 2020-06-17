@@ -383,12 +383,52 @@ class MultilevelDetectionGeneratorWithScoreFilter(object):
             scores.append(scores_i)
         boxes = tf.concat(boxes, axis=1)
         classification = tf.concat(scores, axis=1)
-        nmsed_boxes, nmsed_scores, nmsed_classes, valid_detections = FilterDetectionsOwn(num_classes=num_classes-1,
+        nmsed_boxes, nmsed_scores, nmsed_classes, valid_detections = FilterDetectionsOwn(num_classes=self.num_classes-1,
             name='filtered_detections', class_specific_filter=True, iou_threshold=iou_threshold,
             score_threshold=score_threshold, max_detections=max_total_size
         )([boxes, classification])
         nmsed_classes += 1
-        return nmsed_boxes, nmsed_scores, nmsed_classes, valid_detections
+        return nmsed_boxes, nmsed_scores, nmsed_classes, valid_detections,boxes,classification
+
+
+class MultilevelDetectionGeneratorTflite(object):
+    """Generates detected boxes with scores and classes for one-stage detector."""
+
+    def __init__(self, min_level, max_level, params, num_classes):
+        self._min_level = min_level
+        self._max_level = max_level
+        self.params = params
+        self.num_classes = num_classes
+        self._generate_detections = generate_detections_factory(params)
+
+    def __call__(self, box_outputs, class_outputs, anchor_boxes, image_shape,
+                 iou_threshold=0.5, score_threshold=0.05, max_total_size=100):
+        # Collects outputs from all levels into a list.
+        boxes = []
+        scores = []
+        for i in range(self._min_level, self._max_level + 1):
+            box_outputs_i_shape = tf.shape(box_outputs[i])
+            batch_size = box_outputs_i_shape[0]
+            num_classes = self.num_classes
+
+            # Applies score transformation and remove the implicit background class.
+            scores_i = tf.sigmoid(
+                tf.reshape(class_outputs[i], [batch_size, -1, num_classes]))
+            scores_i = tf.slice(scores_i, [0, 0, 1], [-1, -1, -1])
+            anchor_boxes_i = tf.reshape(anchor_boxes[i], [1, -1, 4])
+            box_outputs_i = tf.reshape(box_outputs[i], [batch_size, -1, 4])
+            boxes_i = box_utils.decode_boxes(box_outputs_i, anchor_boxes_i)
+
+            # Box clipping.
+            boxes_i = box_utils.clip_boxes(boxes_i, image_shape)
+
+            boxes.append(boxes_i)
+            scores.append(scores_i)
+        boxes = tf.concat(boxes, axis=1)
+        classification = tf.concat(scores, axis=1)
+        return boxes, classification
+
+
 
 
 class GenericDetectionGenerator(object):
@@ -652,7 +692,6 @@ class FilterDetectionsOwn(tf.keras.layers.Layer):
         """
         config = super(FilterDetectionsOwn, self).get_config()
         config.update({
-            'nms': self.nms,
             'class_specific_filter': self.class_specific_filter,
             'iou_threshold': self.iou_threshold,
             'score_threshold': self.score_threshold,

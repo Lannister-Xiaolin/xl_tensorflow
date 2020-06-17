@@ -17,8 +17,8 @@ def model_test():
     for i in range(7):
         params = config_factory.config_generator(f"efficientdet-d{i}")
         model_fn = EfficientDetModel(params)
-        model,inference_model = model_fn.build_model(params)
-        print(inference_model.summary())
+        model,inference_model,lite_model = model_fn.build_model(params)
+        print(lite_model.outputs)
         # # model.load_weights(
         # #     r"E:\Programming\Python\TOOL\weights\efficientnet\efficientnet-b1_weights_tf_dim_ordering_tf_kernels.h5",
         # #     by_name=True, skip_mismatch=True)

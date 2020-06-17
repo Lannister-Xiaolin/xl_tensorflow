@@ -18,6 +18,7 @@ import numpy as np
 from xl_tensorflow.metrics.rafaelpadilla.Evaluator import voc2ratxt, mao_raf_from_txtfile
 from xl_tensorflow.models.vision.detection.utils.drawing import draw_boxes_pil
 from xl_tensorflow.utils.deploy import serving_model_export, tf_saved_model_to_lite
+from xl_tensorflow.layers.conv import Base64ImageProcessLayer, ResizeImageProcessLayer
 
 
 def single_inference_model(model_name, weights,
@@ -72,11 +73,13 @@ def yolo_inference_model(model_name, weights,
                          score_threshold=.1,
                          iou_threshold=.5,
                          max_detections=20,
-                         b64_mode=False, b64_shape_decode=False,
+                         inference_mode="fixed",
                          serving_export=False,
                          version=1,
                          auto_incre_version=True,
-                         serving_path=None):
+                         serving_path=None,
+                         mean=tf.constant([0.485, 0.456, 0.406]),
+                         std=tf.constant([0.229, 0.224, 0.225]), return_xy=False):
     """
 
     Args:
@@ -112,62 +115,47 @@ def yolo_inference_model(model_name, weights,
     yolo_model = yolo_body(Input(shape=(*input_shape, 3)),
                            len(anchors) // 3, num_classes, model_name, reshape_y=True)
 
-    def preprocess_and_decode(img_str, input_shape=input_shape):
-        img = tf.io.decode_base64(img_str)
-        img = tf.image.decode_jpeg(img, channels=3)
-        img = tf.cast(img, tf.float32)
-        img = tf.image.resize_with_pad(img, input_shape[0], input_shape[1],
-                                       method=tf.image.ResizeMethod.BILINEAR)
-        return img
-
-    def preprocess_and_decode_shape(img_str):
-        img = tf.io.decode_base64(img_str)
-        img = tf.image.decode_jpeg(img, channels=3)
-        shape = tf.keras.backend.shape(img)[:2]
-        shape = tf.keras.backend.cast(shape, tf.float32)
-        return shape
-
-    def batch_decode_on_cpu(image_files):
-        with tf.device("/cpu:0"):
-            ouput_tensor = tf.map_fn(lambda im: preprocess_and_decode(im[0]), image_files, dtype="float32")
-        return ouput_tensor
-
-    def batch_decode_shape_on_cpu(image_files):
-        with tf.device("/cpu:0"):
-            shape_input = tf.map_fn(lambda im: preprocess_and_decode_shape(im[0]), image_files, dtype="float32")
-        return shape_input
-
     if weights:
         yolo_model.load_weights(weights)
-    if b64_mode:
+
+    if inference_mode == "base64":
         inputs = tf.keras.layers.Input(shape=(1,), dtype="string", name="image_b64")
-        ouput_tensor = tf.keras.layers.Lambda(lambda x: batch_decode_on_cpu(x))(inputs)
-        if b64_shape_decode:
-            shape_input = tf.keras.layers.Lambda(lambda x: batch_decode_shape_on_cpu(x))(inputs)
-        else:
-            shape_input = Input(shape=(2,), name="shape_input")
-        ouput_tensor = ouput_tensor / 255.0
-        boxes, scores, classes, valid_detections = yolo_eval_batch(yolo_model(ouput_tensor),
-                                                                   anchors, num_classes, shape_input, max_detections,
-                                                                   score_threshold,
-                                                                   iou_threshold)
+        ouput_tensor, scales, image_sizes = Base64ImageProcessLayer(target_size=input_shape)(inputs)
+    elif inference_mode == "dynamic":
+        inputs = tf.keras.layers.Input(shape=(None, None, 3), name="image_tensor")
+        ouput_tensor, scales, image_sizes = ResizeImageProcessLayer(target_size=input_shape)(inputs)
     else:
-        inputs = Input(shape=(input_shape[0], input_shape[1], 3), name="image_input")
-        shape_input = Input(shape=(2,), name="shape_input")
-        ouput_tensor = inputs / 255.0
-        boxes, scores, classes, valid_detections = yolo_eval_batch(yolo_model(ouput_tensor),
-                                                                   anchors, num_classes, shape_input, max_detections,
-                                                                   score_threshold,
-                                                                   iou_threshold)
-    if b64_mode and b64_shape_decode:
+        inputs = tf.keras.layers.Input(shape=(input_shape[0], input_shape[1], 3), name="image_tensor")
+        ouput_tensor = tf.cast(inputs, tf.float32) / 255.0
+        if (mean is not None) and (std is not None):
+            ouput_tensor = (ouput_tensor - mean) / std
+        shape_inputs = tf.keras.layers.Input(shape=(2,), name="shape_input")
+        width_scales = input_shape[0] / shape_inputs[:, 0:1]
+        hight_scales = input_shape[1] / shape_inputs[:, 1:]
+        scales = tf.where(tf.keras.backend.greater(width_scales, hight_scales), hight_scales, width_scales)
+        scaled_size = tf.round(shape_inputs * scales)
+        scales = scaled_size / shape_inputs
+        image_sizes = shape_inputs
+
+    boxes, scores, classes, valid_detections = yolo_eval_batch(yolo_model(ouput_tensor),
+                                                               anchors, num_classes, image_sizes, max_detections,
+                                                               score_threshold,
+                                                               iou_threshold,
+                                                               return_xy=return_xy)
+
+    if inference_mode == "base64":
+        model = tf.keras.Model(inputs, [boxes, scores, classes, valid_detections])
+    elif inference_mode == "dynamic":
         model = tf.keras.Model(inputs, [boxes, scores, classes, valid_detections])
     else:
-        model = tf.keras.Model([inputs, shape_input], [boxes, scores, classes, valid_detections])
+        model = tf.keras.Model([inputs, shape_inputs], [boxes, scores, classes, valid_detections])
+
     model.output_names[0] = "boxes"
     model.output_names[1] = "scores"
     model.output_names[2] = "labels"
     model.output_names[3] = "valid_detections"
     if serving_export and serving_path:
+        tf.saved_model.save(model, serving_path)
         os.makedirs(serving_path, exist_ok=True)
         serving_model_export(model, serving_path, version=version, auto_incre_version=auto_incre_version)
 
@@ -195,7 +183,7 @@ def tflite_export_yolo(model_name, num_classes, save_lite_file, weights="", inpu
     Returns:
 
     """
-    base_ops = DarknetConv2D_BN_Relu if activation=="relu" else DarknetConv2D_BN_Leaky
+    base_ops = DarknetConv2D_BN_Relu if activation == "relu" else DarknetConv2D_BN_Leaky
     int_quantize_sample = (100, *input_shape, 3)
     anchors = YOLOV4_ANCHORS if anchors == "v4" else YOLOV3_ANCHORS
     from tensorflow.keras import layers
@@ -240,28 +228,25 @@ def tflite_export_yolo(model_name, num_classes, save_lite_file, weights="", inpu
 
 def yolo_evaluate(image_files, output_dir, model_name, weights,
                   num_classes,
-                  origin_image_shape=(416, 416),
                   input_shape=(416, 416),
                   anchors="v3",
                   score_threshold=.2,
                   iou_threshold=.5,
                   max_detections=20,
-                  dynamic_shape=False, return_xy=True,
+                  return_xy=True,
                   map_evaluate=False,
                   xml_files="", map_save="./map_evaluate", visual_one=False,
                   label2index_file="",
                   save_result=True, nms_on_classes=True
                   ):
     print("加载模型中.....")
-    model = single_inference_model(model_name=model_name, weights=weights,
-                                   num_classes=num_classes,
-                                   origin_image_shape=origin_image_shape,
-                                   input_shape=input_shape,
-                                   anchors=anchors,
-                                   score_threshold=score_threshold,
-                                   iou_threshold=iou_threshold,
-                                   max_detections=max_detections,
-                                   dynamic_shape=dynamic_shape, return_xy=return_xy)
+    model = yolo_inference_model(model_name=model_name, weights=weights,
+                                 num_classes=num_classes,
+                                 input_shape=input_shape,
+                                 anchors=anchors,
+                                 score_threshold=score_threshold,
+                                 iou_threshold=iou_threshold,
+                                 max_detections=max_detections, return_xy=return_xy)
 
     index2label = {v: k for k, v in read_json(label2index_file).items()}
     class_names = list(index2label.values())
@@ -296,7 +281,7 @@ def yolo_evaluate(image_files, output_dir, model_name, weights,
         image_id = os.path.basename(image_file).split('.')[0]
         boxed_image = letterbox_image(image, input_shape)
         image_data = np.array(boxed_image, dtype='float32')
-        image_data /= 255.
+        # image_data /= 255.
         image_data = np.expand_dims(image_data, 0)
         boxes_, scores_, classes_ = model.predict([image_data, np.array([[*image.size][::-1]])])
         boxes_, scores_, classes_ = boxes_[0], scores_[0], classes_[0]
@@ -326,6 +311,6 @@ def yolo_evaluate(image_files, output_dir, model_name, weights,
             print("no box detected: ", basename)
             pass
     if map_evaluate:
-        map50, metrics_per_classes, map_str = mao_raf_from_txtfile(gt_path, dt_path,score_threshold=score_threshold)
+        map50, metrics_per_classes, map_str = mao_raf_from_txtfile(gt_path, dt_path, score_threshold=score_threshold)
         with open(f"{map_save}/map_result.txt", "w") as f:
             f.write(map_str)

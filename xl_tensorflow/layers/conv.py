@@ -96,8 +96,8 @@ class Base64ImageProcessLayer(tf.keras.layers.Layer):
     def __init__(
             self,
             target_size=(512, 512),
-            mean=tf.constant([0.485, 0.456, 0.406]),
-            std=tf.constant([0.229, 0.224, 0.225]),
+            mean=[0.485, 0.456, 0.406],
+            std=[0.229, 0.224, 0.225],
             **kwargs):
         """
 
@@ -174,8 +174,10 @@ class Base64ImageProcessLayer(tf.keras.layers.Layer):
         config = super(Base64ImageProcessLayer, self).get_config()
         config.update({
             'target_size': self.target_size,
+            "mean":self.mean,
+            "std":self.std
         })
-
+        return config
 
 @tf.keras.utils.register_keras_serializable(package='Text')
 class ResizeImageProcessLayer(tf.keras.layers.Layer):
@@ -186,8 +188,8 @@ class ResizeImageProcessLayer(tf.keras.layers.Layer):
     def __init__(
             self,
             target_size=(512, 512),
-            mean=tf.constant([0.485, 0.456, 0.406]),
-            std=tf.constant([0.229, 0.224, 0.225]),
+            mean=[0.485, 0.456, 0.406],
+            std=[0.229, 0.224, 0.225],
             **kwargs):
         """
 
@@ -262,4 +264,7 @@ class ResizeImageProcessLayer(tf.keras.layers.Layer):
         config = super(ResizeImageProcessLayer, self).get_config()
         config.update({
             'target_size': self.target_size,
+            "mean":self.mean,
+            "std":self.std
         })
+        return config

@@ -4,7 +4,7 @@ from xl_tool.xl_io import file_scanning
 
 
 def test_bs64():
-    model = yolo_inference_model("yolov3", "", 20, b64_mode=True, b64_shape_decode=True,
+    model = yolo_inference_model("yolov3", "", 20, inference_mode="base64",
                                  serving_export=True, serving_path=r"E:\Temp\test\incepcion")
     # print(model.summary())
     # print(model.inputs)

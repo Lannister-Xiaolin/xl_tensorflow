@@ -425,7 +425,7 @@ class DistributedExecutor(object):
         with strategy.scope():
             # To correctly place the model weights on accelerators,
             # model and optimizer should be created in scope.
-            model, inference_model = self.model_fn(params)
+            model, inference_model,_ = self.model_fn(params)
             # todo 内存泄漏问题
             # inference_model = model
             if pre_weights:
@@ -704,7 +704,7 @@ class DistributedExecutor(object):
 
             # To correctly place the model weights on accelerators,
             # model and optimizer should be created in scope.
-            model, inference_model = self.model_fn(params.as_dict())
+            model, inference_model,_ = self.model_fn(params.as_dict())
             checkpoint = tf.train.Checkpoint(model=model)
 
             eval_metric = eval_metric_fn()
