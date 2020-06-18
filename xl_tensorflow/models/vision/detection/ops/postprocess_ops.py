@@ -381,14 +381,15 @@ class MultilevelDetectionGeneratorWithScoreFilter(object):
 
             boxes.append(boxes_i)
             scores.append(scores_i)
-        boxes = tf.concat(boxes, axis=1)
-        classification = tf.concat(scores, axis=1)
-        nmsed_boxes, nmsed_scores, nmsed_classes, valid_detections = FilterDetectionsOwn(num_classes=self.num_classes-1,
+        boxes_all = tf.concat(boxes, axis=1)
+        scores_all = tf.concat(scores, axis=1)
+        nmsed_boxes, nmsed_scores, nmsed_classes, valid_detections = FilterDetectionsOwn(
+            num_classes=self.num_classes - 1,
             name='filtered_detections', class_specific_filter=True, iou_threshold=iou_threshold,
             score_threshold=score_threshold, max_detections=max_total_size
-        )([boxes, classification])
+            )([boxes_all, scores_all])
         nmsed_classes += 1
-        return nmsed_boxes, nmsed_scores, nmsed_classes, valid_detections,boxes,classification
+        return nmsed_boxes, nmsed_scores, nmsed_classes, valid_detections, boxes_all, scores_all
 
 
 class MultilevelDetectionGeneratorTflite(object):
@@ -427,8 +428,6 @@ class MultilevelDetectionGeneratorTflite(object):
         boxes = tf.concat(boxes, axis=1)
         classification = tf.concat(scores, axis=1)
         return boxes, classification
-
-
 
 
 class GenericDetectionGenerator(object):
@@ -554,7 +553,7 @@ def filter_detections_own(
         all_indices = []
         # perform per class filtering
         for c in range(int(num_classes)):
-        # for c in tf.range(tf.cast(classification.shape[1], tf.int64)):
+            # for c in tf.range(tf.cast(classification.shape[1], tf.int64)):
             scores = classification[:, c]
             labels = c * tf.ones((tf.keras.backend.shape(scores)[0],), dtype='int64')
             all_indices.append(_filter_detections(scores, labels))

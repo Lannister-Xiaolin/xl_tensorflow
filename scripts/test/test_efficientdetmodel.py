@@ -19,6 +19,9 @@ def model_test():
         model_fn = EfficientDetModel(params)
         model,inference_model,lite_model = model_fn.build_model(params)
         print(lite_model.outputs)
+        print(inference_model.outputs)
+        print(model.outputs)
+        break
         # # model.load_weights(
         # #     r"E:\Programming\Python\TOOL\weights\efficientnet\efficientnet-b1_weights_tf_dim_ordering_tf_kernels.h5",
         # #     by_name=True, skip_mismatch=True)

@@ -219,7 +219,7 @@ class EfficientDetModel(base_model.Model):
         return self._keras_model, self._inference_keras_model, self._lite_keras_model
 
     def post_processing_inference(self, outputs, inference_mode=False):
-        boxes, scores, classes, valid_detections, boxes, classification = self._generate_detections_fn(
+        detection_boxes, detection_scores, detection_classes, valid_detections, boxes_all, scores_all = self._generate_detections_fn(
             outputs['box_outputs'], outputs['cls_outputs'],
             self._input_anchor.multilevel_boxes, self._input_image_size,
             iou_threshold=self._params.postprocess.nms_iou_threshold,
@@ -228,20 +228,20 @@ class EfficientDetModel(base_model.Model):
         # Discards the old output tensors to save memory. The `cls_outputs` and
         # `box_outputs` are pretty big and could potentiall lead to memory issue.
         if inference_mode:
-            outputs = boxes, scores, classes, valid_detections
+            outputs = detection_boxes, detection_scores, detection_classes, valid_detections
         else:
             outputs = {
                 # 'source_id': labels['groundtruths']['source_id'],
                 # 'image_info': labels['image_info'],
                 'num_detections': valid_detections,
-                'detection_boxes': boxes,
-                'detection_classes': classes,
-                'detection_scores': scores,
+                'detection_boxes': detection_boxes,
+                'detection_classes': detection_scores,
+                'detection_scores': detection_classes,
                 'box_outputs': outputs['box_outputs'],
                 'cls_outputs': outputs['cls_outputs']
             }
 
-        return outputs, [boxes, classification]
+        return outputs, [boxes_all, scores_all]
 
     def eval_metrics(self):
         return eval_factory.evaluator_generator(self._params.eval)
