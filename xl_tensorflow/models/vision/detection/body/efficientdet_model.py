@@ -235,8 +235,8 @@ class EfficientDetModel(base_model.Model):
                 # 'image_info': labels['image_info'],
                 'num_detections': valid_detections,
                 'detection_boxes': detection_boxes,
-                'detection_classes': detection_scores,
-                'detection_scores': detection_classes,
+                'detection_scores': detection_scores,
+                'detection_classes': detection_classes,
                 'box_outputs': outputs['box_outputs'],
                 'cls_outputs': outputs['cls_outputs']
             }
