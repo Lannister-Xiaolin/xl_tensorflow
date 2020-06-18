@@ -77,12 +77,16 @@ def batch_image_preprocess(raw_images,
     return images, scales
 
 
-def efficiendet_inference_model(model_name="efficientdet-d0", input_shape=(512, 512),
-                                inference_mode="fixed", num_classes=85, weights=None,
+def efficiendet_inference_model(model_name="efficientdet-d0",
+                                input_shape=(512, 512),
+                                inference_mode="fixed",
+                                num_classes=85,
+                                weights=None,
                                 mean=tf.constant([0.485, 0.456, 0.406]),
                                 std=tf.constant([0.229, 0.224, 0.225]),
                                 serving_export=False,
                                 version=1,
+                                max_detections=20,
                                 auto_incre_version=True,
                                 serving_path=None, ):
     """
@@ -102,6 +106,8 @@ def efficiendet_inference_model(model_name="efficientdet-d0", input_shape=(512, 
     """
     params = config_factory.config_generator(model_name)
     params.architecture.num_classes = num_classes
+    params.postprocess.max_total_size = max_detections
+
     if input_shape:
         params.efficientdet_parser.output_size = list(input_shape)
     input_shape = params.efficientdet_parser.output_size
@@ -159,28 +165,3 @@ def efficiendet_inference_model(model_name="efficientdet-d0", input_shape=(512, 
         os.makedirs(serving_path, exist_ok=True)
         serving_model_export(model, serving_path, version=version, auto_incre_version=auto_incre_version)
     return model, lite_model_with_pre
-
-
-# params = config_factory.config_generator("efficientdet-d0")
-# params.architecture.num_classes = 85
-
-import base64
-import numpy as np
-
-# efficiendet_inference_model().predict([np.random.randn(1, 512, 512, 3), np.array([[640, 480]])])
-# efficiendet_inference_model(inference_mode="base64"
-#                             ).predict(
-#     np.array([[base64.urlsafe_b64encode(open(r"E:\Temp\test\broccoli1.jpg", "rb").read())]]))
-# efficiendet_inference_model(inference_mode="dynamic").predict(np.random.randn(1, 640, 480, 3))
-
-_, lite_model = efficiendet_inference_model(inference_mode="dynamic",
-                                            serving_export=False,
-                                            serving_path=r"E:\Temp\test\temp")
-print(lite_model.outputs)
-converter = tf.lite.TFLiteConverter.from_keras_model(lite_model)
-tflite_model = converter.convert()
-import pathlib
-
-#
-pathlib.Path(r"E:\Temp\test\save_lite_file.tflite").write_bytes(converter.convert())
-# data = np.random.randn(1, 640, 480, 3)

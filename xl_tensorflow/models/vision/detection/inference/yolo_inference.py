@@ -79,7 +79,8 @@ def yolo_inference_model(model_name, weights,
                          auto_incre_version=True,
                          serving_path=None,
                          mean=tf.constant([0.485, 0.456, 0.406]),
-                         std=tf.constant([0.229, 0.224, 0.225]), return_xy=False):
+                         std=tf.constant([0.229, 0.224, 0.225]),
+                         return_xy=False):
     """
 
     Args:
@@ -155,14 +156,14 @@ def yolo_inference_model(model_name, weights,
     model.output_names[2] = "labels"
     model.output_names[3] = "valid_detections"
     if serving_export and serving_path:
-        tf.saved_model.save(model, serving_path)
         os.makedirs(serving_path, exist_ok=True)
         serving_model_export(model, serving_path, version=version, auto_incre_version=auto_incre_version)
 
     return model
 
 
-def tflite_export_yolo(model_name, num_classes, save_lite_file, weights="", input_shape=(416, 416), anchors="v3",
+def tflite_export_yolo(model_name, num_classes, save_lite_file, weights="",
+                       input_shape=(416, 416), anchors="v3",
                        return_xy=True, score_threshold=.2,
                        iou_threshold=.5, quant="", activation=None,
                        mean=tf.constant([0.485, 0.456, 0.406]),
@@ -317,3 +318,6 @@ def yolo_evaluate(image_files, output_dir, model_name, weights,
         map50, metrics_per_classes, map_str = mao_raf_from_txtfile(gt_path, dt_path, score_threshold=score_threshold)
         with open(f"{map_save}/map_result.txt", "w") as f:
             f.write(map_str)
+
+
+
