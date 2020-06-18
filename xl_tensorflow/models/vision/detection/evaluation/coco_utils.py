@@ -87,7 +87,7 @@ class COCOWrapper(coco.COCO):
     res = coco.COCO()
     res.dataset['images'] = copy.deepcopy(self.dataset['images'])
     res.dataset['categories'] = copy.deepcopy(self.dataset['categories'])
-
+    print("类别对应表：", self.dataset['categories'])
     image_ids = [ann['image_id'] for ann in predictions]
     if set(image_ids) != (set(image_ids) & set(self.getImgIds())):
       raise ValueError('Results do not correspond to the current dataset!')
