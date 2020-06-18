@@ -374,7 +374,7 @@ class MultilevelDetectionGeneratorWithScoreFilter(object):
             # anchor_boxes_i = tf.reshape(anchor_boxes[i], [batch_size, -1, 4])
             anchor_boxes_i = tf.reshape(anchor_boxes[i], [1, -1, 4])
             box_outputs_i = tf.reshape(box_outputs[i], [batch_size, -1, 4])
-            boxes_i = box_utils.decode_boxes(box_outputs_i, anchor_boxes_i)
+            boxes_i = box_utils.decode_boxes_lite(box_outputs_i, anchor_boxes_i)
 
             # Box clipping.
             boxes_i = box_utils.clip_boxes(boxes_i, image_shape)
@@ -417,7 +417,7 @@ class MultilevelDetectionGeneratorTflite(object):
             scores_i = tf.slice(scores_i, [0, 0, 1], [-1, -1, -1])
             anchor_boxes_i = tf.reshape(anchor_boxes[i], [1, -1, 4])
             box_outputs_i = tf.reshape(box_outputs[i], [batch_size, -1, 4])
-            boxes_i = box_utils.decode_boxes(box_outputs_i, anchor_boxes_i)
+            boxes_i = box_utils.decode_boxes_lite(box_outputs_i, anchor_boxes_i)
 
             # Box clipping.
             boxes_i = box_utils.clip_boxes(boxes_i, image_shape)

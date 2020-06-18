@@ -15,7 +15,7 @@ def test_yolo():
 
 def test_efficientdet():
     _, lite_model = efficiendet_inference_model(inference_mode="base64",
-                                                serving_export=True,
+                                                serving_export=False,
                                                 serving_path=r"E:\Temp\test\serving\efficiendetd0", )
     print(lite_model.outputs)
     converter = tf.lite.TFLiteConverter.from_keras_model(lite_model)
@@ -36,5 +36,5 @@ def test_shapeinput():
 
 
 # test_shapeinput()
-test_yolo()
+# test_yolo()
 test_efficientdet()
