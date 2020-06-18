@@ -89,6 +89,7 @@ efficientdet_model_param_dict = {
     'efficientdetlite-d0':
         {
             "name": 'efficientdetlite-d0',
+            "act_type": "relu",  # efd，全局
             'architecture': {
                 'backbone': 'efficientnetlite-b0',
 
@@ -126,6 +127,7 @@ efficientdet_model_param_dict = {
     'efficientdetlite-d1':
         {
             "name": 'efficientdetlite-d1',
+            "act_type": "relu",  # efd，全局
             'architecture': {
                 'backbone': 'efficientnetlite-b1',
 
@@ -163,6 +165,7 @@ efficientdet_model_param_dict = {
     'efficientdetlite-d2':
         {
             "name": 'efficientdetlite-d2',
+            "act_type": "relu",  # efd，全局
             'architecture': {
                 'backbone': 'efficientnetlite-b2',
             },
@@ -199,6 +202,7 @@ efficientdet_model_param_dict = {
     'efficientdetlite-d3':
         {
             "name": 'efficientdetlite-d3',
+            "act_type": "relu",  # efd，全局
             'architecture': {
                 'backbone': 'efficientnetlite-b3',
             },
@@ -235,6 +239,7 @@ efficientdet_model_param_dict = {
     'efficientdetlite-d4':
         {
             "name": 'efficientdetlite-d4',
+            "act_type": "relu",  # efd，全局
             'architecture': {
                 'backbone': 'efficientnetlite-b4',
             },

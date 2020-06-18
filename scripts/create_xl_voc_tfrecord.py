@@ -227,39 +227,39 @@ def dict_to_tf_example(data,
     return example, auto_label_index
 
 
-def batch_processing(record_index, xml_files, image_files, label_map_dict, auto_label_map, ann_json_dict,
-                     auto_label_index, total_number):
-    writer = tf.python_io.TFRecordWriter(os.path.join(FLAGS.output_path, FLAGS.prefix + '-%05d-of-%05d.tfrecord' %
-                                                      (record_index, FLAGS.num_shards)))
-    for idx in range(len(xml_files)):
-        if FLAGS.num_images and idx >= FLAGS.num_images:
-            break
-        if idx % 100 == 0:
-            logging.info('On image %d of %d in %d total images, shard_index: %d', idx, len(xml_files), total_number,
-                         record_index)
-        path = xml_files[idx]
-        with tf.gfile.GFile(path, 'r') as fid:
-            xml_str = fid.read()
-        try:
-            xml = etree.fromstring(xml_str)
-        except ValueError:
-            xml = etree.fromstring(xml_str.encode("utf-8"))
-        data = tfrecord_util.recursive_parse_xml_to_dict(xml)['annotation']
-        try:
-            tf_example, auto_label_index = dict_to_tf_example(
-                data, image_files[idx],
-                label_map_dict,
-                auto_label_map=auto_label_map,
-                auto_label_index=auto_label_index,
-                ignore_difficult_instances=FLAGS.ignore_difficult_instances,
-                ann_json_dict=ann_json_dict)
-        except (ZeroDivisionError, AssertionError):
-            logging.warning("ZeroDivisionError" + path)
-            continue
-        writer.write(tf_example.SerializeToString())
-
-    writer.close()
-
+# def batch_processing(record_index, xml_files, image_files, label_map_dict, auto_label_map, ann_json_dict,
+#                      auto_label_index, total_number):
+#     writer = tf.python_io.TFRecordWriter(os.path.join(FLAGS.output_path, FLAGS.prefix + '-%05d-of-%05d.tfrecord' %
+#                                                       (record_index, FLAGS.num_shards)))
+#     for idx in range(len(xml_files)):
+#         if FLAGS.num_images and idx >= FLAGS.num_images:
+#             break
+#         if idx % 100 == 0:
+#             logging.info('On image %d of %d in %d total images, shard_index: %d', idx, len(xml_files), total_number,
+#                          record_index)
+#         path = xml_files[idx]
+#         with tf.gfile.GFile(path, 'r') as fid:
+#             xml_str = fid.read()
+#         try:
+#             xml = etree.fromstring(xml_str)
+#         except ValueError:
+#             xml = etree.fromstring(xml_str.encode("utf-8"))
+#         data = tfrecord_util.recursive_parse_xml_to_dict(xml)['annotation']
+#         try:
+#             tf_example, auto_label_index = dict_to_tf_example(
+#                 data, image_files[idx],
+#                 label_map_dict,
+#                 auto_label_map=auto_label_map,
+#                 auto_label_index=auto_label_index,
+#                 ignore_difficult_instances=FLAGS.ignore_difficult_instances,
+#                 ann_json_dict=ann_json_dict)
+#         except (ZeroDivisionError, AssertionError):
+#             logging.warning("ZeroDivisionError" + path)
+#             continue
+#         writer.write(tf_example.SerializeToString())
+#
+#     writer.close()
+#
 
 def main(_):
     import time
@@ -339,7 +339,7 @@ def main(_):
     ]
 
     # Todo多进程数据共享的问题
-    pool = multiprocessing.Pool(FLAGS.num_threads)
+    # pool = multiprocessing.Pool(FLAGS.num_threads)
     if FLAGS.num_images:
         xml_files = xml_files[:FLAGS.num_images]
     for idx in range(len(xml_files)):
