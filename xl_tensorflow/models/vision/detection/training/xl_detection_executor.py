@@ -249,9 +249,9 @@ class DetectionDistributedExecutor(executor.DistributedExecutor):
                 # 调试
                 # break
             except (StopIteration, tf.errors.OutOfRangeError):
-                del labels
-                del outputs
-                del losses
+                # del labels
+                # del outputs
+                # del losses
                 break
         for k, v in eval_losses.items():
             eval_losses[k] = tf.reduce_mean(tf.stack(eval_losses[k])).numpy().astype(float)
@@ -262,6 +262,6 @@ class DetectionDistributedExecutor(executor.DistributedExecutor):
         logging.info('Step: [%d] Validation metric = %s', current_training_step,
                      metric_result)
         metric_result.update(eval_losses)
-        del eval_losses
+        # del eval_losses
         gc.collect()
         return metric_result
