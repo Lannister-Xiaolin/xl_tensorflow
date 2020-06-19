@@ -164,7 +164,6 @@ class BiFpn(object):
                         use_tpu=p.use_tpu,
                         data_format=params.data_format)
                     nodes.append(input_node)
-
                 new_node = self.fuse_features(nodes, fpn_config.weight_method)
                 with tf.name_scope('op_after_combine{}'.format(len(feats))):
                     if not p.fpn.conv_bn_act_pattern:

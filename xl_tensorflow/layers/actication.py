@@ -33,7 +33,8 @@ class Swish(layers.Layer):
     def call(self, inputs, **kwargs):
         # alpha is used for leaky relu slope in activations instead of
         # negative_slope.
-        return tf.multiply(backend.sigmoid(inputs), inputs)
+        # return tf.multiply(backend.sigmoid(inputs), inputs)
+        return tf.nn.swish(inputs)
 
     def get_config(self):
         base_config = super(Swish, self).get_config()
