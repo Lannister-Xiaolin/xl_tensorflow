@@ -262,6 +262,6 @@ class DetectionDistributedExecutor(executor.DistributedExecutor):
         logging.info('Step: [%d] Validation metric = %s', current_training_step,
                      metric_result)
         metric_result.update(eval_losses)
-        del eval_losses
+        # del eval_losses
         gc.collect()
         return metric_result
