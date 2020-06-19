@@ -35,7 +35,8 @@ def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pa
                                  aug_scale_max=2.0,
                                  warmup_steps=None,
                                  input_shape=None,
-                                 score_threshold=0.01):
+                                 score_threshold=0.01,
+                                 box_loss_weight=50.0):
     """
 
     Args:
@@ -78,7 +79,7 @@ def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pa
     params.efficientdet_parser.aug_scale_min = aug_scale_min
     params.efficientdet_parser.aug_scale_max = aug_scale_max
     params.postprocess.score_threshold = score_threshold
-
+    params.efficientdet_loss.box_loss_weight = box_loss_weight
     params.train.override({'learning_rate': {
         'type': 'step',
         'warmup_learning_rate': learning_rate * 0.1,

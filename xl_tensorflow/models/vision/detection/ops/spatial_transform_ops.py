@@ -689,6 +689,7 @@ def resample_feature_map(feat,
                 else:
                     feat = nearest_upsampling(
                         feat, height_scale, width_scale)
+                    # feat = tf.keras.layers.UpSampling2D()
         else:
             raise ValueError(
                 'Incompatible target feature map size: target_height: {},'
