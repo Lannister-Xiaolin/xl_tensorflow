@@ -113,7 +113,7 @@ def retinanet_head_generator(params):
 def efficientdet_head_generator(params):
     """Generator function for RetinaNet head architecture."""
     head_params = params.efficientdet_head
-    return heads.RetinanetHead(
+    return heads.EfficientDetHead(
         params.architecture.min_level,
         params.architecture.max_level,
         params.architecture.num_classes,
@@ -121,7 +121,7 @@ def efficientdet_head_generator(params):
         head_params.num_convs,
         head_params.num_filters,
         head_params.use_separable_conv,
-        norm_activation=norm_activation_generator(params.norm_activation))
+        norm_activation=params.norm_activation)
 
 def rpn_head_generator(params):
     """Generator function for RPN head architecture."""

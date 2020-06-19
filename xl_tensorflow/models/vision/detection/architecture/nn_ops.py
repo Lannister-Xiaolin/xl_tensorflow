@@ -69,7 +69,7 @@ class NormActivation(tf.keras.layers.Layer):
     if activation == 'relu':
       self._activation_op = tf.nn.relu
     elif activation == 'swish':
-      self._activation_op = tf.nn.swish
+      self._activation_op = tf.keras.layers.Activation(lambda x: tf.nn.swish(x))#(features)
     else:
       raise ValueError('Unsupported activation `{}`.'.format(activation))
 

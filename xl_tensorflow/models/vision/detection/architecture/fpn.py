@@ -37,7 +37,7 @@ from ..utils.efficientdet_utils import get_feat_sizes, activation_fn
 from xl_tensorflow.utils import hparams_config
 
 
-# @tf.keras.utils.register_keras_serializable(package='Text')
+@tf.keras.utils.register_keras_serializable(package='Text')
 class WeightedAdd(tf.keras.layers.Layer):
     def __init__(self, epsilon=1e-4, activation="relu", **kwargs):
         """
@@ -63,7 +63,6 @@ class WeightedAdd(tf.keras.layers.Layer):
         w = self.activation(self.w)
         weights_sum = tf.reduce_sum(self.w)
         x = tf.reduce_sum([(w[i] * inputs[i]) / (weights_sum + self.epsilon) for i in range(len(inputs))], axis=0)
-        # x = x / (tf.reduce_sum(w) + self.epsilon)
         return x
 
     def compute_output_shape(self, input_shape):
@@ -76,123 +75,6 @@ class WeightedAdd(tf.keras.layers.Layer):
         })
         return config
 
-
-class Fpn(object):
-    """Feature pyramid networks."""
-
-    def __init__(self,
-                 min_level=3,
-                 max_level=7,
-                 fpn_feat_dims=256,
-                 use_separable_conv=False,
-                 activation='relu',
-                 use_batch_norm=True,
-                 norm_activation=nn_ops.norm_activation_builder(
-                     activation='relu')):
-        """FPN initialization function.
-
-        Args:
-          min_level: `int` minimum level in FPN output feature maps.
-          max_level: `int` maximum level in FPN output feature maps.
-          fpn_feat_dims: `int` number of filters in FPN layers.
-          use_separable_conv: `bool`, if True use separable convolution for
-            convolution in FPN layers.
-          use_batch_norm: 'bool', indicating whether batchnorm layers are added.
-          norm_activation: an operation that includes a normalization layer
-            followed by an optional activation layer.
-        """
-        self._min_level = min_level
-        self._max_level = max_level
-        self._fpn_feat_dims = fpn_feat_dims
-        if use_separable_conv:
-            self._conv2d_op = functools.partial(
-                tf.keras.layers.SeparableConv2D, depth_multiplier=1)
-        else:
-            self._conv2d_op = tf.keras.layers.Conv2D
-        if activation == 'relu':
-            self._activation_op = tf.nn.relu
-        elif activation == 'swish':
-            self._activation_op = tf.nn.swish
-        else:
-            raise ValueError('Unsupported activation `{}`.'.format(activation))
-        self._use_batch_norm = use_batch_norm
-        self._norm_activation = norm_activation
-
-        self._norm_activations = {}
-        self._lateral_conv2d_op = {}
-        self._post_hoc_conv2d_op = {}
-        self._coarse_conv2d_op = {}
-        for level in range(self._min_level, self._max_level + 1):
-            if self._use_batch_norm:
-                self._norm_activations[level] = norm_activation(
-                    use_activation=False, name='p%d-bn' % level)
-            self._lateral_conv2d_op[level] = self._conv2d_op(
-                filters=self._fpn_feat_dims,
-                kernel_size=(1, 1),
-                padding='same',
-                name='l%d' % level)
-            self._post_hoc_conv2d_op[level] = self._conv2d_op(
-                filters=self._fpn_feat_dims,
-                strides=(1, 1),
-                kernel_size=(3, 3),
-                padding='same',
-                name='post_hoc_d%d' % level)
-            self._coarse_conv2d_op[level] = self._conv2d_op(
-                filters=self._fpn_feat_dims,
-                strides=(2, 2),
-                kernel_size=(3, 3),
-                padding='same',
-                name='p%d' % level)
-
-    def __call__(self, multilevel_features, is_training=None):
-        """Returns the FPN features for a given multilevel features.
-
-        Args:
-          multilevel_features: a `dict` containing `int` keys for continuous feature
-            levels, e.g., [2, 3, 4, 5]. The values are corresponding features with
-            shape [batch_size, height_l, width_l, num_filters].
-          is_training: `bool` if True, the model is in training mode.
-
-        Returns:
-          a `dict` containing `int` keys for continuous feature levels
-          [min_level, min_level + 1, ..., max_level]. The values are corresponding
-          FPN features with shape [batch_size, height_l, width_l, fpn_feat_dims].
-        """
-        input_levels = list(multilevel_features.keys())
-        if min(input_levels) > self._min_level:
-            raise ValueError(
-                'The minimum backbone level %d should be ' % (min(input_levels)) +
-                'less or equal to FPN minimum level %d.:' % (self._min_level))
-        backbone_max_level = min(max(input_levels), self._max_level)
-        with backend.get_graph().as_default(), tf.name_scope('fpn'):
-            # Adds lateral connections.
-            feats_lateral = {}
-            for level in range(self._min_level, backbone_max_level + 1):
-                feats_lateral[level] = self._lateral_conv2d_op[level](
-                    multilevel_features[level])
-
-            # Adds top-down path.
-            feats = {backbone_max_level: feats_lateral[backbone_max_level]}
-            for level in range(backbone_max_level - 1, self._min_level - 1, -1):
-                feats[level] = spatial_transform_ops.nearest_upsampling(
-                    feats[level + 1], 2) + feats_lateral[level]
-
-            # Adds post-hoc 3x3 convolution kernel.
-            for level in range(self._min_level, backbone_max_level + 1):
-                feats[level] = self._post_hoc_conv2d_op[level](feats[level])
-
-            # Adds coarser FPN levels introduced for RetinaNet.
-            for level in range(backbone_max_level + 1, self._max_level + 1):
-                feats_in = feats[level - 1]
-                if level > backbone_max_level + 1:
-                    feats_in = self._activation_op(feats_in)
-                feats[level] = self._coarse_conv2d_op[level](feats_in)
-            if self._use_batch_norm:
-                # Adds batch_norm layer.
-                for level in range(self._min_level, self._max_level + 1):
-                    feats[level] = self._norm_activations[level](
-                        feats[level], is_training=is_training)
-        return feats
 
 
 class BiFpn(object):
@@ -301,7 +183,9 @@ class BiFpn(object):
                     # 拆分activation
                     act_type = None if not p.fpn.conv_bn_act_pattern else p.act_type
                     new_node = tf.keras.layers.BatchNormalization(
-                        axis=1 if params.data_format == "channels_first" else -1)(new_node)
+                        axis=1 if params.data_format == "channels_first" else -1,
+                        momentum=p.norm_activation.batch_norm_momentum,
+                        epsilon=p.norm_activation.batch_norm_epsilon)(new_node)
                     if act_type:
                         new_node = activation_fn(new_node, act_type)
                 feats.append(new_node)
@@ -407,7 +291,6 @@ class BiFpn(object):
                             data_format="channels_last"
                         ))
             feat_sizes = get_feat_sizes(params.efficientdet_parser.output_size[0], self._max_level)
-            # todo 尺寸校验暂时搁置        _verify_feats_size
 
             with tf.name_scope("bifpn_cells"):
                 for rep in range(params.fpn.fpn_cell_repeats):

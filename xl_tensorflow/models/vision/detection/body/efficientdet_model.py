@@ -53,9 +53,9 @@ class EfficientDetModel(base_model.Model):
 
         # Loss function.
         # class loss与automl完全一致，需要确认背景类
-        self._cls_loss_fn = losses.EfficientnetClassLoss(
+        self._cls_loss_fn = losses.EfficientDetClassLoss(
             params.efficientdet_loss, params.architecture.num_classes)
-        self._box_loss_fn = losses.RetinanetBoxLoss(params.efficientdet_loss)
+        self._box_loss_fn = losses.EfficientDetBoxLoss(params.efficientdet_loss)
         self._box_loss_weight = params.efficientdet_loss.box_loss_weight
         self._keras_model = None
         self._inference_keras_model = None
@@ -219,7 +219,8 @@ class EfficientDetModel(base_model.Model):
         return self._keras_model, self._inference_keras_model, self._lite_keras_model
 
     def post_processing_inference(self, outputs, inference_mode=False):
-        detection_boxes, detection_scores, detection_classes, valid_detections, boxes_all, scores_all = self._generate_detections_fn(
+        detection_boxes, detection_scores, detection_classes,\
+        valid_detections, boxes_all, scores_all = self._generate_detections_fn(
             outputs['box_outputs'], outputs['cls_outputs'],
             self._input_anchor.multilevel_boxes, self._input_image_size,
             iou_threshold=self._params.postprocess.nms_iou_threshold,

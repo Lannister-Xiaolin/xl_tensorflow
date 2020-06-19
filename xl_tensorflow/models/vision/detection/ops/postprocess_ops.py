@@ -365,13 +365,6 @@ class MultilevelDetectionGeneratorWithScoreFilter(object):
             # Applies score transformation and remove the implicit background class.
             scores_i = tf.sigmoid(
                 tf.reshape(class_outputs[i], [batch_size, -1, num_classes]))
-            scores_i = tf.slice(scores_i, [0, 0, 1], [-1, -1, -1])
-
-            # Box decoding.
-            # The anchor boxes are shared for all data in a batch.
-            # One stage detector only supports class agnostic box regression.
-            # todo 此处变更
-            # anchor_boxes_i = tf.reshape(anchor_boxes[i], [batch_size, -1, 4])
             anchor_boxes_i = tf.reshape(anchor_boxes[i], [1, -1, 4])
             box_outputs_i = tf.reshape(box_outputs[i], [batch_size, -1, 4])
             boxes_i = box_utils.decode_boxes_lite(box_outputs_i, anchor_boxes_i)
@@ -384,11 +377,10 @@ class MultilevelDetectionGeneratorWithScoreFilter(object):
         boxes_all = tf.concat(boxes, axis=1)
         scores_all = tf.concat(scores, axis=1)
         nmsed_boxes, nmsed_scores, nmsed_classes, valid_detections = FilterDetectionsOwn(
-            num_classes=self.num_classes - 1,
+            num_classes=self.num_classes,
             name='filtered_detections', class_specific_filter=True, iou_threshold=iou_threshold,
             score_threshold=score_threshold, max_detections=max_total_size
-            )([boxes_all, scores_all])
-        nmsed_classes += 1
+        )([boxes_all, scores_all])
         return nmsed_boxes, nmsed_scores, nmsed_classes, valid_detections, boxes_all, scores_all
 
 

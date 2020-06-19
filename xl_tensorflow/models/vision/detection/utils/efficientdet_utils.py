@@ -56,12 +56,27 @@ def activation_fn(features: tf.Tensor, act_type: Text):
     if act_type == 'swish':
         # return tf.nn.swish(features)
         # 上面代码有点问题
-        return Swish()(features)
+        return tf.keras.layers.Activation(lambda x: tf.nn.swish(x))(features)
     elif act_type == 'swish_native':
         return features * tf.sigmoid(features)
     elif act_type == 'relu':
         return tf.nn.relu(features)
     elif act_type == 'relu6':
         return tf.nn.relu6(features)
+    else:
+        raise ValueError('Unsupported act_type {}'.format(act_type))
+
+
+def activation_fn_no_feature(act_type: Text,
+                             **kwargs):
+    """Customized non-linear activation type."""
+    if act_type == 'swish':
+        return tf.keras.layers.Lambda(lambda x: tf.nn.swish(x), **kwargs)
+    elif act_type == 'swish_native':
+        return tf.keras.layers.Lambda(lambda x: x * tf.sigmoid(), **kwargs)
+    elif act_type == 'relu':
+        return tf.keras.layers.ReLU(**kwargs)
+    elif act_type == 'relu6':
+        return tf.keras.layers.ReLU(max_value=6.0, **kwargs)
     else:
         raise ValueError('Unsupported act_type {}'.format(act_type))

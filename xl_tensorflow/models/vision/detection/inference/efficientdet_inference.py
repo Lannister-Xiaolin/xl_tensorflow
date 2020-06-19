@@ -90,7 +90,7 @@ def efficiendet_inference_model(model_name="efficientdet-d0",
                                 auto_incre_version=True,
                                 serving_path=None, ):
     """
-
+    Hint: 自定义base64模型不能保存为keras格式模型，请使用tf格式
     Args:
         model_name:
         input_shape:
@@ -113,10 +113,14 @@ def efficiendet_inference_model(model_name="efficientdet-d0",
     input_shape = params.efficientdet_parser.output_size
     if inference_mode == "base64":
         inputs = tf.keras.layers.Input(shape=(1,), dtype="string", name="image_b64")
-        ouput_tensor, scales, image_sizes = Base64ImageProcessLayer(target_size=input_shape)(inputs)
+        with tf.name_scope("preprocess"):
+            ouput_tensor, scales, image_sizes = Base64ImageProcessLayer(target_size=input_shape, name="preprocess")(
+                inputs)
     elif inference_mode == "dynamic":
         inputs = tf.keras.layers.Input(shape=(None, None, 3), name="image_tensor")
-        ouput_tensor, scales, image_sizes = ResizeImageProcessLayer(target_size=input_shape)(inputs)
+        with tf.name_scope("preprocess"):
+            ouput_tensor, scales, image_sizes = ResizeImageProcessLayer(target_size=input_shape, name="preprocess")(
+                inputs)
     else:
         inputs = tf.keras.layers.Input(shape=(input_shape[0], input_shape[1], 3), name="image_tensor")
         ouput_tensor = tf.cast(inputs, tf.float32) / 255.0

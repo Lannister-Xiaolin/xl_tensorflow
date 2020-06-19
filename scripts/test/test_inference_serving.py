@@ -14,11 +14,13 @@ def test_yolo():
 
 
 def test_efficientdet():
-    model, lite_model = efficiendet_inference_model(inference_mode="base64",
+    model, lite_model = efficiendet_inference_model(inference_mode="dynamic",
                                                 serving_export=False,
                                                 serving_path=r"E:\Temp\test\serving\efficiendetd0", )
     print(model.outputs)
+    # model.save_weights("./fuck.h5")
     converter = tf.lite.TFLiteConverter.from_keras_model(lite_model)
+
     tflite_model = converter.convert()
     import pathlib
 
