@@ -357,25 +357,37 @@ class MultilevelDetectionGeneratorWithScoreFilter(object):
         # Collects outputs from all levels into a list.
         boxes = []
         scores = []
-        for i in range(self._min_level, self._max_level + 1):
-            box_outputs_i_shape = tf.shape(box_outputs[i])
-            batch_size = box_outputs_i_shape[0]
-            num_classes = self.num_classes
-
-            # Applies score transformation and remove the implicit background class.
-            scores_i = tf.sigmoid(
-                tf.reshape(class_outputs[i], [batch_size, -1, num_classes]))
-            anchor_boxes_i = tf.reshape(anchor_boxes[i], [1, -1, 4])
-            box_outputs_i = tf.reshape(box_outputs[i], [batch_size, -1, 4])
-            boxes_i = box_utils.decode_boxes_lite(box_outputs_i, anchor_boxes_i)
-
-            # Box clipping.
-            boxes_i = box_utils.clip_boxes(boxes_i, image_shape)
-
-            boxes.append(boxes_i)
-            scores.append(scores_i)
+        # for i in range(self._min_level, self._max_level + 1):
+        #     box_outputs_i_shape = tf.shape(box_outputs[i])
+        #     batch_size = box_outputs_i_shape[0]
+        #     num_classes = self.num_classes
+        #
+        #     # Applies score transformation and remove the implicit background class.
+        #     scores_i = tf.sigmoid(
+        #         tf.reshape(class_outputs[i], [batch_size, -1, num_classes]))
+        #     anchor_boxes_i = tf.reshape(anchor_boxes[i], [1, -1, 4])
+        #     box_outputs_i = tf.reshape(box_outputs[i], [batch_size, -1, 4])
+        #     boxes_i = box_utils.decode_boxes_lite(box_outputs_i, anchor_boxes_i)
+        #
+        #     # Box clipping.
+        #     boxes_i = box_utils.clip_boxes(boxes_i, image_shape)
+        #
+        #     boxes.append(boxes_i)
+        #     scores.append(scores_i)
+        # boxes_all = tf.concat(boxes, axis=1)
+        # scores_all = tf.concat(scores, axis=1)
+        # todo 改动版
+        boxes = [tf.keras.layers.Reshape((-1, 4))(box_outputs[i]) for i in range(self._min_level, self._max_level + 1)]
+        anchors_ = [tf.keras.backend.reshape(anchor_boxes[i], (1, -1, 4)) for i in range(self._min_level, self._max_level + 1)]
+        scores = [tf.keras.layers.Reshape((-1, self.num_classes))(class_outputs[i]) for i in
+                  range(self._min_level, self._max_level + 1)]
         boxes_all = tf.concat(boxes, axis=1)
         scores_all = tf.concat(scores, axis=1)
+        anchors_all = tf.concat(anchors_, axis=1)
+        boxes_all = box_utils.decode_boxes_lite(boxes_all, anchors_all)
+        boxes_all = box_utils.clip_boxes(boxes_all, image_shape)
+        scores_all = tf.keras.backend.sigmoid(scores_all)
+
         nmsed_boxes, nmsed_scores, nmsed_classes, valid_detections = FilterDetectionsOwn(
             num_classes=self.num_classes,
             name='filtered_detections', class_specific_filter=True, iou_threshold=iou_threshold,

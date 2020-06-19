@@ -27,7 +27,7 @@ def model_test():
         # #     by_name=True, skip_mismatch=True)
         # data = np.random.random((1, *params.efficientdet_parser.output_size, 3))
         # print(inference_model(data, training=False)['cls_outputs'].keys())
-        lite_model.save(f"{path}/{params.name}.h5", include_optimizer=False)
+        inference_model.save(f"{path}/{params.name}.h5", include_optimizer=False)
         # print(model(data, training=False)['cls_outputs'])
     # for i in range(5):
     #     params = config_factory.config_generator(f"efficientdetlite-d{i}")

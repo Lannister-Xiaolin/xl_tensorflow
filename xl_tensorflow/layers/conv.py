@@ -87,7 +87,7 @@ class SEConvEfnet2D(layers.Layer):
         return config
 
 
-# @tf.keras.utils.register_keras_serializable(package='Text')
+@tf.keras.utils.register_keras_serializable(package='Text')
 class Base64ImageProcessLayer(tf.keras.layers.Layer):
     """
     Layer for deal with base64 input

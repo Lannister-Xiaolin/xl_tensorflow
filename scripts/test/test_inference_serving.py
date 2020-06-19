@@ -18,7 +18,7 @@ def test_efficientdet():
                                                 serving_export=False,
                                                 serving_path=r"E:\Temp\test\serving\efficiendetd0", )
     print(model.outputs)
-    # model.save_weights("./fuck.h5")
+    model.save_weights("./fuck.h5")
     converter = tf.lite.TFLiteConverter.from_keras_model(lite_model)
 
     tflite_model = converter.convert()
