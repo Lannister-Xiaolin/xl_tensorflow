@@ -26,8 +26,8 @@ class NormActivation(tf.keras.layers.Layer):
   """Combined Normalization and Activation layers."""
 
   def __init__(self,
-               momentum=0.997,
-               epsilon=1e-4,
+               momentum=0.99,
+               epsilon=1e-3,
                trainable=True,
                init_zero=False,
                use_activation=True,

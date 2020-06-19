@@ -102,8 +102,8 @@ EFFICIENTDET_CFG = params_dict.ParamsDict({
     },
     'norm_activation': {
         'activation': 'swish',
-        'batch_norm_momentum': 0.997,
-        'batch_norm_epsilon': 1e-4,
+        'batch_norm_momentum': 0.99,
+        'batch_norm_epsilon': 1e-3,
         'batch_norm_trainable': True,
         'use_sync_bn': False,
     },

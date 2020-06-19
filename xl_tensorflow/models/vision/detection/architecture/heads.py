@@ -425,8 +425,8 @@ class EfficientDetHead(object):
                  use_separable_conv=False,
                  norm_activation=params_dict.ParamsDict({
                      'activation': 'relu',
-                     'batch_norm_momentum': 0.997,
-                     'batch_norm_epsilon': 1e-4,
+                     'batch_norm_momentum': 0.99,
+                     'batch_norm_epsilon': 1e-3,
                  })):
         """Initialize params to build RetinaNet head.
 
