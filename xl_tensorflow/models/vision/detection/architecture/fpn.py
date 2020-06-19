@@ -52,7 +52,7 @@ class WeightedAdd(tf.keras.layers.Layer):
         self.activation = tf.nn.softmax if activation == "softmax" else tf.nn.relu
 
     def build(self, input_shape):
-        num_in = input_shape[-1]
+        num_in = len(input_shape)
         self.w = self.add_weight(name=self.name,
                                  shape=(num_in,),
                                  initializer=tf.keras.initializers.constant(1 / num_in),
@@ -62,12 +62,12 @@ class WeightedAdd(tf.keras.layers.Layer):
     def call(self, inputs, **kwargs):
         w = self.activation(self.w)
         weights_sum = tf.reduce_sum(self.w)
-        x = tf.reduce_sum(w * inputs, axis=-1) / (weights_sum + self.epsilon)
+        x = tf.reduce_sum([(w[i] * inputs[i]) / (weights_sum + self.epsilon) for i in range(len(inputs))], axis=0)
+        # x = x / (tf.reduce_sum(w) + self.epsilon)
         return x
 
     def compute_output_shape(self, input_shape):
-        # return input_shape[0]
-        return input_shape[:-1]
+        return input_shape[0]
 
     def get_config(self):
         config = super(WeightedAdd, self).get_config()
@@ -242,13 +242,10 @@ class BiFpn(object):
         dtype = nodes[0].dtype
 
         if weight_method == 'attn':
-            logging.info("使用softmax激活进行特征融合")
             new_node = WeightedAdd(activation="softmax")(nodes)
         elif weight_method == 'fastattn':
-            logging.info("使用relu激活进行特征融合")
             new_node = WeightedAdd(activation="relu")(nodes)
         elif weight_method == 'sum':
-            logging.info("使用直接求和进行特征融合")
             new_node = tf.add_n(nodes)
         else:
             raise ValueError(
@@ -285,8 +282,6 @@ class BiFpn(object):
                         use_tpu=p.use_tpu,
                         data_format=params.data_format)
                     nodes.append(input_node)
-                nodes = [tf.expand_dims(node, -1) for node in nodes]
-                nodes = tf.concat(nodes, -1)
                 new_node = self.fuse_features(nodes, fpn_config.weight_method)
                 with tf.name_scope('op_after_combine{}'.format(len(feats))):
                     if not p.fpn.conv_bn_act_pattern:

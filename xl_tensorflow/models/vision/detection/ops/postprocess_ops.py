@@ -365,7 +365,8 @@ class MultilevelDetectionGeneratorWithScoreFilter(object):
             # Applies score transformation and remove the implicit background class.
             scores_i = tf.sigmoid(
                 tf.reshape(class_outputs[i], [batch_size, -1, num_classes]))
-            scores_i = tf.slice(scores_i, [0, 0, 1], [-1, -1, -1])
+            # 不跳过背景类
+            # scores_i = tf.slice(scores_i, [0, 0, 1], [-1, -1, -1])
 
             # Box decoding.
             # The anchor boxes are shared for all data in a batch.
@@ -387,8 +388,9 @@ class MultilevelDetectionGeneratorWithScoreFilter(object):
             num_classes=self.num_classes - 1,
             name='filtered_detections', class_specific_filter=True, iou_threshold=iou_threshold,
             score_threshold=score_threshold, max_detections=max_total_size
-            )([boxes_all, scores_all])
-        nmsed_classes += 1
+        )([boxes_all, scores_all])
+        # 不跳过背景类
+        # nmsed_classes += 1
         return nmsed_boxes, nmsed_scores, nmsed_classes, valid_detections, boxes_all, scores_all
 
 
