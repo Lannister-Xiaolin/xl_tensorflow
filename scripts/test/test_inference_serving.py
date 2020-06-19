@@ -19,6 +19,18 @@ def test_efficientdet():
                                                 serving_path=r"E:\Temp\test\serving\efficiendetd0", )
     print(model.outputs)
     converter = tf.lite.TFLiteConverter.from_keras_model(lite_model)
+
+    # converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
+    # converter.inference_input_type = tf.uint8
+    # converter.inference_output_type = tf.uint8
+    # images = np.random.randint(0,255,(1, 512, 512, 3)).astype("float32")
+    # mnist_ds = tf.data.Dataset.from_tensor_slices((images)).batch(1)
+    #
+    # def representative_data_gen():
+    #     for input_value in mnist_ds.take(100):
+    #         yield [input_value]
+    #
+    # converter.representative_dataset = representative_data_gen
     tflite_model = converter.convert()
     import pathlib
 
