@@ -31,6 +31,7 @@ def config_generator(model):
     elif "efficientdet" in model:
         default_config = efficientdet_config.EFFICIENTDET_CFG
         default_config.override(efficientdet_config.efficientdet_model_param_dict[model], is_strict=False)
+        default_config.norm_activation.activation = default_config.act_type
         restrictions = efficientdet_config.EFFICIENTDET_RESTRICTIONS
         pass
     else:

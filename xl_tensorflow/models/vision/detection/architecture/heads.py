@@ -593,6 +593,189 @@ class RetinanetHead(object):
     return boxes
 
 
+class EfficientDetHead(object):
+  """RetinaNet head."""
+
+  def __init__(self,
+               min_level,
+               max_level,
+               num_classes,
+               anchors_per_location,
+               num_convs=4,
+               num_filters=256,
+               use_separable_conv=False,
+               norm_activation=nn_ops.norm_activation_builder(
+                   activation='relu')):
+    """Initialize params to build RetinaNet head.
+
+    Args:
+      min_level: `int` number of minimum feature level.
+      max_level: `int` number of maximum feature level.
+      num_classes: `int` number of classification categories.
+      anchors_per_location: `int` number of anchors per pixel location.
+      num_convs: `int` number of stacked convolution before the last prediction
+        layer.
+      num_filters: `int` number of filters used in the head architecture.
+      use_separable_conv: `bool` to indicate whether to use separable
+        convoluation.
+      norm_activation: an operation that includes a normalization layer
+        followed by an optional activation layer.
+    """
+    self._min_level = min_level
+    self._max_level = max_level
+
+    self._num_classes = num_classes
+    self._anchors_per_location = anchors_per_location
+
+    self._num_convs = num_convs
+    self._num_filters = num_filters
+    self._use_separable_conv = use_separable_conv
+    with tf.name_scope('class_net') as scope_name:
+      self._class_name_scope = tf.name_scope(scope_name)
+    with tf.name_scope('box_net') as scope_name:
+      self._box_name_scope = tf.name_scope(scope_name)
+    self._build_class_net_layers(norm_activation)
+    self._build_box_net_layers(norm_activation)
+
+  def _class_net_batch_norm_name(self, i, level):
+    return 'class-%d-%d' % (i, level)
+
+  def _box_net_batch_norm_name(self, i, level):
+    return 'box-%d-%d' % (i, level)
+
+  def _build_class_net_layers(self, norm_activation):
+    """Build re-usable layers for class prediction network."""
+    if self._use_separable_conv:
+      self._class_predict = tf.keras.layers.SeparableConv2D(
+          self._num_classes * self._anchors_per_location,
+          kernel_size=(3, 3),
+          bias_initializer=tf.constant_initializer(-np.log((1 - 0.01) / 0.01)),
+          padding='same',
+          name='class-predict')
+    else:
+      self._class_predict = tf.keras.layers.Conv2D(
+          self._num_classes * self._anchors_per_location,
+          kernel_size=(3, 3),
+          bias_initializer=tf.constant_initializer(-np.log((1 - 0.01) / 0.01)),
+          kernel_initializer=tf.keras.initializers.RandomNormal(stddev=1e-5),
+          padding='same',
+          name='class-predict')
+    self._class_conv = []
+    self._class_norm_activation = {}
+    for i in range(self._num_convs):
+      if self._use_separable_conv:
+        self._class_conv.append(
+            tf.keras.layers.SeparableConv2D(
+                self._num_filters,
+                kernel_size=(3, 3),
+                bias_initializer=tf.zeros_initializer(),
+                activation=None,
+                padding='same',
+                name='class-' + str(i)))
+      else:
+        self._class_conv.append(
+            tf.keras.layers.Conv2D(
+                self._num_filters,
+                kernel_size=(3, 3),
+                bias_initializer=tf.zeros_initializer(),
+                kernel_initializer=tf.keras.initializers.RandomNormal(
+                    stddev=0.01),
+                activation=None,
+                padding='same',
+                name='class-' + str(i)))
+      for level in range(self._min_level, self._max_level + 1):
+        name = self._class_net_batch_norm_name(i, level)
+        self._class_norm_activation[name] = norm_activation(name=name)
+
+  def _build_box_net_layers(self, norm_activation):
+    """Build re-usable layers for box prediction network."""
+    if self._use_separable_conv:
+      self._box_predict = tf.keras.layers.SeparableConv2D(
+          4 * self._anchors_per_location,
+          kernel_size=(3, 3),
+          bias_initializer=tf.zeros_initializer(),
+          padding='same',
+          name='box-predict')
+    else:
+      self._box_predict = tf.keras.layers.Conv2D(
+          4 * self._anchors_per_location,
+          kernel_size=(3, 3),
+          bias_initializer=tf.zeros_initializer(),
+          kernel_initializer=tf.keras.initializers.RandomNormal(stddev=1e-5),
+          padding='same',
+          name='box-predict')
+    self._box_conv = []
+    self._box_norm_activation = {}
+    for i in range(self._num_convs):
+      if self._use_separable_conv:
+        self._box_conv.append(
+            tf.keras.layers.SeparableConv2D(
+                self._num_filters,
+                kernel_size=(3, 3),
+                activation=None,
+                bias_initializer=tf.zeros_initializer(),
+                padding='same',
+                name='box-' + str(i)))
+      else:
+        self._box_conv.append(
+            tf.keras.layers.Conv2D(
+                self._num_filters,
+                kernel_size=(3, 3),
+                activation=None,
+                bias_initializer=tf.zeros_initializer(),
+                kernel_initializer=tf.keras.initializers.RandomNormal(
+                    stddev=0.01),
+                padding='same',
+                name='box-' + str(i)))
+      for level in range(self._min_level, self._max_level + 1):
+        name = self._box_net_batch_norm_name(i, level)
+        self._box_norm_activation[name] = norm_activation(name=name)
+
+  def __call__(self, fpn_features, is_training=None):
+    """Returns outputs of RetinaNet head."""
+    class_outputs = {}
+    box_outputs = {}
+    with backend.get_graph().as_default(), tf.name_scope('retinanet_head'):
+      for level in range(self._min_level, self._max_level + 1):
+        features = fpn_features[level]
+
+        class_outputs[level] = self.class_net(
+            features, level, is_training=is_training)
+        box_outputs[level] = self.box_net(
+            features, level, is_training=is_training)
+    return class_outputs, box_outputs
+
+  def class_net(self, features, level, is_training):
+    """Class prediction network for RetinaNet."""
+    with self._class_name_scope:
+      for i in range(self._num_convs):
+        features = self._class_conv[i](features)
+        # The convolution layers in the class net are shared among all levels,
+        # but each level has its batch normlization to capture the statistical
+        # difference among different levels.
+        name = self._class_net_batch_norm_name(i, level)
+        features = self._class_norm_activation[name](
+            features, is_training=is_training)
+
+      classes = self._class_predict(features)
+    return classes
+
+  def box_net(self, features, level, is_training=None):
+    """Box regression network for RetinaNet."""
+    with self._box_name_scope:
+      for i in range(self._num_convs):
+        features = self._box_conv[i](features)
+        # The convolution layers in the box net are shared among all levels, but
+        # each level has its batch normlization to capture the statistical
+        # difference among different levels.
+        name = self._box_net_batch_norm_name(i, level)
+        features = self._box_norm_activation[name](
+            features, is_training=is_training)
+
+      boxes = self._box_predict(features)
+    return boxes
+
+
 # TODO(yeqing): Refactor this class when it is ready for var_scope reuse.
 class ShapemaskPriorHead(object):
   """ShapeMask Prior head."""
