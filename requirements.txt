@@ -8,3 +8,5 @@ xl-tool
 pillow
 scikit-image
 imgaug
+opencv-python
+tqdm

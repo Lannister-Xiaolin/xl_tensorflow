@@ -12,9 +12,9 @@ import logging
 from .tfrecord import image_from_tfrecord, AutoAugment, RandAugment
 from xl_tensorflow.utils.common import nondistribute
 
-logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s',
-                    level=logging.INFO,
-                    handlers=[logging.FileHandler("./training_log"), logging.StreamHandler()])
+# logging.basicConfig(format='%(asctime)s %(levelname)s:%(message)s',
+#                     level=logging.INFO,
+#                     handlers=[logging.FileHandler("./training_log"), logging.StreamHandler()])
 
 plt.rcParams['font.sans-serif'] = ['SimHei']  # 步骤一（替换sans-serif字体）
 plt.rcParams['axes.unicode_minus'] = False  # 步骤二（解决坐标轴负数的负号显示问题）
