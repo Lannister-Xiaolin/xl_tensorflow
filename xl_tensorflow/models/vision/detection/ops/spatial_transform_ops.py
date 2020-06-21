@@ -642,7 +642,7 @@ def resample_feature_map(feat,
                 padding='same',
                 data_format=data_format)(feat)
             if apply_bn:
-                feat = tf.keras.layers.BatchNormalization(axis=1 if data_format == 'channels_first' else 3)(feat)
+                feat = tf.keras.layers.BatchNormalization()(feat)
         return feat
 
     with tf.name_scope('resample_{}'.format(name)):

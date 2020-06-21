@@ -25,7 +25,7 @@ REGULARIZATION_VAR_REGEX = r'.*(kernel|weight):0$'
 EFFICIENTDET_CFG = params_dict.ParamsDict({
     'model_dir': '',
     'use_tpu': False,
-    'strategy_type': 'tpu',
+    'strategy_type': 'mirrored',
     'isolate_session_state': False,
     'type': 'efficientdet',
     'train': {
