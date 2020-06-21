@@ -156,10 +156,10 @@ class EfficientDetModel(base_model.Model):
             cls_loss = self._cls_loss_fn(outputs['cls_outputs'],
                                          labels['cls_targets'],
                                          labels['num_positives'])
-            box_loss = self._box_loss_fn(outputs['box_outputs'],
-                                         labels['box_targets'],
-                                         labels['num_positives'])
-            model_loss = cls_loss + self._box_loss_weight * box_loss
+            box_loss = self._box_loss_weight * self._box_loss_fn(outputs['box_outputs'],
+                                                                 labels['box_targets'],
+                                                                 labels['num_positives'])
+            model_loss = cls_loss + box_loss
             l2_regularization_loss = self.weight_decay_loss(trainable_variables)
             total_loss = model_loss + l2_regularization_loss
             return {
@@ -219,7 +219,7 @@ class EfficientDetModel(base_model.Model):
         return self._keras_model, self._inference_keras_model, self._lite_keras_model
 
     def post_processing_inference(self, outputs, inference_mode=False):
-        detection_boxes, detection_scores, detection_classes,\
+        detection_boxes, detection_scores, detection_classes, \
         valid_detections, boxes_all, scores_all = self._generate_detections_fn(
             outputs['box_outputs'], outputs['cls_outputs'],
             self._input_anchor.multilevel_boxes, self._input_image_size,
