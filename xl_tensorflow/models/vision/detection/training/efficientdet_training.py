@@ -111,7 +111,7 @@ def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pa
         file_pattern=training_file_pattern,
         params=params,
         mode=input_reader.ModeKeys.TRAIN,
-        batch_size=params.train.batch_size, ignore_errors=ignore_errors,shuffle=shuffle)
+        batch_size=params.train.batch_size, ignore_errors=ignore_errors, shuffle=shuffle)
     if eval_file_pattern:
         eval_input_fn = input_reader.InputFn(
             file_pattern=eval_file_pattern,
@@ -145,6 +145,21 @@ def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pa
             init_checkpoint=model_builder.make_restore_checkpoint_fn(),
             custom_callbacks=None,
             save_config=True, save_freq=save_freq, pre_weights=pre_weights)
+
+
+def dataset_check(file_pattern):
+    import xl_tensorflow.models.vision.detection.configs.factory as config_factory
+    from xl_tensorflow.models.vision.detection.dataloader.input_reader import InputFn, factory
+    params = config_factory.config_generator("efficientdet-d0")
+    params.architecture.num_classes = 91
+    inputfn = InputFn(file_pattern, params, "train", 8, shuffle=False, repeat=False)
+    train_dataset = inputfn(batch_size=1)
+    gen = (train_dataset.as_numpy_iterator())
+    i = 0
+    while True:
+        next(gen)
+        i += 1
+        print(i)
 
 
 def main(_):
