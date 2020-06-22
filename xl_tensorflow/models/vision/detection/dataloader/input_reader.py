@@ -39,7 +39,8 @@ class InputFn(object):
                  batch_size: int,
                  num_examples: Optional[int] = -1,
                  ignore_errors=False,
-                 shuffle=True):
+                 shuffle=True,
+                 repeat=True):
         """Initialize.
 
         Args:
@@ -64,6 +65,7 @@ class InputFn(object):
         self._ignore_errors = ignore_errors
         self._shuffle = shuffle
         self._input_sharding = (not self._is_training)
+        self._repeat = repeat
         try:
             if self._is_training:
                 self._input_sharding = params.train.input_sharding
@@ -92,7 +94,7 @@ class InputFn(object):
             dataset = dataset.shard(ctx.num_input_pipelines, ctx.input_pipeline_id)
         dataset = dataset.cache()
 
-        if self._is_training:
+        if self._is_training and self._repeat:
             dataset = dataset.repeat()
 
         dataset = dataset.interleave(
