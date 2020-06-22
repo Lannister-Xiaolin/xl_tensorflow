@@ -112,6 +112,9 @@ def create_tf_example(image,
     encoded_jpg = fid.read()
   encoded_jpg_io = io.BytesIO(encoded_jpg)
   image = PIL.Image.open(encoded_jpg_io)
+  if image.size[0]!=image_width or image.size[1]!=image_height:
+      print("---------------------",filename)
+      raise ValueError
   key = hashlib.sha256(encoded_jpg).hexdigest()
   feature_dict = {
       'image/height':

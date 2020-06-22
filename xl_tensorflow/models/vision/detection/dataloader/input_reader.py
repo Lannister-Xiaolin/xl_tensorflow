@@ -37,7 +37,9 @@ class InputFn(object):
                  params: params_dict.ParamsDict,
                  mode: Text,
                  batch_size: int,
-                 num_examples: Optional[int] = -1):
+                 num_examples: Optional[int] = -1,
+                 ignore_errors=False,
+                 shuffle=True):
         """Initialize.
 
         Args:
@@ -59,7 +61,8 @@ class InputFn(object):
         self._num_examples = num_examples
         self._parser_fn = factory.parser_generator(params, mode)
         self._dataset_fn = tf.data.TFRecordDataset
-
+        self._ignore_errors = ignore_errors
+        self._shuffle = shuffle
         self._input_sharding = (not self._is_training)
         try:
             if self._is_training:
@@ -96,7 +99,7 @@ class InputFn(object):
             map_func=self._dataset_fn, cycle_length=32,
             num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
-        if self._is_training:
+        if self._is_training and self._shuffle:
             # Large shuffle size is critical for 2vm input pipeline. Can use small
             # value (e.g. 64) for 1vm.
             dataset = dataset.shuffle(1000)
@@ -106,6 +109,8 @@ class InputFn(object):
         # Parses the fetched records to input tensors for model function.
         dataset = dataset.map(
             self._parser_fn, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        if self._ignore_errors:
+            dataset = dataset.apply(tf.data.experimental.ignore_errors())
         dataset = dataset.batch(batch_size, drop_remainder=True)
         dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
         return dataset

@@ -36,7 +36,9 @@ def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pa
                                  warmup_steps=None,
                                  input_shape=None,
                                  score_threshold=0.01,
-                                 box_loss_weight=50.0):
+                                 box_loss_weight=50.0,
+                                 ignore_errors=False,
+                                 shuffle=True):
     """
 
     Args:
@@ -109,7 +111,7 @@ def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pa
         file_pattern=training_file_pattern,
         params=params,
         mode=input_reader.ModeKeys.TRAIN,
-        batch_size=params.train.batch_size)
+        batch_size=params.train.batch_size, ignore_errors=ignore_errors,shuffle=shuffle)
     if eval_file_pattern:
         eval_input_fn = input_reader.InputFn(
             file_pattern=eval_file_pattern,
