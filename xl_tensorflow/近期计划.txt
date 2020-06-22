@@ -1,5 +1,12 @@
-训练评估：
-    callback 提前终止
-推理部署代码：
-    待校验 yolo 更改后的效果
-    serving 效果测试
+重写代码：
+    keras训练
+架构设计
+    backbone
+    fpn模块，分前向/后向/横向
+    callback库，用于评估
+    重写训练过程，用keras写（对分布式支持效果较好）
+    使用horovod进行训练
+profiling
+    1 tensorflow profiling官方工具
+    2 速度评估脚本
+    3 单元测试工具使用
