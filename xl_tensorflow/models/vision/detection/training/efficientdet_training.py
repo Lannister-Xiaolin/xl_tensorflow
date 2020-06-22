@@ -118,7 +118,7 @@ def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pa
             params=params,
             mode=input_reader.ModeKeys.PREDICT_WITH_GT,
             batch_size=eval_batch_size if eval_batch_size else train_batch_size,
-            num_examples=params.eval.eval_samples if eval_samples is None else eval_sample,ignore_errors=ignore_errors)
+            num_examples=params.eval.eval_samples if eval_samples is None else eval_samples,ignore_errors=ignore_errors)
     if mode == 'train':
         def _model_fn(params):
             return model_builder.build_model(params, mode=input_reader.ModeKeys.TRAIN)
