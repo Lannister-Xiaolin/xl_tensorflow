@@ -107,7 +107,6 @@ class EfficientDetModel(base_model.Model):
         evaluate_outputs = self.post_processing_inference(model_outputs, inference_mode)
         return model_outputs, evaluate_outputs
 
-    # todo
     def build_outputs_keras(self, inputs, mode, inference_mode=False):
         # If the input image is transposed (from NHWC to HWCN), we need to revert it
         # back to the original shape before it's used in the computation.
@@ -119,31 +118,22 @@ class EfficientDetModel(base_model.Model):
             backbone_features, self._params)
         cls_outputs, box_outputs = self._head_fn(
             fpn_features, is_training=None)
-
-        if self._use_bfloat16:
-            levels = cls_outputs.keys()
-            for level in levels:
-                cls_outputs[level] = tf.cast(cls_outputs[level], tf.float32)
-                box_outputs[level] = tf.cast(box_outputs[level], tf.float32)
-
         model_outputs = {
             'cls_outputs': cls_outputs,
             'box_outputs': box_outputs,
         }
-        keys = cls_outputs.keys()
-        classification = []
-        regression = []
-        for key in keys:
-            classification.append(
-                tf.keras.layers.Reshape((-1, self._params.architecture.num_classes))(cls_outputs[key]))
-            regression.append(
-                tf.keras.layers.Reshape((-1, 4))(box_outputs[key]))
+        levels = cls_outputs.keys()
+        boxes = []
+        classes = []
+        for level in levels:
+            boxes.append(tf.keras.layers.Reshape((-1,4))(box_outputs[level]))
+            classes.append(tf.keras.layers.Reshape((-1,4))(cls_outputs[level]))
+        boxes = tf.concat(boxes,axis=1)
+        classes = tf.concat(classes,axis=1)
+        # todo evaluate_outputs展开
+        inference_outputs, lite_outputs = self.post_processing_inference(model_outputs, inference_mode)
+        return [boxes,classes], inference_outputs,lite_outputs
 
-        classification = tf.keras.layers.Concatenate(axis=1, name='classification')(classification)
-        regression = tf.keras.layers.Concatenate(axis=1, name='regression')(regression)
-
-        evaluate_outputs = self.post_processing_inference(model_outputs, inference_mode)
-        return model_outputs, evaluate_outputs
 
     def build_loss_fn(self):
         if self._keras_model is None:
@@ -172,7 +162,7 @@ class EfficientDetModel(base_model.Model):
 
         return _total_loss_fn
 
-    # todo 变成keras形式
+    # todo 变成keras形式, 数据加载机制需要更改
     def build_loss_fn_keras(self):
         if self._keras_model is None:
             raise ValueError('build_loss_fn() must be called after build_model().')
@@ -205,6 +195,23 @@ class EfficientDetModel(base_model.Model):
             with backend.get_graph().as_default():
                 outputs, evaluate_outputs = self.model_outputs(self._input_layer, mode, inference_mode=inference_mode)
                 inference_outputs, lite_outputs = evaluate_outputs
+                model = tf.keras.models.Model(
+                    inputs=self._input_layer, outputs=outputs, name=params.name)
+                inference_model = tf.keras.models.Model(
+                    inputs=self._input_layer, outputs=inference_outputs, name=params.name + "_inference")
+                lite_model = tf.keras.models.Model(
+                    inputs=self._input_layer, outputs=lite_outputs, name=params.name + "_tflite")
+                assert model is not None, 'Fail to build tf.keras.Model.'
+                model.optimizer = self.build_optimizer()
+                self._keras_model = model
+                self._inference_keras_model = inference_model
+                self._lite_keras_model = lite_model
+        return self._keras_model, self._inference_keras_model, self._lite_keras_model
+
+    def build_model_keras(self, params, mode=None, inference_mode=False):
+        if self._keras_model is None:
+            with backend.get_graph().as_default():
+                outputs, inference_outputs, lite_outputs = self.model_outputs(self._input_layer, mode, inference_mode=inference_mode)
                 model = tf.keras.models.Model(
                     inputs=self._input_layer, outputs=outputs, name=params.name)
                 inference_model = tf.keras.models.Model(
