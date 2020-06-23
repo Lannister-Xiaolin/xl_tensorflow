@@ -51,7 +51,7 @@ def pad_groundtruths_to_fixed_size(gt, n):
     return gt
 
 
-class Parser55(object):
+class Parser(object):
     """Parser to parse an image and its annotations into a dictionary of tensors."""
 
     def __init__(self,
@@ -437,7 +437,7 @@ class Parser55(object):
         return image, labels
 
 
-class Parser(object):
+class ParserKeras(object):
     """Parser to parse an image and its annotations into a dictionary of tensors."""
 
     def __init__(self,
