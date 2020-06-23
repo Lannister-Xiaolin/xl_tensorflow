@@ -333,6 +333,29 @@ class DistributedExecutor(object):
 
         return test_step
 
+    def _create_test_step_loss_only(self, strategy, model, metric, loss_fn=None):
+        """Creates a distributed test step."""
+        metrics = metrics_as_dict(metric)
+
+        @tf.function
+        def test_step(iterator):
+            """Calculates evaluation metrics on distributed devices."""
+            if not metric:
+                logging.info('Skip test_step because metric is None (%s)', metric)
+                return None, None
+
+            def _test_step_fn(inputs):
+                """Replicated accuracy calculation."""
+                inputs, labels = inputs
+                model_outputs = model(inputs, training=False)
+                for m in metrics.values():
+                    m.update_state(labels, model_outputs)
+                return labels, model_outputs
+
+            return strategy.run(_test_step_fn, args=(next(iterator),))
+
+        return test_step
+
     def train(self,
               train_input_fn: Callable[[params_dict.ParamsDict], tf.data.Dataset],
               eval_input_fn: Callable[[params_dict.ParamsDict],
@@ -425,7 +448,7 @@ class DistributedExecutor(object):
         with strategy.scope():
             # To correctly place the model weights on accelerators,
             # model and optimizer should be created in scope.
-            model, inference_model,_ = self.model_fn(params)
+            model, inference_model, _ = self.model_fn(params)
             # todo 内存泄漏问题
             # inference_model = model
             if pre_weights:
@@ -484,6 +507,8 @@ class DistributedExecutor(object):
         if eval_input_fn and eval_metric:
             self.global_train_step = model.optimizer.iterations
             test_step = self._create_test_step(strategy, inference_model, metric=eval_metric, loss_fn=self.loss_fn())
+            test_step_loss_only = self._create_test_step_loss_only(strategy, model, metric=eval_metric,
+                                                                   loss_fn=self.loss_fn())
 
         # Step-0 operations
         if current_step == 0 and not latest_checkpoint_file:
@@ -502,6 +527,7 @@ class DistributedExecutor(object):
 
         logging.info('Training started from step {}'.format(current_step).center(80, '-'))
         last_save_checkpoint_step = current_step
+        extra_metric_intervals = [(0.2 * total_steps * i) for i in range(1, 6)]
         while current_step < total_steps:
             gc.collect()
             num_steps = _steps_to_run(current_step, total_steps,
@@ -552,13 +578,23 @@ class DistributedExecutor(object):
                 last_save_checkpoint_step = current_step
 
             if test_step:
-                eval_iterator = self._get_input_iterator(eval_input_fn, strategy)
-                eval_metric_result = self._run_evaluation(test_step, current_step,
-                                                          eval_metric, eval_iterator)
-                logging.info('Step: %s evalation metric = %s.', current_step,
-                             eval_metric_result)
-                test_summary_writer(
-                    metrics=eval_metric_result, step=optimizer.iterations)
+                if any(map(lambda x: (current_step >= x) and (current_step < (x + iterations_per_loop)),
+                           extra_metric_intervals)):
+                    eval_iterator = self._get_input_iterator(eval_input_fn, strategy)
+                    eval_metric_result = self._run_evaluation(test_step, current_step,
+                                                              eval_metric, eval_iterator)
+                    logging.info('Step: %s evalation metric = %s.', current_step,
+                                 eval_metric_result)
+                    test_summary_writer(
+                        metrics=eval_metric_result, step=optimizer.iterations)
+                else:
+                    eval_iterator = self._get_input_iterator(eval_input_fn, strategy)
+                    eval_metric_result = self._run_evaluation_loss_only(test_step_loss_only, current_step,
+                                                                        eval_metric, eval_iterator)
+                    logging.info('Step: %s evalation metric = %s.', current_step,
+                                 eval_metric_result)
+                    test_summary_writer(
+                        metrics=eval_metric_result, step=optimizer.iterations)
 
             # Re-initialize evaluation metric, except the last step.
             if eval_metric and current_step < total_steps:
@@ -590,6 +626,33 @@ class DistributedExecutor(object):
 
     def _run_evaluation(self, test_step, current_training_step, metric,
                         test_iterator):
+        """Runs validation steps and aggregate metrics."""
+        if not test_iterator or not metric:
+            logging.warning(
+                'Both test_iterator (%s) and metrics (%s) must not be None.',
+                test_iterator, metric)
+            return None
+        logging.info('Running evaluation after step: %s.', current_training_step)
+        eval_step = 0
+
+        while True:
+            try:
+                logging.info('Running evaluation  step: %s.', eval_step)
+                with tf.experimental.async_scope():
+                    test_step(test_iterator)
+                    eval_step += 1
+            except (StopIteration, tf.errors.OutOfRangeError):
+                tf.experimental.async_clear_error()
+                break
+
+        metric_result = metric_results(metric)
+        logging.info('Total eval steps: [%d]', eval_step)
+        logging.info('At training step: [%r] Validation metric = %r',
+                     current_training_step, metric_result)
+        return metric_result
+
+    def _run_evaluation_loss_only(self, test_step, current_training_step, metric,
+                                  test_iterator):
         """Runs validation steps and aggregate metrics."""
         if not test_iterator or not metric:
             logging.warning(
@@ -704,7 +767,7 @@ class DistributedExecutor(object):
 
             # To correctly place the model weights on accelerators,
             # model and optimizer should be created in scope.
-            model, inference_model,_ = self.model_fn(params.as_dict())
+            model, inference_model, _ = self.model_fn(params.as_dict())
             checkpoint = tf.train.Checkpoint(model=model)
 
             eval_metric = eval_metric_fn()

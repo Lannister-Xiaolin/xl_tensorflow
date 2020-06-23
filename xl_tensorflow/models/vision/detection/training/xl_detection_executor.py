@@ -92,71 +92,72 @@ class DetectionDistributedExecutor(executor.DistributedExecutor):
 
         return _replicated_step
 
-    # def _create_test_step(self, strategy, model, metric, loss_fn=None):
-    #     """Creates a distributed test step."""
+    def _create_test_step_loss_only(self, strategy, model, metric, loss_fn=None):
+        """Creates a distributed test step."""
+
+        @tf.function
+        def test_step(iterator, eval_steps):
+            """Calculates evaluation metrics on distributed devices."""
+
+            def _test_step_fn(inputs, eval_steps):
+                """Replicated accuracy calculation."""
+                inputs, labels = inputs
+                model_outputs = model(inputs, training=False)
+                all_losses = loss_fn(labels, model_outputs)
+                losses = {}
+                for k, v in all_losses.items():
+                    losses[k] = tf.reduce_mean(v)
+                return losses
+
+            per_replica_losses = strategy.experimental_run_v2(
+                _test_step_fn, args=(
+                    next(iterator),
+                    eval_steps,
+                ))
+            losses = tf.nest.map_structure(
+                lambda x: strategy.reduce(tf.distribute.ReduceOp.MEAN, x, axis=None),
+                per_replica_losses)
+
+            eval_steps.assign_add(self._params.eval.batch_size)
+            return losses
+
+        return test_step
+
     #
-    #     @tf.function
-    #     def test_step(iterator, eval_steps):
-    #         """Calculates evaluation metrics on distributed devices."""
-    #
-    #         def _test_step_fn(inputs, eval_steps):
-    #             """Replicated accuracy calculation."""
-    #             inputs, labels = inputs
-    #             model_outputs = model(inputs, training=False)
-    #             all_losses = loss_fn(labels, model_outputs)
-    #             losses = {}
-    #             for k, v in all_losses.items():
-    #                 losses[k] = tf.reduce_mean(v)
-    #             return losses
-    #
-    #         per_replica_losses = strategy.experimental_run_v2(
-    #             _test_step_fn, args=(
-    #                 next(iterator),
-    #                 eval_steps,
-    #             ))
-    #         losses = tf.nest.map_structure(
-    #             lambda x: strategy.reduce(tf.distribute.ReduceOp.MEAN, x, axis=None),
-    #             per_replica_losses)
-    #
-    #         eval_steps.assign_add(self._params.eval.batch_size)
-    #         return losses
-    #
-    #     return test_step
-    #
-    # def _run_evaluation(self, test_step, current_training_step, metric,
-    #                     test_iterator):
-    #     """Runs validation steps and aggregate metrics."""
-    #     self.eval_steps.assign(0)
-    #     if not test_iterator or not metric:
-    #         logging.warning(
-    #             'Both test_iterator (%s) and metrics (%s) must not be None.',
-    #             test_iterator, metric)
-    #         return None
-    #     logging.info('Running evaluation after step: %s.', current_training_step)
-    #     eval_step = 0
-    #     eval_losses = {}
-    #     while True:
-    #         try:
-    #             losses = test_step(test_iterator, self.eval_steps)
-    #             eval_step += 1
-    #             logging.info('----->evaluation  step: %s.', eval_step)
-    #             try:
-    #                 for k, v in losses.items():
-    #                     eval_losses[k].append(losses[k])
-    #             except KeyError:
-    #                 for k, v in losses.items():
-    #                     eval_losses[k] = []
-    #                     eval_losses[k].append(losses[k])
-    #             # 调试
-    #             # break
-    #         except (StopIteration, tf.errors.OutOfRangeError):
-    #             del losses
-    #             break
-    #     for k, v in eval_losses.items():
-    #         eval_losses[k] = tf.reduce_mean(tf.stack(eval_losses[k])).numpy().astype(float)
-    #     metric_result = {}
-    #     metric_result.update(eval_losses)
-    #     return metric_result
+    def _run_evaluation_loss_only(self, test_step,
+                                  current_training_step,
+                                  metric,
+                                  test_iterator):
+        """Runs validation steps and aggregate metrics."""
+        self.eval_steps.assign(0)
+        if not test_iterator or not metric:
+            logging.warning(
+                'Both test_iterator (%s) and metrics (%s) must not be None.',
+                test_iterator, metric)
+            return None
+        logging.info('Running evaluation after step: %s.', current_training_step)
+        eval_step = 0
+        eval_losses = {}
+        while True:
+            try:
+                losses = test_step(test_iterator, self.eval_steps)
+                eval_step += 1
+                logging.info('----->evaluation  step: %s.', eval_step)
+                try:
+                    for k, v in losses.items():
+                        eval_losses[k].append(losses[k])
+                except KeyError:
+                    for k, v in losses.items():
+                        eval_losses[k] = []
+                        eval_losses[k].append(losses[k])
+            except (StopIteration, tf.errors.OutOfRangeError):
+                del losses
+                break
+        for k, v in eval_losses.items():
+            eval_losses[k] = tf.reduce_mean(tf.stack(eval_losses[k])).numpy().astype(float)
+        metric_result = {}
+        metric_result.update(eval_losses)
+        return metric_result
 
     def _create_test_step(self, strategy, model, metric, loss_fn=None):
         """Creates a distributed test step."""
