@@ -737,7 +737,8 @@ class ParserKeras(object):
             'width': data['width'],
         }
         return image, labels
-    # TODO 推理模型评估数据未使用
+
+    # TODO 推理模型评估数据未使用,待校验尝试，需要重写loss
     @tf.autograph.experimental.do_not_convert
     def _parse_predict_data(self, data):
         """Parses data for prediction."""
@@ -766,48 +767,43 @@ class ParserKeras(object):
             'anchor_boxes': self._input_anchor.multilevel_boxes,
             'image_info': image_info,
         }
-        # If mode is PREDICT_WITH_GT, returns groundtruths and training targets
-        # in labels.
-        if self._mode == ModeKeys.PREDICT_WITH_GT:
-            # Converts boxes from normalized coordinates to pixel coordinates.
-            boxes = box_utils.denormalize_boxes(
-                data['groundtruth_boxes'], image_shape)
-            classes = data['groundtruth_classes']
-            indices = box_utils.get_non_empty_box_indices(boxes)
-            boxes = tf.gather(boxes, indices)[:self._max_num_instances]
-            classes = tf.gather(classes, indices)[:self._max_num_instances]
-            groundtruths = {
-                'source_id': data['source_id'],
-                'num_detections': tf.shape(classes)[0],
-                'boxes': boxes,
-                'classes': classes,
-                'areas': tf.gather(data['groundtruth_area'], indices)[:self._max_num_instances],
-                'is_crowds': tf.cast(tf.gather(data['groundtruth_is_crowd'], indices), tf.int32)[
-                             :self._max_num_instances],
-                'height': data['height'],
-                'width': data['width'],
-            }
-            groundtruths['source_id'] = process_source_id(groundtruths['source_id'])
-            groundtruths = pad_groundtruths_to_fixed_size(
-                groundtruths, self._max_num_instances)
-            labels['groundtruths'] = groundtruths
+        boxes = box_utils.denormalize_boxes(data['groundtruth_boxes'], image_shape)
+        classes = data['groundtruth_classes']
+        indices = box_utils.get_non_empty_box_indices(boxes)
+        boxes = tf.gather(boxes, indices)[:self._max_num_instances]
+        classes = tf.gather(classes, indices)[:self._max_num_instances]
+        groundtruths = {
+            'source_id': data['source_id'],
+            'num_detections': tf.shape(classes)[0],
+            'boxes': boxes,
+            'classes': classes,
+            'areas': tf.gather(data['groundtruth_area'], indices)[:self._max_num_instances],
+            'is_crowds': tf.cast(tf.gather(data['groundtruth_is_crowd'], indices), tf.int32)[
+                         :self._max_num_instances],
+            'height': data['height'],
+            'width': data['width'],
+        }
+        groundtruths['source_id'] = process_source_id(groundtruths['source_id'])
+        groundtruths = pad_groundtruths_to_fixed_size(groundtruths, self._max_num_instances)
+        labels['groundtruths'] = groundtruths
 
-            # Computes training objective for evaluation loss.
-            image_scale = image_info[2, :]
-            offset = image_info[3, :]
-            boxes = input_utils.resize_and_crop_boxes(
-                boxes, image_scale, image_info[1, :], offset)
-            # Filters out ground truth boxes that are all zeros.
-            (cls_targets, box_targets, num_positives) = self._anchor_labeler.label_anchors(
-                boxes,
-                tf.cast(tf.expand_dims(classes, axis=1), tf.float32))
-            # Assigns anchors.
-            # anchor_labeler = anchor.AnchorLabeler(
-            #     input_anchor, self._match_threshold, self._unmatched_threshold)
-
-            labels['cls_targets'] = cls_targets
-            labels['box_targets'] = box_targets
-            labels['num_positives'] = num_positives
-            labels['height'] = data['height']
-            labels['width'] = data['width']
-        return image, labels
+        # Computes training objective for evaluation loss.
+        image_scale = image_info[2, :]
+        offset = image_info[3, :]
+        boxes = input_utils.resize_and_crop_boxes(
+            boxes, image_scale, image_info[1, :], offset)
+        # Filters out ground truth boxes that are all zeros.
+        (cls_targets, box_targets, num_positives) = self._anchor_labeler.label_anchors(
+            boxes,
+            tf.cast(tf.expand_dims(classes, axis=1), tf.float32))
+        labels['num_positives'] = num_positives
+        labels['height'] = data['height']
+        labels['width'] = data['width']
+        box_targets = tf.concat(
+            [tf.reshape(box_targets[i], (-1, 4)) for i in range(self._min_level, self._max_level + 1)], 0)
+        cls_targets = tf.concat(
+            [tf.reshape(cls_targets[i], (-1, 1)) for i in range(self._min_level, self._max_level + 1)], 0)
+        return image, (box_targets, cls_targets, num_positives,
+                       groundtruths['source_id'], image_info,
+                       groundtruths['num_detections'], groundtruths['detection_boxes'],
+                       groundtruths['detection_classes'], groundtruths['detection_scores'])
