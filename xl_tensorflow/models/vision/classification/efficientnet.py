@@ -331,7 +331,7 @@ def EfficientNet(width_coefficient,
 
     activation_dict = {
         "swish": get_swish(),
-        "relu6": get_relu6,
+        "relu6": get_relu6(),
         'relu': "relu"
     }
 
