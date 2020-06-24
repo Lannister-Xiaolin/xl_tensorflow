@@ -4,14 +4,8 @@ import logging
 import os
 
 import tensorflow as tf
-from xl_tensorflow.models.vision import EfficientNetB1
-from xl_tool.xl_io import read_json, save_to_json
 import xl_tensorflow.models.vision.detection.configs.factory as config_factory
-from xl_tensorflow.models.vision.detection.architecture.fpn import BiFpn
-from xl_tensorflow.models.vision import EfficientNetB0
 from xl_tensorflow.models.vision.detection.body.efficientdet_model import EfficientDetModel
-import numpy as np
-from tensorflow.keras import layers, Model
 from xl_tensorflow.models.vision.detection.dataloader import input_reader
 from xl_tensorflow.models.vision.detection.training.xl_detection_executor import DetectionDistributedExecutor
 from absl import flags, app, logging
