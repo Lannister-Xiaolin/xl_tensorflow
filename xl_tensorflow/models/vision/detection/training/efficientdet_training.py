@@ -118,7 +118,8 @@ def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pa
             params=params,
             mode=input_reader.ModeKeys.PREDICT_WITH_GT,
             batch_size=eval_batch_size if eval_batch_size else train_batch_size,
-            num_examples=params.eval.eval_samples if eval_samples is None else eval_samples,ignore_errors=ignore_errors)
+            num_examples=params.eval.eval_samples if eval_samples is None else eval_samples,
+            ignore_errors=ignore_errors)
     if mode == 'train':
         def _model_fn(params):
             return model_builder.build_model(params, mode=input_reader.ModeKeys.TRAIN)
@@ -144,7 +145,9 @@ def mul_gpu_training_custom_loop(model_name, training_file_pattern, eval_file_pa
             total_steps=params.train.total_steps,
             init_checkpoint=model_builder.make_restore_checkpoint_fn(),
             custom_callbacks=None,
-            save_config=True, save_freq=save_freq, pre_weights=pre_weights)
+            save_config=True,
+            save_freq=save_freq,
+            pre_weights=pre_weights)
 
 
 def dataset_check(file_pattern):

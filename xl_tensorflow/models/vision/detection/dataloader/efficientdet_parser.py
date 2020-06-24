@@ -803,6 +803,7 @@ class ParserKeras(object):
             [tf.reshape(box_targets[i], (-1, 4)) for i in range(self._min_level, self._max_level + 1)], 0)
         cls_targets = tf.concat(
             [tf.reshape(cls_targets[i], (-1, 1)) for i in range(self._min_level, self._max_level + 1)], 0)
+        # cls_targets = tf.one_hot(cls_targets)
         return image, (box_targets, cls_targets, num_positives,
                        groundtruths['source_id'], image_info,
                        groundtruths['num_detections'], groundtruths['detection_boxes'],

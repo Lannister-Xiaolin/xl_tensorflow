@@ -55,7 +55,10 @@ class EfficientDetModel(base_model.Model):
         # class loss与automl完全一致，需要确认背景类
         self._cls_loss_fn = losses.EfficientDetClassLoss(
             params.efficientdet_loss, params.architecture.num_classes)
+        self._cls_loss_fn_keras = losses.EfficientDetClassLossKeras(
+            params.efficientdet_loss, params.architecture.num_classes)
         self._box_loss_fn = losses.EfficientDetBoxLoss(params.efficientdet_loss)
+        self._box_loss_fn_keras = losses.EfficientDetBoxLossKeras(params.efficientdet_loss)
         self._box_loss_weight = params.efficientdet_loss.box_loss_weight
         self._keras_model = None
         self._inference_keras_model = None
@@ -171,12 +174,12 @@ class EfficientDetModel(base_model.Model):
         trainable_variables = filter_fn(self._keras_model.trainable_variables)
 
         def _total_loss_fn(labels, outputs):
-            cls_loss = self._cls_loss_fn(outputs['cls_outputs'],
-                                         labels['cls_targets'],
-                                         labels['num_positives'])
-            box_loss = self._box_loss_fn(outputs['box_outputs'],
-                                         labels['box_targets'],
-                                         labels['num_positives'])
+            cls_loss = self._cls_loss_fn_keras(outputs[1],
+                                         labels[1],
+                                         labels[2])
+            box_loss = self._box_loss_fn(outputs[0],
+                                         labels[0],
+                                         labels[2])
             model_loss = cls_loss + self._box_loss_weight * box_loss
             l2_regularization_loss = self.weight_decay_loss(trainable_variables)
             total_loss = model_loss + l2_regularization_loss
@@ -211,7 +214,7 @@ class EfficientDetModel(base_model.Model):
     def build_model_keras(self, params, mode=None, inference_mode=False):
         if self._keras_model is None:
             with backend.get_graph().as_default():
-                outputs, inference_outputs, lite_outputs = self.model_outputs(self._input_layer, mode, inference_mode=inference_mode)
+                outputs, inference_outputs, lite_outputs = self.build_outputs_keras(self._input_layer, mode, inference_mode=inference_mode)
                 model = tf.keras.models.Model(
                     inputs=self._input_layer, outputs=outputs, name=params.name)
                 inference_model = tf.keras.models.Model(

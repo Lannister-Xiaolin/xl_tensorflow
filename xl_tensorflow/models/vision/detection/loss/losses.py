@@ -46,35 +46,6 @@ def focal_loss(logits, targets, alpha, gamma, normalizer):
         positive_label_mask = tf.math.equal(targets, 1.0)
         cross_entropy = (
             tf.nn.sigmoid_cross_entropy_with_logits(labels=targets, logits=logits))
-        # Below are comments/derivations for computing modulator.
-        # For brevity, let x = logits,  z = targets, r = gamma, and p_t = sigmod(x)
-        # for positive samples and 1 - sigmoid(x) for negative examples.
-        #
-        # The modulator, defined as (1 - P_t)^r, is a critical part in focal loss
-        # computation. For r > 0, it puts more weights on hard examples, and less
-        # weights on easier ones. However if it is directly computed as (1 - P_t)^r,
-        # its back-propagation is not stable when r < 1. The implementation here
-        # resolves the issue.
-        #
-        # For positive samples (labels being 1),
-        #    (1 - p_t)^r
-        #  = (1 - sigmoid(x))^r
-        #  = (1 - (1 / (1 + exp(-x))))^r
-        #  = (exp(-x) / (1 + exp(-x)))^r
-        #  = exp(log((exp(-x) / (1 + exp(-x)))^r))
-        #  = exp(r * log(exp(-x)) - r * log(1 + exp(-x)))
-        #  = exp(- r * x - r * log(1 + exp(-x)))
-        #
-        # For negative samples (labels being 0),
-        #    (1 - p_t)^r
-        #  = (sigmoid(x))^r
-        #  = (1 / (1 + exp(-x)))^r
-        #  = exp(log((1 / (1 + exp(-x)))^r))
-        #  = exp(-r * log(1 + exp(-x)))
-        #
-        # Therefore one unified form for positive (z = 1) and negative (z = 0)
-        # samples is:
-        #      (1 - p_t)^r = exp(-r * z * x - r * log(1 + exp(-x))).
         neg_logits = -1.0 * logits
         modulator = tf.math.exp(gamma * targets * neg_logits -
                                 gamma * tf.math.log1p(tf.math.exp(neg_logits)))  # 与公式等价
@@ -514,21 +485,18 @@ class EfficientDetClassLossKeras(object):
         # num_positives_sum, which would lead to inf loss during training
         num_positives_sum = tf.reduce_sum(input_tensor=num_positives) + 1.0
 
-        cls_losses = []
-        for level in cls_outputs.keys():
-            cls_losses.append(self.class_loss(
-                cls_outputs[level], labels[level], num_positives_sum))
-        # Sums per level losses to total loss.
-        return tf.add_n(cls_losses)
+        cls_losses = self.class_loss(
+                cls_outputs, labels, num_positives_sum)
+
+        return cls_losses
 
     def class_loss(self, cls_outputs, cls_targets, num_positives,
                    ignore_label=-2):
         """Computes RetinaNet classification loss."""
         # Onehot encoding for classification labels.
         cls_targets_one_hot = tf.one_hot(cls_targets, self._num_classes)
-        bs, height, width, _, _ = cls_targets_one_hot.get_shape().as_list()
-        cls_targets_one_hot = tf.reshape(cls_targets_one_hot,
-                                         [bs, height, width, -1])
+        bs, n, _, num_classes = cls_targets_one_hot.get_shape().as_list()
+        cls_targets_one_hot = tf.squeeze(cls_targets_one_hot,axis=2)
         loss = focal_loss(cls_outputs, cls_targets_one_hot,
                           self._focal_loss_alpha, self._focal_loss_gamma,
                           num_positives)
@@ -538,10 +506,54 @@ class EfficientDetClassLossKeras(object):
             tf.ones_like(cls_targets, dtype=tf.float32),
         )
         ignore_loss = tf.expand_dims(ignore_loss, -1)
-        ignore_loss = tf.tile(ignore_loss, [1, 1, 1, 1, self._num_classes])
+        ignore_loss = tf.tile(ignore_loss, [1, 1, self._num_classes])
         ignore_loss = tf.reshape(ignore_loss, tf.shape(input=loss))
 
         return tf.reduce_sum(input_tensor=ignore_loss * loss)
+
+class EfficientDetBoxLossKeras(object):
+    """RetinaNet box loss."""
+
+    def __init__(self, params):
+        self._huber_loss = tf.keras.losses.Huber(
+            delta=params.huber_loss_delta, reduction=tf.keras.losses.Reduction.SUM)
+
+    def __call__(self, box_outputs, labels, num_positives):
+        """Computes box detection loss.
+
+        Computes total detection loss including box and class loss from all levels.
+
+        Args:
+          box_outputs: an OrderDict with keys representing levels and values
+            representing box regression targets in [batch_size, height, width,
+            num_anchors * 4].
+          labels: the dictionary that returned from dataloader that includes
+            box groundturth targets.
+          num_positives: number of positive examples in the minibatch.
+
+        Returns:
+          an integar tensor representing total box regression loss.
+        """
+        # Sums all positives in a batch for normalization and avoids zero
+        # num_positives_sum, which would lead to inf loss during training
+        num_positives_sum = tf.reduce_sum(input_tensor=num_positives) + 1.0
+
+        box_losses = self.box_loss(box_outputs, labels, num_positives_sum)
+
+        return tf.add_n(box_losses)
+
+    def box_loss(self, box_outputs, box_targets, num_positives):
+        """Computes RetinaNet box regression loss."""
+        # The delta is typically around the mean value of regression target.
+        # for instances, the regression targets of 512x512 input with 6 anchors on
+        # P3-P7 pyramid is about [0.1, 0.1, 0.2, 0.2].
+        normalizer = num_positives * 4.0
+        mask = tf.cast(tf.not_equal(box_targets, 0.0), dtype=tf.float32)
+        box_targets = tf.expand_dims(box_targets, axis=-1)
+        box_outputs = tf.expand_dims(box_outputs, axis=-1)
+        box_loss = self._huber_loss(box_targets, box_outputs, sample_weight=mask)
+        box_loss /= normalizer
+        return box_loss
 
 
 class EfficientDetBoxLoss(object):
