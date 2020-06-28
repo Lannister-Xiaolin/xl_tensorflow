@@ -9,7 +9,7 @@ from xl_tensorflow.models.vision.detection.body.efficientdet_model import Effici
 from xl_tensorflow.models.vision.detection.dataloader import input_reader
 from xl_tensorflow.models.vision.detection.training.xl_detection_executor import DetectionDistributedExecutor
 from absl import flags, app, logging
-
+logging.set_verbosity(logging.INFO)
 flags.DEFINE_integer('save_checkpoint_freq', None,
                      'Number of steps to save checkpoint.')
 FLAGS = flags.FLAGS
