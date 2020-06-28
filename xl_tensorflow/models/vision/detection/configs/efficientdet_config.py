@@ -59,7 +59,7 @@ EFFICIENTDET_CFG = params_dict.ParamsDict({
         'transpose_input': False,
         'regularization_variable_regex': REGULARIZATION_VAR_REGEX,
         'l2_weight_decay': 4e-5,
-        'gradient_clip_norm': 0.0,
+        'gradient_clip_norm': 10.0,
         'input_sharding': False,
     },
     'efficientdet_loss': {

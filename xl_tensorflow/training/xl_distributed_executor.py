@@ -165,6 +165,7 @@ class DistributedExecutor(object):
         self.train_summary_writer = None
         self.eval_summary_writer = None
         self.global_train_step = None
+        self.gradient_clip_norm = params.train.gradient_clip_norm
 
     @property
     def checkpoint_name(self):
@@ -253,6 +254,10 @@ class DistributedExecutor(object):
                     m.update_state(labels, outputs)
 
             grads = tape.gradient(loss, model.trainable_variables)
+            # hint: 新增梯度裁剪，为传递裁剪范围，写死为10
+            grads = [(tf.clip_by_value(grad, -1 * self.gradient_clip_norm,
+                                       self.gradient_clip_norm)) for
+                     grad in grads]
             optimizer.apply_gradients(zip(grads, model.trainable_variables))
             return loss
 
