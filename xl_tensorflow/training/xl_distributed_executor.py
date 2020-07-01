@@ -607,8 +607,8 @@ class DistributedExecutor(object):
             if train_metric and current_step < total_steps:
                 reset_states(train_metric)
             # logging.info("save weights")
-            # save_weights = f"{model_dir}/{current_step}_train_{float(train_metric_result['total_loss'])}_{model.name}.h5" if not test_step \
-            #     else f"{model_dir}/{current_step}_train_{float(train_metric_result['total_loss'])}_val_{float(eval_metric_result['total_loss'])}_{model.name}.h5"
+            save_weights = f"{model_dir}/{current_step}_train_{float(train_metric_result['total_loss'])}_{model.name}.h5" if not test_step \
+                else f"{model_dir}/{current_step}_train_{float(train_metric_result['total_loss'])}_val_{float(eval_metric_result['total_loss'])}_{model.name}.h5"
             model.save_weights(save_weights)
         # Reaches the end of training and saves the last checkpoint.
         if last_save_checkpoint_step < total_steps:
