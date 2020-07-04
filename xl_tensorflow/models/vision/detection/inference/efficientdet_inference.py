@@ -18,6 +18,9 @@ import tensorflow as tf
 from xl_tensorflow.layers.conv import Base64ImageProcessLayer, ResizeImageProcessLayer
 from xl_tensorflow.utils.deploy import serving_model_export
 import os
+import pathlib
+import numpy as np
+from xl_tensorflow.utils.deploy import quantize_model
 
 
 # todo 推理部署 - 保证所有检测接口保持一致，高可用，高性能（参考谷歌官方，端到端，高效，快速）
@@ -88,7 +91,7 @@ def efficiendet_inference_model(model_name="efficientdet-d0",
                                 version=1,
                                 max_detections=20,
                                 auto_incre_version=True,
-                                serving_path=None, ):
+                                serving_path=None, lite_path=None, quantize_method=None, allow_custom_ops=False):
     """
     Hint: 自定义base64模型不能保存为keras格式模型，请使用tf格式
     Args:
@@ -154,18 +157,34 @@ def efficiendet_inference_model(model_name="efficientdet-d0",
     model.output_names[1] = "scores"
     model.output_names[2] = "labels"
     model.output_names[3] = "valid_detections"
-
+    model.outputs[0]._name = "boxes"
+    model.outputs[1]._name = "scores"
+    model.outputs[2]._name = "labels"
+    model.outputs[3]._name = "valid_detections"
     lite_inputs = tf.keras.layers.Input(shape=(input_shape[0], input_shape[1], 3), name="image_tensor")
     lite_ouput_tensor = tf.cast(lite_inputs, tf.float32) / 255.0
     if (mean is not None) and (std is not None):
         lite_ouput_tensor = (lite_ouput_tensor - mean) / std
     lite_ouput_tensor = lite_model(lite_ouput_tensor)
-    # todo 待校验转置分数以及tflite 类别数量加一
-    boxes_, scores_ = lite_ouput_tensor
-    scores_ = tf.keras.layers.Permute([2, 1])(scores_)
-    tf.keras.layers.Permute([2, 1])
-    lite_model_with_pre = tf.keras.Model(lite_inputs, [boxes_, scores_])
+    boxes_lite, scores_lite = lite_ouput_tensor
+    scores_lite = tf.keras.layers.Permute([2, 1], name="all_scores")(scores_lite)
+    boxes_lite = tf.identity(boxes_lite, "all_boxes")
+    scores_lite = tf.identity(scores_lite, "all_scores")
+
+    lite_model_with_pre = tf.keras.Model(lite_inputs, [boxes_lite, scores_lite])
+    lite_model_with_pre.output_names[0] = "all_boxes"
+    lite_model_with_pre.output_names[1] = "all_scores"
+
     if serving_export and serving_path:
         os.makedirs(serving_path, exist_ok=True)
         serving_model_export(model, serving_path, version=version, auto_incre_version=auto_incre_version)
+    if lite_path:
+        print("保存lite模型")
+        converter = tf.lite.TFLiteConverter.from_keras_model(lite_model_with_pre)
+        if quantize_method:
+            converter = quantize_model(converter, quantize_method, (100, *input_shape, 3))
+        if allow_custom_ops:
+            converter.allow_custom_ops = True
+            converter.target_spec.supported_ops = [tf.lite.OpsSet.SELECT_TF_OPS, tf.lite.OpsSet.TFLITE_BUILTINS]
+        pathlib.Path(f"{lite_path}/{model_name}.tflite").write_bytes(converter.convert())
     return model, lite_model_with_pre
