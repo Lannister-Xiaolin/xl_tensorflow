@@ -471,6 +471,9 @@ def yolo_eval(yolo_outputs,
     input_shape = K.shape(yolo_outputs[0])[1:3] * 32
     boxes = []
     box_scores = []
+    if lite_return:
+        input_shape = tf.constant(origin_image_shape, dtype=tf.float32)
+        origin_image_shape = tf.constant(origin_image_shape, dtype=tf.float32)
     for l in range(num_layers):
         # 此处的处理会去除batch的信息，完全展开，因此该计算图只能用于单张图片处理，不能批处理
         if lite_return:
@@ -543,7 +546,7 @@ def yolo_eval_batch(yolo_outputs,
                     origin_image_shapes,
                     max_boxes=20,
                     score_threshold=.6,
-                    iou_threshold=.5, return_xy=False):
+                    iou_threshold=.5,return_xy=False):
     """
     批量推理
     Args:
@@ -648,17 +651,17 @@ def yolo_head_lite(feats, anchors, num_classes, input_shape):
     num_anchors = len(anchors)
     anchors_tensor = K.reshape(K.constant(anchors), [1, 1, num_anchors, 2])
     grid_shape = K.shape(feats)[1:3]  # height, width
-    grid_y = K.tile(K.reshape(K.arange(0, stop=grid_shape[0]), [-1, 1, 1, 1]),
+    grid_y = K.tile(K.reshape(K.arange(0, stop=grid_shape[0],dtype="float32"), [-1, 1, 1, 1]),
                     [1, grid_shape[1], 1, 1])
-    grid_x = K.tile(K.reshape(K.arange(0, stop=grid_shape[1]), [1, -1, 1, 1]),
+    grid_x = K.tile(K.reshape(K.arange(0, stop=grid_shape[1],dtype="float32"), [1, -1, 1, 1]),
                     [grid_shape[0], 1, 1, 1])
     grid = K.concatenate([grid_x, grid_y])  # shape like 26，26，1，2
-    grid = tf.cast(grid, K.dtype(feats))
+    # grid = K.cast(grid, K.dtype(feats))
     # shape like batch,26,26,3,85
     feats = K.reshape(
         feats, [grid_shape[0], grid_shape[1], num_anchors, num_classes + 5])
     box_xy = (K.sigmoid(feats[:, :, :, :2]) + grid) / tf.cast(grid_shape[::-1], K.dtype(feats))
-    box_wh = K.exp(feats[:, :, :, 2:4]) * anchors_tensor / tf.cast(input_shape[::-1], K.dtype(feats))
+    box_wh = K.exp(feats[:, :, :, 2:4]) * anchors_tensor / input_shape[::-1]
     box_confidence = K.sigmoid(feats[:, :, :, 4:5])
     box_class_probs = K.sigmoid(feats[:, :, :, 5:])
     return box_xy, box_wh, box_confidence, box_class_probs
@@ -676,8 +679,8 @@ def yolo_correct_boxes_lite(box_xy, box_wh, input_shape, image_shape):
     '''
     box_yx = box_xy[:, :, :, ::-1]
     box_hw = box_wh[:, :, :, ::-1]
-    input_shape = tf.cast(input_shape, K.dtype(box_yx))
-    image_shape = tf.cast(image_shape, K.dtype(box_yx))
+    # input_shape = K.cast(input_shape, K.dtype(box_yx))
+    # image_shape = K.cast(image_shape, K.dtype(box_yx))
     new_shape = K.round(image_shape * K.min(input_shape / image_shape))
     offset = (input_shape - new_shape) / 2. / input_shape  # 相对整图的偏移量
     scale = input_shape / new_shape

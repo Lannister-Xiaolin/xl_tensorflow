@@ -199,6 +199,7 @@ def tflite_export_yolo(model_name, num_classes, save_lite_file, weights="",
     print(yolo_model.outputs)
     if weights:
         yolo_model.load_weights(weights)
+        # todo DIV算子
     boxes_, scores_ = yolo_eval(yolo_model(lite_ouput_tensor),
                                 anchors, num_classes, input_shape, 20,
                                 score_threshold,
