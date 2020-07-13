@@ -5,12 +5,12 @@ from xl_tool.xl_io import file_scanning
 
 
 def test_yolo():
-    model = yolo_inference_model("yolov3", "", 20, inference_mode="base64",
-                                 serving_export=True, serving_path=r"E:\Temp\test\serving\yolov3")
+    # model = yolo_inference_model("yolov3", "", 20, inference_mode="base64",
+    #                              serving_export=True, serving_path=r"E:\Temp\test\serving\yolov3")
     #
     tflite_export_yolo("yolov3", 20,r"E:\Temp\test\serving\yolov3.tflite")
-    print(model.predict(np.array([[base64.urlsafe_b64encode(open(i, "rb").read())] for i in
-                                  file_scanning(r"E:\Temp\test", "jpg", sub_scan=False)])))
+    # print(model.predict(np.array([[base64.urlsafe_b64encode(open(i, "rb").read())] for i in
+    #                               file_scanning(r"E:\Temp\test", "jpg", sub_scan=False)])))
 
 
 def test_efficientdet():
@@ -50,5 +50,5 @@ def test_shapeinput():
 
 
 # test_shapeinput()
-# test_yolo()
-test_efficientdet()
+test_yolo()
+# test_efficientdet()

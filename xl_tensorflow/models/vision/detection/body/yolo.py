@@ -543,7 +543,7 @@ def yolo_eval_batch(yolo_outputs,
                     origin_image_shapes,
                     max_boxes=20,
                     score_threshold=.6,
-                    iou_threshold=.5,return_xy=False):
+                    iou_threshold=.5, return_xy=False):
     """
     批量推理
     Args:
@@ -653,12 +653,12 @@ def yolo_head_lite(feats, anchors, num_classes, input_shape):
     grid_x = K.tile(K.reshape(K.arange(0, stop=grid_shape[1]), [1, -1, 1, 1]),
                     [grid_shape[0], 1, 1, 1])
     grid = K.concatenate([grid_x, grid_y])  # shape like 26，26，1，2
-    grid = K.cast(grid, K.dtype(feats))
+    grid = tf.cast(grid, K.dtype(feats))
     # shape like batch,26,26,3,85
     feats = K.reshape(
         feats, [grid_shape[0], grid_shape[1], num_anchors, num_classes + 5])
-    box_xy = (K.sigmoid(feats[:, :, :, :2]) + grid) / K.cast(grid_shape[::-1], K.dtype(feats))
-    box_wh = K.exp(feats[:, :, :, 2:4]) * anchors_tensor / K.cast(input_shape[::-1], K.dtype(feats))
+    box_xy = (K.sigmoid(feats[:, :, :, :2]) + grid) / tf.cast(grid_shape[::-1], K.dtype(feats))
+    box_wh = K.exp(feats[:, :, :, 2:4]) * anchors_tensor / tf.cast(input_shape[::-1], K.dtype(feats))
     box_confidence = K.sigmoid(feats[:, :, :, 4:5])
     box_class_probs = K.sigmoid(feats[:, :, :, 5:])
     return box_xy, box_wh, box_confidence, box_class_probs
@@ -676,8 +676,8 @@ def yolo_correct_boxes_lite(box_xy, box_wh, input_shape, image_shape):
     '''
     box_yx = box_xy[:, :, :, ::-1]
     box_hw = box_wh[:, :, :, ::-1]
-    input_shape = K.cast(input_shape, K.dtype(box_yx))
-    image_shape = K.cast(image_shape, K.dtype(box_yx))
+    input_shape = tf.cast(input_shape, K.dtype(box_yx))
+    image_shape = tf.cast(image_shape, K.dtype(box_yx))
     new_shape = K.round(image_shape * K.min(input_shape / image_shape))
     offset = (input_shape - new_shape) / 2. / input_shape  # 相对整图的偏移量
     scale = input_shape / new_shape
