@@ -11,7 +11,6 @@ import functools
 
 import xl_tensorflow.models.vision.detection.configs.factory as config_factory
 from xl_tensorflow.models.vision.detection.body.efficientdet_model import EfficientDetModel
-from xl_tensorflow.models.vision.detection.dataloader.efficientdet_parser import anchor
 from xl_tensorflow.models.vision.detection.dataloader.utils import input_utils, box_list, faster_rcnn_box_coder
 from typing import Text, Dict, Any, List, Tuple, Union
 import tensorflow as tf

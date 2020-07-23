@@ -5,14 +5,11 @@ import pathlib
 from tensorflow.keras import Input, Model
 from ..body.yolo import yolo_body, yolo_eval, yolo_eval_batch, DarknetConv2D_BN_Leaky, DarknetConv2D_BN_Relu
 from xl_tensorflow.models.vision.detection.dataloader.utils.anchors_yolo import YOLOV4_ANCHORS, YOLOV3_ANCHORS
-from ..dataloader.yolo_loader import letterbox_image
-from ..loss.yolo_loss import YoloLoss
-from ..dataloader.yolo_loader import get_classes, create_datagen
+from xl_tensorflow.models.vision.detection.dataloader.yolo_loader import letterbox_image
 import tensorflow as tf
 import os
 import shutil
 from PIL import Image
-import matplotlib.pyplot as plt
 from xl_tool.xl_io import read_json
 import numpy as np
 from xl_tensorflow.metrics.rafaelpadilla.Evaluator import voc2ratxt, mao_raf_from_txtfile
