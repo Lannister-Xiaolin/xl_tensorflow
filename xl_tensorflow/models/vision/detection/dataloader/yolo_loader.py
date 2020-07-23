@@ -20,7 +20,7 @@ def letterbox_image(image, size):
 
     image = image.resize((nw, nh), Image.BICUBIC)
     new_image = Image.new('RGB', size, (0, 0, 0))
-    new_image.paste(image, 0, 0)
+    new_image.paste(image, (0, 0))
     return new_image
 
 
