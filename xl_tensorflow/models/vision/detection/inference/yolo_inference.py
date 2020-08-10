@@ -96,16 +96,6 @@ def yolo_inference_model(model_name, weights,
         auto_incre_version:
         serving_path:
 
-    Returns:
-        a tf keras model with inputs as belows:
-            1:  setting b64_mode=False
-                image_tensor: (batch, w,h,3) , fixed size, no need to other preprocessing
-                shape_input: (batch, 2), origin shape of image,to recover the size of box
-            2:  setting b64_mode=True and b64_shape_decode=False
-                image_tensor: (batch, 1)  web safe base64
-                shape_input: (batch, 2)
-            3:  setting b64_mode=True and b64_shape_decode=True
-                image_tensor: (batch, 1)   web safe base64
     """
     # mean = np.array([0.485, 0.456, 0.406]).reshape([1, 1, 1, 3])
     # std = np.array([0.229, 0.224, 0.225]).reshape([1, 1, 1, 3])
